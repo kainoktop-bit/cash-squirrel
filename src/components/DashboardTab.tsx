@@ -685,8 +685,8 @@ export default function DashboardTab({
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-medium text-white/60 tracking-wider uppercase" title="โควตาลูกนัทตามสัญญาทั้งหมด">
-                เสบียงตามสัญญา ({formatMonthKey(selectedMonthKey)})
+              <p className="text-xs font-medium text-white/60 tracking-wider uppercase" title="มูลค่างานตามสัญญาทั้งหมด">
+                มูลค่างานตามสัญญา ({formatMonthKey(selectedMonthKey)})
               </p>
               <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5">
                 {formatCurrency(totalContractVal)}
@@ -699,24 +699,24 @@ export default function DashboardTab({
 
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
             <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ขุดเก็บเข้าโพรงแล้ว">
-                เก็บเข้าโพรงแล้ว
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่รับเข้ามาแล้วจริง">
+                รับเงินแล้ว
               </p>
               <p className="text-lg font-black font-mono text-white mt-0.5">
                 {formatCurrency(totalReceived)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ค้างดีลบนต้นไม้">
-                ค้างบนต้นไม้
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่ยังไม่ได้รับ">
+                ยอดค้างรับ
               </p>
               <p className="text-lg font-black font-mono text-white/80 mt-0.5">
                 {formatCurrency(totalPending)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="เสบียงคงเหลือสุทธิ">
-                เสบียงสุทธิ
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
+                กำไรสุทธิ
               </p>
               <p className={`text-lg font-black font-mono mt-0.5 ${profit >= 0 ? 'text-[#E65F2B]' : 'text-rose-400'}`}>
                 {formatCurrency(profit)}
