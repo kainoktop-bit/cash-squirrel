@@ -944,7 +944,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
                       isActive
                         ? 'bg-[#E65F2B] text-white'
-                        : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+                        : 'bg-brand-white dark:bg-stone-900 text-brand-muted hover:text-brand-text border border-brand-border/60'
                     }`}
                   >
                     {f.label} ({count})
