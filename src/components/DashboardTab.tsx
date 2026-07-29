@@ -779,7 +779,7 @@ export default function DashboardTab({
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่ยังไม่ได้รับ">
                 ยอดค้างรับ
               </p>
-              <p className="text-lg font-black font-mono text-white/80 mt-0.5">
+              <p className="text-lg font-black font-mono text-white mt-0.5">
                 {formatCurrency(animatedPending)}
               </p>
             </div>
