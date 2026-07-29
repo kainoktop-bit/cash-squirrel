@@ -40,6 +40,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'list' | 'create' | 'issuer_profile'>('list');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [docTypeFilter, setDocTypeFilter] = useState<'all' | 'quotation' | 'invoice' | 'receipt'>('all');
 
   // Default Issuer Profile
   const [issuerProfile, setIssuerProfile] = useState<InvoiceProfile>({
@@ -926,15 +927,46 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               ประวัติและเอกสารออกบิลของคุณ
             </h3>
 
+            {/* Document type filter chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                { key: 'all', label: 'ทั้งหมด' },
+                { key: 'quotation', label: 'ใบเสนอราคา' },
+                { key: 'invoice', label: 'ใบแจ้งหนี้' },
+                { key: 'receipt', label: 'ใบเสร็จรับเงิน' },
+              ] as const).map(f => {
+                const count = f.key === 'all' ? invoices.length : invoices.filter(inv => inv.documentType === f.key).length;
+                const isActive = docTypeFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setDocTypeFilter(f.key)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#E65F2B] text-white'
+                        : 'bg-brand-faint text-brand-muted hover:text-brand-text'
+                    }`}
+                  >
+                    {f.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
             {invoices.length === 0 ? (
               <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-8 text-center text-brand-muted flex flex-col items-center">
                 <Mascot mood="sleepy" size={100} className="mx-auto mb-3" />
                 <p className="text-xs font-bold">ยังไม่มีการออกเอกสารบิล</p>
                 <p className="text-[10px] mt-1">คลิกปุ่ม "ออกเอกสารใหม่" ด้านบนเพื่อเริ่มทำใบแจ้งหนี้หรือใบเสร็จรับเงินใบแรกของคุณ</p>
               </div>
+            ) : invoices.filter(inv => docTypeFilter === 'all' || inv.documentType === docTypeFilter).length === 0 ? (
+              <div className="bg-brand-white dark:bg-stone-900 border border-brand-border rounded-3xl p-8 text-center text-brand-muted flex flex-col items-center">
+                <Mascot mood="sleepy" size={80} className="mx-auto mb-3" />
+                <p className="text-xs font-bold">ยังไม่มีเอกสารประเภทนี้</p>
+              </div>
             ) : (
               <div className="space-y-2.5 max-h-[700px] overflow-y-auto no-scrollbar">
-                {invoices.map((inv) => {
+                {invoices.filter(inv => docTypeFilter === 'all' || inv.documentType === docTypeFilter).map((inv) => {
                   const isSelected = selectedInvoice?.id === inv.id;
                   const totals = calculateTotals(inv.items, inv.vatRate, inv.whtRate);
                   
