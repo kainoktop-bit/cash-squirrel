@@ -47,9 +47,27 @@ import {
   ShieldAlert,
   Leaf,
   FileText,
-  Smartphone
+  Smartphone,
+  ChevronDown,
+  Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice';
+
+// Core items stay visible at all times; "more" items are grouped under a
+// collapsible section so first-time users see a simpler menu by default.
+const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
+  { key: 'dashboard', label: 'ภาพรวมกระแสเงินสด', icon: Home, group: 'core' },
+  { key: 'jobs', label: 'งานดีล & บันทึกรับเงิน', icon: Briefcase, group: 'core' },
+  { key: 'summary', label: 'สรุปยอดรายรับ & ออม', icon: Wallet, group: 'core' },
+  { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'more' },
+  { key: 'split', label: 'จัดสรรเงิน & เป้าหมายออม', icon: Percent, group: 'more' },
+  { key: 'report', label: 'รายงาน & เครดิตเทอม', icon: TrendingUp, group: 'more' },
+  { key: 'tax', label: 'ผู้ช่วยจัดการภาษี', icon: Calculator, group: 'more' },
+  { key: 'invoice', label: 'ออกบิล & ใบเสร็จ', icon: FileText, group: 'more' },
+  { key: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, group: 'bottom' },
+];
 
 const cleanStatuses = (arr: any[]): StatusOption[] => {
   if (!Array.isArray(arr)) return [
@@ -187,8 +205,46 @@ const TOUR_STEPS: TourStep[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [moreNavOpen, setMoreNavOpen] = useState(false);
+  const isMoreTabActive = NAV_ITEMS.some(item => item.group === 'more' && item.key === activeTab);
+  const showMoreNavItems = moreNavOpen || isMoreTabActive;
+
+  const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.key}
+        onClick={() => {
+          setActiveTab(item.key);
+          if (closeMobileOnClick) setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+          activeTab === item.key
+            ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
+            : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
+        }`}
+      >
+        <Icon className="w-4.5 h-4.5" />
+        <span>{item.label}</span>
+      </button>
+    );
+  };
+
+  const renderMoreToggle = () => (
+    <button
+      type="button"
+      onClick={() => setMoreNavOpen(open => !open)}
+      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text transition-all cursor-pointer"
+    >
+      <span className="flex items-center gap-3">
+        <Wrench className="w-4.5 h-4.5" />
+        <span>เครื่องมือเพิ่มเติม</span>
+      </span>
+      <ChevronDown className={`w-4 h-4 transition-transform ${showMoreNavItems ? 'rotate-180' : ''}`} />
+    </button>
+  );
 
   // 🐿️ Onboarding Tour State
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -1256,115 +1312,24 @@ export default function App() {
 
         {/* Desktop Sidebar Navigation List */}
         <nav className="space-y-1.5 flex-1">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'dashboard' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Home className="w-4.5 h-4.5" />
-            <span>ภาพรวมกระแสเงินสด</span>
-          </button>
+          {NAV_ITEMS.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
-          <button
-            onClick={() => setActiveTab('jobs')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'jobs' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Briefcase className="w-4.5 h-4.5" />
-            <span>งานดีล & บันทึกรับเงิน</span>
-          </button>
+          {renderMoreToggle()}
+          <AnimatePresence initial={false}>
+            {showMoreNavItems && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-1.5 overflow-hidden"
+              >
+                {NAV_ITEMS.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'timeline' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Calendar className="w-4.5 h-4.5" />
-            <span>ไทม์ไลน์ปฏิทินงาน</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('split')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'split' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Percent className="w-4.5 h-4.5" />
-            <span>จัดสรรเงิน & เป้าหมายออม</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('summary')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'summary' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Wallet className="w-4.5 h-4.5" />
-            <span>สรุปยอดรายรับ & ออม</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('report')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'report' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <TrendingUp className="w-4.5 h-4.5" />
-            <span>รายงาน & เครดิตเทอม</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('tax')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'tax' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Calculator className="w-4.5 h-4.5" />
-            <span>ผู้ช่วยจัดการภาษี</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('invoice')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'invoice' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <FileText className="w-4.5 h-4.5" />
-            <span>ออกบิล & ใบเสร็จ</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeTab === 'settings' 
-                ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]' 
-                : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-            }`}
-          >
-            <Settings className="w-4.5 h-4.5" />
-            <span>ตั้งค่าระบบ</span>
-          </button>
-
-
+          {NAV_ITEMS.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
 
         {/* User profile & signout container */}
@@ -1507,142 +1472,24 @@ export default function App() {
 
                 {/* Navigation Links inside Drawer */}
                 <nav className="space-y-1.5">
-                  <button
-                    onClick={() => {
-                      setActiveTab('dashboard');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'dashboard'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Home className="w-4.5 h-4.5" />
-                    <span>ภาพรวมกระแสเงินสด</span>
-                  </button>
+                  {NAV_ITEMS.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
-                  <button
-                    onClick={() => {
-                      setActiveTab('jobs');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'jobs'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Briefcase className="w-4.5 h-4.5" />
-                    <span>งานดีล & บันทึกรับเงิน</span>
-                  </button>
+                  {renderMoreToggle()}
+                  <AnimatePresence initial={false}>
+                    {showMoreNavItems && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-1.5 overflow-hidden"
+                      >
+                        {NAV_ITEMS.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  <button
-                    onClick={() => {
-                      setActiveTab('timeline');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'timeline'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Calendar className="w-4.5 h-4.5" />
-                    <span>ไทม์ไลน์ปฏิทินงาน</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('split');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'split'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Percent className="w-4.5 h-4.5" />
-                    <span>จัดสรรเงิน & เป้าหมายออม</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('summary');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'summary'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Wallet className="w-4.5 h-4.5" />
-                    <span>สรุปยอดรายรับ & ออม</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('report');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'report'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <TrendingUp className="w-4.5 h-4.5" />
-                    <span>รายงาน & เครดิตเทอม</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('tax');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'tax'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Calculator className="w-4.5 h-4.5" />
-                    <span>ผู้ช่วยจัดการภาษี</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('invoice');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'invoice'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <FileText className="w-4.5 h-4.5" />
-                    <span>ออกบิล & ใบเสร็จ</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab('settings');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                      activeTab === 'settings'
-                        ? 'bg-blue-acc/10 text-[#E65F2B] dark:text-[#FFA473] font-black border-l-4 border-[#E65F2B]'
-                        : 'text-brand-muted hover:bg-brand-faint/60 dark:hover:bg-neutral-800/60 hover:text-brand-text'
-                    }`}
-                  >
-                    <Settings className="w-4.5 h-4.5" />
-                    <span>ตั้งค่าระบบ</span>
-                  </button>
-
-
+                  {NAV_ITEMS.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
               </div>
 
