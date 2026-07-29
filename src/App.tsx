@@ -1863,6 +1863,9 @@ export default function App() {
                     setTourStep(0);
                     setActiveTab('dashboard');
                   }}
+                  onReplaySetupWizard={() => {
+                    handleUpdateSettings({ ...settings, profileSetupCompleted: false });
+                  }}
                   jobs={jobs}
                 />
               )}

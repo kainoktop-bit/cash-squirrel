@@ -45,6 +45,7 @@ interface SettingsTabProps {
   userAvatar: string;
   onUpdateUserAvatar: (newAvatar: string) => void;
   onStartTour?: () => void;
+  onReplaySetupWizard?: () => void;
   jobs: Job[];
 }
 
@@ -65,6 +66,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   userAvatar,
   onUpdateUserAvatar,
   onStartTour,
+  onReplaySetupWizard,
   jobs
 }) => {
   const [showDangerZone, setShowDangerZone] = useState(false);
@@ -513,6 +515,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 >
                   <Mascot mood="proud" size={24} className="mr-0.5" />
                   <span>เริ่มทัวร์แนะนำฟีเจอร์แอป (App Tutorial Tour)</span>
+                </button>
+              )}
+
+              {onReplaySetupWizard && (
+                <button
+                  type="button"
+                  onClick={onReplaySetupWizard}
+                  className="w-full py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-300 border border-neutral-200/55 dark:border-neutral-800 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Mascot mood="wave" size={24} className="mr-0.5" />
+                  <span>ดูหน้าตั้งค่าบัญชีเริ่มต้นอีกครั้ง</span>
                 </button>
               )}
 
