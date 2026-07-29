@@ -4,9 +4,10 @@ import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText,
 import { motion } from 'motion/react';
 import { Mascot } from './Mascot';
 import { VineDivider } from './VineDivider';
-import { 
-  TrendingUp, 
-  Coins, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Coins,
   Clock, 
   AlertTriangle, 
   CheckCircle2, 
@@ -43,6 +44,30 @@ interface DashboardTabProps {
   notifSettings: NotifSettings;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
+}
+
+// Animates a number counting up from 0 to `target` whenever the target changes
+function useCountUp(target: number, duration = 700): number {
+  const [value, setValue] = React.useState(0);
+
+  React.useEffect(() => {
+    let rafId: number;
+    const start = performance.now();
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(step);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, duration]);
+
+  return value;
 }
 
 const formatAbbreviatedTarget = (value: number): string => {
@@ -558,6 +583,29 @@ export default function DashboardTab({
 
   const profit = totalReceived - settings.monthlyExpense;
 
+  // Month-over-month comparison for the hero card
+  const prevMonthKey = React.useMemo(() => {
+    const [y, m] = selectedMonthKey.split('-').map(Number);
+    const d = new Date(y, m - 1 - 1, 1);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+  }, [selectedMonthKey]);
+
+  const prevMonthReceived = jobs
+    .filter(j => getMonthKey(j.payDate || j.postDate) === prevMonthKey)
+    .reduce((sum, j) => {
+      const isPaid = j.status === 'done' ||
+                      j.paymentStatus === 'paid' ||
+                      statuses.find(s => s.id === j.status)?.behavior === 'done';
+      const effectiveReceived = isPaid
+         ? (j.received || Math.max(0, j.value - Math.round(j.value * ((j.whtRate || 0) / 100))))
+         : j.received;
+      return sum + effectiveReceived;
+    }, 0);
+
+  const receivedChangePct = prevMonthReceived > 0
+    ? Math.round(((totalReceived - prevMonthReceived) / prevMonthReceived) * 100)
+    : null;
+
   let alertStatus: 'danger' | 'warning' | 'success' = 'success';
   let alertHeadline = '';
   let alertFullMessage = '';
@@ -663,6 +711,12 @@ export default function DashboardTab({
     })
     .slice(0, 4);
 
+  // Count-up animated values for the hero card
+  const animatedContractVal = useCountUp(totalContractVal);
+  const animatedReceived = useCountUp(totalReceived);
+  const animatedPending = useCountUp(totalPending);
+  const animatedProfit = useCountUp(profit);
+
   return (
     <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
       
@@ -689,21 +743,36 @@ export default function DashboardTab({
                 มูลค่างานตามสัญญา ({formatMonthKey(selectedMonthKey)})
               </p>
               <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5">
-                {formatCurrency(totalContractVal)}
+                {formatCurrency(animatedContractVal)}
               </h3>
             </div>
             {totalReceived > 0 && (
-              <Mascot mood="celebrate" size={56} className="shrink-0" />
+              <motion.div
+                initial={{ scale: 0, rotate: -15 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.15 }}
+                className="shrink-0"
+              >
+                <Mascot mood="celebrate" size={56} />
+              </motion.div>
             )}
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
             <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่รับเข้ามาแล้วจริง">
-                รับเงินแล้ว
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase flex items-center gap-1.5" title="ยอดเงินที่รับเข้ามาแล้วจริง">
+                <span>รับเงินแล้ว</span>
+                {receivedChangePct !== null && receivedChangePct !== 0 && (
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
+                    receivedChangePct > 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {receivedChangePct > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                    {receivedChangePct > 0 ? '+' : ''}{receivedChangePct}%
+                  </span>
+                )}
               </p>
               <p className="text-lg font-black font-mono text-white mt-0.5">
-                {formatCurrency(totalReceived)}
+                {formatCurrency(animatedReceived)}
               </p>
             </div>
             <div>
@@ -711,7 +780,7 @@ export default function DashboardTab({
                 ยอดค้างรับ
               </p>
               <p className="text-lg font-black font-mono text-white/80 mt-0.5">
-                {formatCurrency(totalPending)}
+                {formatCurrency(animatedPending)}
               </p>
             </div>
             <div>
@@ -719,7 +788,7 @@ export default function DashboardTab({
                 กำไรสุทธิ
               </p>
               <p className={`text-lg font-black font-mono mt-0.5 ${profit >= 0 ? 'text-[#E65F2B]' : 'text-rose-400'}`}>
-                {formatCurrency(profit)}
+                {formatCurrency(animatedProfit)}
               </p>
             </div>
           </div>
