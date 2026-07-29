@@ -599,8 +599,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 ${selectedInvoice.issuer.logoUrl ? `
                   <img src="${selectedInvoice.issuer.logoUrl}" style="max-height: 60px; max-width: 180px; object-fit: contain;" alt="Logo" />
                 ` : `
-                  <div style="font-size: 18px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em;">
-                    ${selectedInvoice.issuer.name ? selectedInvoice.issuer.name.slice(0, 25) : '-'}
+                  <div style="font-size: 18px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em; max-width: 220px; word-wrap: break-word;">
+                    ${selectedInvoice.issuer.name || '-'}
                   </div>
                 `}
               </div>
@@ -1053,8 +1053,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                         />
                       </div>
                     ) : (
-                      <div className="text-sm font-black text-[#E65F2B] tracking-wider text-right shrink-0 max-w-[180px] break-words">
-                        {selectedInvoice.issuer.name ? selectedInvoice.issuer.name.slice(0, 25) : '-'}
+                      <div className="text-sm font-black text-[#E65F2B] tracking-wider text-right shrink-0 max-w-[220px] break-words">
+                        {selectedInvoice.issuer.name || '-'}
                       </div>
                     )}
                   </div>
