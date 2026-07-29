@@ -543,24 +543,20 @@ export default function App() {
     }
   };
 
-  const handleUpgrade = async () => {
+  // Stripe Payment Link for the Pro subscription. Appending client_reference_id lets the
+  // webhook know which app user just paid, without needing a server-created Checkout Session.
+  const PRO_PAYMENT_LINK = 'https://buy.stripe.com/6oUeVc8jj7KEgvP4XV5wI00';
+
+  const handleUpgrade = () => {
     const currentUser = session?.user;
     if (!currentUser || session?.isGuest) {
       triggerAlert('ต้องสมัครสมาชิกก่อนครับ', 'กรุณาสมัครบัญชีจริงด้วยอีเมล (ไม่ใช่โหมดทดลองใช้งานฟรี) ก่อนอัปเกรดเป็นสมาชิกรายเดือนครับ');
       return;
     }
-    try {
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || 'ไม่สามารถสร้างหน้าชำระเงินได้');
-      window.location.href = data.url;
-    } catch (err: any) {
-      triggerAlert('เกิดข้อผิดพลาด ❌', err.message || 'ไม่สามารถเปิดหน้าชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
-    }
+    const url = new URL(PRO_PAYMENT_LINK);
+    url.searchParams.set('client_reference_id', currentUser.id);
+    if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
+    window.location.href = url.toString();
   };
 
   const handleManageSubscription = async () => {
