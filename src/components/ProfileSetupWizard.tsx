@@ -11,6 +11,8 @@ interface ProfileSetupWizardProps {
   onUpdateSettings: (settings: AppSettings) => void;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
   onComplete: () => void;
+  /** True when reopened from Settings for a preview, rather than a real first-time signup. */
+  isPreview?: boolean;
 }
 
 const JOB_TYPE_OPTIONS = [
@@ -39,17 +41,31 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   onUpdateSettings,
   onAddGoal,
   onComplete,
+  isPreview = false,
 }) => {
   const [step, setStep] = useState(0);
   const [jobTypes, setJobTypes] = useState<string[]>([]);
   const [jobTypeOther, setJobTypeOther] = useState('');
   const [monthlyExpense, setMonthlyExpense] = useState(
-    settings.monthlyExpense && settings.monthlyExpense !== defaultSettings.monthlyExpense
-      ? String(settings.monthlyExpense)
+    isPreview || (settings.monthlyExpense && settings.monthlyExpense !== defaultSettings.monthlyExpense)
+      ? String(settings.monthlyExpense || '')
       : ''
   );
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
+
+  // Always start from step 0 with a fresh money value whenever the wizard is (re)opened
+  React.useEffect(() => {
+    if (isOpen) {
+      setStep(0);
+      setMonthlyExpense(
+        isPreview || (settings.monthlyExpense && settings.monthlyExpense !== defaultSettings.monthlyExpense)
+          ? String(settings.monthlyExpense || '')
+          : ''
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -98,19 +114,24 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 26, stiffness: 260 }}
-          className="bg-brand-white dark:bg-stone-900 rounded-3xl p-7 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto no-scrollbar"
+          className="relative bg-brand-white dark:bg-stone-900 rounded-[28px] p-7 shadow-[0_24px_60px_-15px_rgba(166,63,27,0.25)] max-w-md w-full max-h-[90vh] overflow-y-auto no-scrollbar"
         >
           {/* Header */}
           <div className="flex flex-col items-center text-center gap-4">
-            <Mascot mood="wave" size={64} className="drop-shadow-sm" />
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#E65F2B]/15 blur-2xl rounded-full scale-125" />
+              <Mascot mood="wave" size={60} className="relative drop-shadow-sm" />
+            </div>
 
             {/* Step dots */}
             <div className="flex items-center gap-1.5">
               {Array.from({ length: totalSteps }).map((_, i) => (
-                <div
+                <motion.div
                   key={i}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === step ? 'w-6 bg-[#E65F2B]' : i < step ? 'w-1.5 bg-[#E65F2B]/50' : 'w-1.5 bg-brand-faint dark:bg-neutral-800'
+                  animate={{ width: i === step ? 22 : 6 }}
+                  transition={{ duration: 0.25 }}
+                  className={`h-1.5 rounded-full ${
+                    i === step ? 'bg-[#E65F2B]' : i < step ? 'bg-[#E65F2B]/40' : 'bg-brand-faint dark:bg-neutral-800'
                   }`}
                 />
               ))}
@@ -120,7 +141,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
               <h3 className="font-display font-black text-lg text-brand-text dark:text-white tracking-tight">
                 {STEP_TITLES[step]}
               </h3>
-              <p className="text-xs leading-relaxed text-brand-muted max-w-xs mx-auto">
+              <p className="text-xs leading-relaxed text-brand-muted max-w-[280px] mx-auto">
                 {STEP_DESCRIPTIONS[step]}
               </p>
             </div>
@@ -141,14 +162,15 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   {JOB_TYPE_OPTIONS.map(opt => {
                     const selected = jobTypes.includes(opt.id);
                     return (
-                      <button
+                      <motion.button
                         key={opt.id}
                         type="button"
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => toggleJobType(opt.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border text-left text-xs font-bold transition-all cursor-pointer ${
                           selected
-                            ? 'border-[#E65F2B] bg-[#FDF3EC] dark:bg-[#352115] text-brand-text'
-                            : 'border-brand-border/60 text-brand-text hover:bg-brand-faint/60'
+                            ? 'border-[#E65F2B] bg-[#FDF3EC] dark:bg-[#352115] text-brand-text shadow-sm'
+                            : 'border-brand-border/50 text-brand-text hover:border-brand-border hover:bg-brand-faint/50'
                         }`}
                       >
                         <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 transition-colors ${
@@ -157,8 +179,12 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                           {opt.emoji}
                         </span>
                         <span className="flex-1">{opt.label}</span>
-                        {selected && <Check className="w-4 h-4 text-[#E65F2B] shrink-0" />}
-                      </button>
+                        <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                          selected ? 'bg-[#E65F2B] border-[#E65F2B]' : 'border-brand-border/60'
+                        }`}>
+                          {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                        </div>
+                      </motion.button>
                     );
                   })}
                   {jobTypes.includes('other') && (
@@ -180,13 +206,13 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -12 }}
                   transition={{ duration: 0.2 }}
-                  className="flex flex-col items-center gap-3 bg-brand-faint/60 dark:bg-neutral-800/40 rounded-3xl p-6 border border-brand-border/60"
+                  className="relative flex flex-col items-center gap-1 bg-gradient-to-b from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-[24px] p-7 overflow-hidden"
                 >
                   <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
                     ค่าใช้จ่ายคงที่ต่อเดือน
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-2xl font-black text-brand-muted">฿</span>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-2xl font-black text-[#E65F2B]/70">฿</span>
                     <input
                       type="number"
                       min="0"
@@ -194,9 +220,10 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                       value={monthlyExpense}
                       onChange={(e) => setMonthlyExpense(e.target.value)}
                       placeholder="12000"
-                      className="w-40 bg-transparent text-4xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
+                      className="w-40 bg-transparent text-5xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
                     />
                   </div>
+                  <p className="text-[10px] text-brand-muted mt-2">ไม่มีค่าใช้จ่ายคงที่? พิมพ์ 0 ได้เลย</p>
                 </motion.div>
               )}
 
@@ -207,7 +234,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -12 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-2.5 bg-brand-faint/60 dark:bg-neutral-800/40 rounded-3xl p-5 border border-brand-border/60"
+                  className="space-y-2.5 bg-brand-faint/50 dark:bg-neutral-800/40 rounded-[24px] p-5"
                 >
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-[#E65F2B] shrink-0" />
@@ -238,32 +265,34 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
           {/* Actions */}
           <div className="mt-6 pt-5 border-t border-brand-border/40 dark:border-neutral-800 flex items-center justify-between gap-3">
             {step > 0 ? (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setStep(s => s - 1)}
-                className="px-3.5 py-2.5 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3.5 py-2.5 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>ย้อนกลับ</span>
-              </button>
+              </motion.button>
             ) : <div />}
 
             <div className="flex items-center gap-2">
               {step !== 1 && (
                 <button
                   onClick={goNext}
-                  className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 border border-transparent rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                  className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
                 >
                   ข้าม
                 </button>
               )}
-              <button
+              <motion.button
+                whileTap={{ scale: 0.96 }}
                 onClick={goNext}
                 disabled={step === 1 && !isExpenseValid}
-                className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-sm hover:shadow-md transition-all rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
+                className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span>{step === totalSteps - 1 ? 'เริ่มใช้งานเลย!' : 'ถัดไป'}</span>
                 {step !== totalSteps - 1 && <ChevronRight className="w-3.5 h-3.5" />}
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.div>

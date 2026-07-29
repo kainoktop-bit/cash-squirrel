@@ -249,6 +249,7 @@ export default function App() {
 
   // 🐿️ Onboarding Tour State
   const [tourStep, setTourStep] = useState<number | null>(null);
+  const [isSetupWizardPreview, setIsSetupWizardPreview] = useState(false);
 
   const handleNextTourStep = () => {
     if (tourStep === null) return;
@@ -1864,7 +1865,7 @@ export default function App() {
                     setActiveTab('dashboard');
                   }}
                   onReplaySetupWizard={() => {
-                    handleUpdateSettings({ ...settings, profileSetupCompleted: false });
+                    setIsSetupWizardPreview(true);
                   }}
                   jobs={jobs}
                 />
@@ -1956,11 +1957,15 @@ export default function App() {
         </AnimatePresence>
 
         <ProfileSetupWizard
-          isOpen={!!isLoadedForUser && !session?.isGuest && !settings.profileSetupCompleted}
+          isOpen={!!isLoadedForUser && !session?.isGuest && (!settings.profileSetupCompleted || isSetupWizardPreview)}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
           onAddGoal={handleAddGoal}
-          onComplete={() => setTourStep(0)}
+          isPreview={isSetupWizardPreview}
+          onComplete={() => {
+            setIsSetupWizardPreview(false);
+            if (!isSetupWizardPreview) setTourStep(0);
+          }}
         />
 
         <TourModal
