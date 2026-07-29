@@ -196,7 +196,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         <div className="text-center mb-6">
           <Mascot mood={mascotMood} size={100} className="mb-2" />
           <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
-            The Cash Squirrel
+            กระรอกตุนเงิน
           </h2>
           <p className="mt-1.5 text-xs font-bold text-[#E65F2B] dark:text-[#FFA473] uppercase tracking-wider">
             คลังกระรอกตุนเสบียง ระบบติดตามกระแสเงินสด

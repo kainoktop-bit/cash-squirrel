@@ -137,7 +137,7 @@ const cleanJobs = (arr: any[]): Job[] => {
 
 const TOUR_STEPS: TourStep[] = [
   {
-    title: "ยินดีต้อนรับสู่ The Cash Squirrel!",
+    title: "ยินดีต้อนรับสู่กระรอกตุนเงิน!",
     description: "ผมคือคุณกระรอกน้อย ผู้ช่วยตุนเสบียงเงินสดของคุณครับ! ผมจะขอพาคุณไปชมรอบๆ เพื่อแนะนำฟีเจอร์เด็ดๆ ทั้ง 9 ส่วนของเครื่องมือฟรีแลนซ์ไทยตัวนี้อย่างรวดเร็วเลยนะครับ!",
     mood: "wave",
     tab: "dashboard"
@@ -198,7 +198,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "การทัวร์สิ้นสุดแล้วครับ!",
-    description: "ยอดเยี่ยมมากครับ! ตอนนี้คุณรู้จัก The Cash Squirrel ครบถ้วนแล้ว พร้อมสำหรับการวางแผนและเก็บตุนเสบียงเงินสดฟรีแลนซ์อย่างเป็นสุขแล้วครับ ขอให้งานดีลหลั่งไหลเงินล้นมือนะครับ!",
+    description: "ยอดเยี่ยมมากครับ! ตอนนี้คุณรู้จักกระรอกตุนเงิน ครบถ้วนแล้ว พร้อมสำหรับการวางแผนและเก็บตุนเสบียงเงินสดฟรีแลนซ์อย่างเป็นสุขแล้วครับ ขอให้งานดีลหลั่งไหลเงินล้นมือนะครับ!",
     mood: "celebrate",
     tab: "dashboard"
   }
@@ -1263,7 +1263,7 @@ export default function App() {
         >
           <Mascot mood="happy" size={130} animated={true} className="mb-4" />
           <div className="w-10 h-10 rounded-full border-4 border-brand-green-acc/25 border-t-brand-green-acc animate-spin mb-3 mt-1" />
-          <h2 className="text-sm font-extrabold text-brand-text font-display mb-1">The Cash Squirrel</h2>
+          <h2 className="text-sm font-extrabold text-brand-text font-display mb-1">กระรอกตุนเงิน</h2>
           <p className="text-[11px] font-bold text-brand-muted tracking-wide animate-pulse">กำลังเตรียมความอบอุ่นให้กระเป๋าเงินของคุณ...</p>
         </motion.div>
       </div>
@@ -1302,7 +1302,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="font-display font-black text-xs tracking-tight text-brand-text">
-              The Cash Squirrel
+              กระรอกตุนเงิน
             </h1>
             <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-black uppercase tracking-wider">
               คลังกระรอกตุนเสบียง
@@ -1455,7 +1455,7 @@ export default function App() {
                     </div>
                     <div>
                       <h1 className="font-display font-black text-xs tracking-tight text-brand-text">
-                        The Cash Squirrel
+                        กระรอกตุนเงิน
                       </h1>
                       <p className="text-[9px] text-[#E65F2B] dark:text-[#FFA473] font-black uppercase tracking-wider">
                         คลังกระรอกตุนเสบียง
@@ -1919,7 +1919,7 @@ export default function App() {
                   )}
 
                   <p>
-                    ยินดีต้อนรับสู่ระบบ <strong className="text-brand-text">The Cash Squirrel Cloud Sync</strong>! ข้อมูลทั้งหมดของคุณจะถูกบันทึกและซิงค์อย่างปลอดภัยโดยอัตโนมัติบนระบบคลาวด์แบบ Realtime เพื่อให้คุณสามารถใช้งานแอปพลิเคชันจากหลายอุปกรณ์พร้อมกันได้ทันทีอย่างไร้รอยต่อ
+                    ยินดีต้อนรับสู่ระบบ <strong className="text-brand-text">กระรอกตุนเงิน Cloud Sync</strong>! ข้อมูลทั้งหมดของคุณจะถูกบันทึกและซิงค์อย่างปลอดภัยโดยอัตโนมัติบนระบบคลาวด์แบบ Realtime เพื่อให้คุณสามารถใช้งานแอปพลิเคชันจากหลายอุปกรณ์พร้อมกันได้ทันทีอย่างไร้รอยต่อ
                   </p>
 
                   <div className="bg-brand-faint p-4 rounded-2xl border border-brand-border/30 space-y-3">
