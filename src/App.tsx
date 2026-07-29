@@ -19,6 +19,7 @@ import { supabase } from './supabaseClient';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
+import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
 
@@ -749,17 +750,17 @@ export default function App() {
     }
   }, [session, isLoadedForUser]);
 
-  // 🐿️ Auto-trigger Onboarding Tour for new users
+  // 🐿️ Auto-trigger Onboarding Tour for new users (only after the account setup wizard is done)
   useEffect(() => {
-    if (isLoadedForUser) {
+    if (isLoadedForUser && (settings.profileSetupCompleted || session?.isGuest)) {
       const completed = localStorage.getItem(`cashflow_onboarding_completed_${isLoadedForUser}`);
       if (completed !== 'true') {
         setTourStep(0);
       }
-    } else {
+    } else if (!isLoadedForUser) {
       setTourStep(null);
     }
-  }, [isLoadedForUser]);
+  }, [isLoadedForUser, settings.profileSetupCompleted, session?.isGuest]);
 
   // Sync statuses and jobTypes to LocalStorage
   useEffect(() => {
@@ -1950,6 +1951,14 @@ export default function App() {
             </div>
           )}
         </AnimatePresence>
+
+        <ProfileSetupWizard
+          isOpen={!!isLoadedForUser && !session?.isGuest && !settings.profileSetupCompleted}
+          settings={settings}
+          onUpdateSettings={handleUpdateSettings}
+          onAddGoal={handleAddGoal}
+          onComplete={() => setTourStep(0)}
+        />
 
         <TourModal
           tourStep={tourStep}

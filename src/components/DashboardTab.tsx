@@ -72,7 +72,6 @@ export default function DashboardTab({
   triggerConfirm,
 }: DashboardTabProps) {
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
-  const [isExpenseExpanded, setIsExpenseExpanded] = React.useState(false);
   const [isRadarExpanded, setIsRadarExpanded] = React.useState(false);
   const [quickSearch, setQuickSearch] = React.useState('');
   const [visibleCount, setVisibleCount] = React.useState(4);
@@ -790,98 +789,6 @@ export default function DashboardTab({
             }`}
           >
             {alertFullMessage}
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* 3.5 Quick Customize Expense Widget */}
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="p-4 bg-brand-white border border-brand-border rounded-3xl space-y-3 shadow-sm transition-all"
-      >
-        <div 
-          onClick={() => setIsExpenseExpanded(!isExpenseExpanded)}
-          className="flex justify-between items-center cursor-pointer select-none"
-        >
-          <div>
-            <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title="เกณฑ์จำลองค่าใช้จ่ายรังกระรอก">
-              จำลองค่าใช้จ่าย
-            </h4>
-            <p className="text-[10px] text-brand-muted mt-0.5">
-              {isExpenseExpanded 
-                ? "ตั้งค่าเป้าจำนวนลูกนัทขั้นต่ำที่ต้องใช้เพื่อประทังชีวิตต่อเดือน" 
-                : `เป้ารายจ่ายคงที่: ${formatCurrency(settings.monthlyExpense)} (คลิกเพื่อปรับ)`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-extrabold text-[#E65F2B] bg-[#FAECE8] dark:bg-[#352115] px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {isExpenseExpanded ? 'ย่อหน้า' : 'ขยาย'}
-            </span>
-          </div>
-        </div>
-        
-        {isExpenseExpanded && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="pt-2 border-t border-brand-border/40"
-          >
-            <div className="flex items-center gap-3 bg-brand-faint/60 rounded-xl p-2.5 border border-brand-border">
-              <div className="w-9 h-9 rounded-lg bg-[#FAECE8] dark:bg-[#352115] flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] text-lg shrink-0 font-extrabold">
-                <Coins className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[9px] font-extrabold text-brand-muted uppercase block tracking-wider">
-                  โควตาจำลองรายจ่ายคงที่
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  value={settings.monthlyExpense}
-                  onChange={(e) => {
-                    if (onUpdateSettings) {
-                      onUpdateSettings({
-                        ...settings,
-                        monthlyExpense: Math.max(0, parseFloat(e.target.value) || 0)
-                      });
-                    }
-                  }}
-                  className="w-full bg-transparent text-base font-extrabold font-mono text-brand-text outline-none mt-0.5 focus:text-[#E65F2B] dark:focus:text-[#FFA473]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <button
-                  onClick={() => {
-                    if (onUpdateSettings) {
-                      onUpdateSettings({
-                        ...settings,
-                        monthlyExpense: Math.max(0, settings.monthlyExpense - 1000)
-                      });
-                    }
-                  }}
-                  className="px-2 py-1.5 bg-brand-white hover:bg-brand-faint border border-brand-border rounded-lg text-[10px] font-extrabold text-[#111827] dark:text-white transition-all active:scale-95 cursor-pointer"
-                >
-                  -1k
-                </button>
-                <button
-                  onClick={() => {
-                    if (onUpdateSettings) {
-                      onUpdateSettings({
-                        ...settings,
-                        monthlyExpense: settings.monthlyExpense + 1000
-                      });
-                    }
-                  }}
-                  className="px-2 py-1.5 bg-brand-white hover:bg-brand-faint border border-brand-border rounded-lg text-[10px] font-extrabold text-[#111827] dark:text-white transition-all active:scale-95 cursor-pointer"
-                >
-                  +1k
-                </button>
-              </div>
-            </div>
           </motion.div>
         )}
       </motion.div>

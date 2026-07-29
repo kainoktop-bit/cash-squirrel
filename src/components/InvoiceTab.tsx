@@ -727,9 +727,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 ${whtRowHtml}
                 
                 <div style="border-top: 1px solid #d1d5db; padding-top: 8px; margin-top: 8px;">
-                  <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: #111827;">
-                    <span>จำนวนเงินรวมทั้งสิ้น:</span>
-                    <span style="font-family: monospace; font-size: 16px; font-weight: 900; color: #111827; border-bottom: 4px double #111827; padding-bottom: 2px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; background: #FDF3EC; border: 1px solid rgba(230,95,43,0.25); border-radius: 12px; padding: 10px 14px;">
+                    <span style="font-size: 13px; font-weight: bold; color: #292524;">จำนวนเงินรวมทั้งสิ้น:</span>
+                    <span style="font-family: monospace; font-size: 16px; font-weight: 900; color: #E65F2B;">
                       ${formatCurrency(sTotals.grandTotal).replace('฿', '')}
                     </span>
                   </div>
@@ -1164,8 +1164,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   </div>
 
                   {/* 4. Items List Table - Descending Table format with empty rows filler */}
-                  <div className="my-6 overflow-hidden border border-stone-200 rounded-xl">
-                    <table className="w-full border-collapse text-[10px] sm:text-[11px]">
+                  <div className="my-6 overflow-x-auto border border-stone-200 rounded-xl">
+                    <table className="w-full min-w-[520px] border-collapse text-[10px] sm:text-[11px]">
                       <thead>
                         <tr className="bg-stone-50 text-stone-500 font-bold border-b border-stone-200">
                           <th className="py-2.5 px-3 text-center w-12 border-r border-stone-200">ลำดับ</th>
@@ -1293,9 +1293,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                             )}
 
                             <div className="border-t border-stone-300 pt-2.5 mt-2.5">
-                              <div className="flex justify-between items-baseline text-[12px] font-bold text-stone-950">
-                                <span>จำนวนเงินรวมทั้งสิ้น:</span>
-                                <span className="font-mono text-base font-black text-stone-950 border-b-4 border-double border-stone-950 pb-0.5">
+                              <div className="flex justify-between items-center bg-[#FDF3EC] border border-[#E65F2B]/25 rounded-xl px-3.5 py-2.5">
+                                <span className="text-[12px] font-bold text-stone-800">จำนวนเงินรวมทั้งสิ้น:</span>
+                                <span className="font-mono text-base font-black text-[#E65F2B]">
                                   {formatCurrency(sTotals.grandTotal).replace('฿', '')}
                                 </span>
                               </div>

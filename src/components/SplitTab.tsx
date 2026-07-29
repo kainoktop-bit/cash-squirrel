@@ -826,6 +826,9 @@ export default function SplitTab({
                 const currentAllocated = customAllocations[g.id] || 0;
                 const remainingToGoalLimit = g.target - g.current;
                 const maxAllowedForThisGoal = Math.min(remainingToGoalLimit, remainingNetProfit + currentAllocated);
+                // Stable ceiling for the slider track (doesn't shift when OTHER goals' sliders move),
+                // so the fill position only changes when this goal's own value changes.
+                const sliderTrackMax = Math.max(1, Math.min(remainingToGoalLimit, netProfit));
                 const pctOfGoal = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
 
                 const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -916,7 +919,7 @@ export default function SplitTab({
                       <input
                         type="range"
                         min="0"
-                        max={maxAllowedForThisGoal || 1}
+                        max={sliderTrackMax}
                         value={currentAllocated}
                         onChange={handleSliderChange}
                         disabled={maxAllowedForThisGoal <= 0}
@@ -1222,13 +1225,13 @@ export default function SplitTab({
                     <span className="text-xs font-black font-mono text-emerald-600">{formAllocatedPercentage}%</span>
                   </div>
                   <p className="text-[10px] text-brand-muted mb-2 leading-relaxed">
-                    ระบุเปอร์เซ็นต์ส่วนแบ่งจากกำไรสุทธิแต่ละเดือนที่จะป้อนเข้าเป้าหมายนี้โดยอัตโนมัติ (เช่น 10% หรือ 25%)
+                    ระบุเปอร์เซ็นต์ส่วนแบ่งจากกำไรสุทธิแต่ละเดือนที่จะป้อนเข้าเป้าหมายนี้โดยอัตโนมัติ (เหลือโควตาให้ตั้งได้อีก {Math.max(0, 100 - totalAllocatedPct)}% จากทั้งหมด 100%)
                   </p>
                   <div className="flex items-center gap-3">
                     <input
                       type="range"
                       min="0"
-                      max="100"
+                      max={Math.max(0, 100 - totalAllocatedPct)}
                       step="5"
                       value={formAllocatedPercentage}
                       onChange={(e) => setFormAllocatedPercentage(e.target.value)}
@@ -1237,10 +1240,10 @@ export default function SplitTab({
                     <input
                       type="number"
                       min="0"
-                      max="100"
+                      max={Math.max(0, 100 - totalAllocatedPct)}
                       value={formAllocatedPercentage}
                       onChange={(e) => {
-                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        const val = Math.min(Math.max(0, 100 - totalAllocatedPct), Math.max(0, parseInt(e.target.value) || 0));
                         setFormAllocatedPercentage(String(val));
                       }}
                       className="bg-brand-white dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs font-bold font-mono text-brand-text outline-none focus:border-emerald-500 w-16 text-center"
@@ -1496,16 +1499,19 @@ export default function SplitTab({
                 <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border border-brand-border/60 flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">ปันผลแบ่งเก็บรายเดือน %</span>
-                    <span className="text-[9px] text-brand-muted leading-relaxed block mt-0.5">แบ่งกำไรสุทธิจัดสรรเพื่อเข้าเป้าหมายนี้โดยอัตโนมัติ</span>
+                    <span className="text-[9px] text-brand-muted leading-relaxed block mt-0.5">
+                      แบ่งกำไรสุทธิจัดสรรเพื่อเข้าเป้าหมายนี้โดยอัตโนมัติ (เหลือโควตาให้ตั้งได้อีก {Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0)))}%)
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <input
                       type="number"
                       min="0"
-                      max="100"
+                      max={Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0)))}
                       value={formAllocatedPercentage}
                       onChange={(e) => {
-                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                        const maxPct = Math.max(0, 100 - (totalAllocatedPct - (selectedGoal?.allocatedPercentage || 0)));
+                        const val = Math.min(maxPct, Math.max(0, parseInt(e.target.value) || 0));
                         setFormAllocatedPercentage(String(val));
                       }}
                       className="bg-brand-white dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs font-bold font-mono text-brand-text outline-none focus:border-emerald-500 w-16 text-center"
@@ -1752,14 +1758,16 @@ export default function SplitTab({
                 <button
                   type="button"
                   onClick={() => {
+                    const otherGoalsTotalPct = totalAllocatedPct - (selectedGoal.allocatedPercentage || 0);
+                    const maxPctForThisGoal = Math.max(0, 100 - otherGoalsTotalPct);
                     triggerPrompt(
                       'แก้ไขสัดส่วนเปอร์เซ็นต์สะสม 🎯',
-                      `ระบุเปอร์เซ็นต์ของกำไรสุทธิที่จะถูกจัดสรรเข้าเป้าหมาย "${selectedGoal.name}" นี้ในแต่ละเดือน (0 - 100):`,
+                      `ระบุเปอร์เซ็นต์ของกำไรสุทธิที่จะถูกจัดสรรเข้าเป้าหมาย "${selectedGoal.name}" นี้ในแต่ละเดือน (0 - ${maxPctForThisGoal} เนื่องจากเป้าหมายอื่นถูกตั้งไว้รวมแล้ว ${otherGoalsTotalPct}% เพื่อไม่ให้รวมกันเกิน 100%):`,
                       String(selectedGoal.allocatedPercentage ?? 0),
                       'พิมพ์ตัวเลขเปอร์เซ็นต์ (เช่น 25)',
                       'number',
                       (val) => {
-                        const pct = Math.min(100, Math.max(0, parseFloat(val) || 0));
+                        const pct = Math.min(maxPctForThisGoal, Math.max(0, parseFloat(val) || 0));
                         onUpdateGoal(selectedGoal.id, { allocatedPercentage: pct });
                         setSelectedGoal(prev => prev ? { ...prev, allocatedPercentage: pct } : null);
                         triggerAlert('อัปเดตสัดส่วนสำเร็จ! ✨', `เปลี่ยนสัดส่วนจัดสรรของเป้าหมาย "${selectedGoal.name}" เป็น ${pct}% เรียบร้อยแล้ว`);
