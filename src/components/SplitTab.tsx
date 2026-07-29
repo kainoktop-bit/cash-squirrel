@@ -706,7 +706,16 @@ export default function SplitTab({
                   return (
                     <div key={g.id} className="flex items-center justify-between text-xs py-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm shrink-0">{g.imageUrl ? '🖼️' : g.emoji}</span>
+                        {g.imageUrl ? (
+                          <img
+                            src={g.imageUrl}
+                            alt={g.name}
+                            referrerPolicy="no-referrer"
+                            className="w-5 h-5 rounded-md object-cover shrink-0"
+                          />
+                        ) : (
+                          <span className="text-sm shrink-0">{g.emoji}</span>
+                        )}
                         <span className="font-semibold text-brand-text truncate max-w-[140px]">{g.name}</span>
                         <span className="text-[9px] font-black font-mono text-brand-muted shrink-0">({pct}%)</span>
                       </div>

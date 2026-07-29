@@ -1027,33 +1027,33 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
                   {/* 1. Document Header Row (Title on Left, Logo on Right) */}
                   <div className="flex justify-between items-start border-b-2 border-[#E65F2B] pb-4.5 gap-6">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-wide uppercase">
-                        {selectedInvoice.documentType === 'invoice' 
-                          ? 'ใบแจ้งหนี้' 
-                          : selectedInvoice.documentType === 'receipt' 
-                          ? 'ใบเสร็จรับเงิน' 
+                        {selectedInvoice.documentType === 'invoice'
+                          ? 'ใบแจ้งหนี้'
+                          : selectedInvoice.documentType === 'receipt'
+                          ? 'ใบเสร็จรับเงิน'
                           : 'ใบเสนอราคา'}
                       </h1>
                       <p className="text-[#E65F2B] font-bold tracking-wider text-[9px] uppercase">
-                        {selectedInvoice.documentType === 'invoice' 
-                          ? 'INVOICE' 
-                          : selectedInvoice.documentType === 'receipt' 
-                          ? 'RECEIPT' 
+                        {selectedInvoice.documentType === 'invoice'
+                          ? 'INVOICE'
+                          : selectedInvoice.documentType === 'receipt'
+                          ? 'RECEIPT'
                           : 'QUOTATION'}
                       </p>
                     </div>
                     {selectedInvoice.issuer.logoUrl ? (
-                      <div>
-                        <img 
-                          src={selectedInvoice.issuer.logoUrl} 
-                          alt="Company Logo" 
+                      <div className="shrink-0">
+                        <img
+                          src={selectedInvoice.issuer.logoUrl}
+                          alt="Company Logo"
                           className="max-h-14 max-w-[150px] object-contain"
                           referrerPolicy="no-referrer"
                         />
                       </div>
                     ) : (
-                      <div className="text-sm font-black text-[#E65F2B] tracking-wider">
+                      <div className="text-sm font-black text-[#E65F2B] tracking-wider text-right shrink-0 max-w-[180px] break-words">
                         {selectedInvoice.issuer.name ? selectedInvoice.issuer.name.slice(0, 25) : '-'}
                       </div>
                     )}

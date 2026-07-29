@@ -682,19 +682,15 @@ export default function DashboardTab({
       </div>
 
       {/* 2. Hero Card */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative bg-[#3D2314] text-white rounded-3xl p-6 overflow-hidden shadow-xl border border-[#2B180D]"
+        className="bg-[#3D2314] text-white rounded-3xl p-6 border border-[#2B180D]"
       >
-        <div className="absolute right-[-20px] top-[-20px] w-40 h-40 bg-white/[0.03] rounded-full blur-xl pointer-events-none" />
-        <div className="absolute left-[30%] bottom-[-40px] w-32 h-32 bg-[#E65F2B]/[0.15] rounded-full blur-xl pointer-events-none" />
-        
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-medium text-white/70 tracking-wider uppercase flex items-center gap-1.5" title="โควตาลูกนัทตามสัญญาทั้งหมด">
-                <span className="inline-block w-2 h-2 bg-[#E65F2B] rounded-full animate-pulse" />
+              <p className="text-xs font-medium text-white/60 tracking-wider uppercase" title="โควตาลูกนัทตามสัญญาทั้งหมด">
                 เสบียงตามสัญญา ({formatMonthKey(selectedMonthKey)})
               </p>
               <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5">
@@ -705,13 +701,13 @@ export default function DashboardTab({
               <Mascot mood="celebrate" size={56} className="shrink-0" />
             )}
           </div>
-          
+
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
             <div>
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ขุดเก็บเข้าโพรงแล้ว">
                 เก็บเข้าโพรงแล้ว
               </p>
-              <p className="text-lg font-black font-mono text-[#E65F2B] mt-0.5">
+              <p className="text-lg font-black font-mono text-white mt-0.5">
                 {formatCurrency(totalReceived)}
               </p>
             </div>
@@ -719,7 +715,7 @@ export default function DashboardTab({
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ค้างดีลบนต้นไม้">
                 ค้างบนต้นไม้
               </p>
-              <p className="text-lg font-black font-mono text-[#D98324] mt-0.5">
+              <p className="text-lg font-black font-mono text-white/80 mt-0.5">
                 {formatCurrency(totalPending)}
               </p>
             </div>
@@ -727,7 +723,7 @@ export default function DashboardTab({
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="เสบียงคงเหลือสุทธิ">
                 เสบียงสุทธิ
               </p>
-              <p className={`text-lg font-black font-mono mt-0.5 ${profit >= 0 ? 'text-[#E65F2B]' : 'text-[#FA7E52]'}`}>
+              <p className={`text-lg font-black font-mono mt-0.5 ${profit >= 0 ? 'text-[#E65F2B]' : 'text-rose-400'}`}>
                 {formatCurrency(profit)}
               </p>
             </div>
@@ -739,12 +735,12 @@ export default function DashboardTab({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`p-4 rounded-2xl border flex flex-col gap-2 shadow-sm relative overflow-hidden transition-all ${
+        className={`p-4 rounded-2xl border border-l-4 bg-brand-white flex flex-col gap-2 transition-all ${
           alertStatus === 'danger'
-            ? 'bg-[#FAECE8] dark:bg-[#351C15] border-[#A63F1B]/30 text-[#A63F1B] dark:text-[#FA7E52]'
+            ? 'border-brand-border border-l-[#A63F1B]'
             : alertStatus === 'warning'
-            ? 'bg-[#FDF6EC] dark:bg-[#352115] border-[#D98324]/30 text-[#D98324] dark:text-[#F2B76B]'
-            : 'bg-[#E7EFEA] dark:bg-[#1D2A24] border-[#125442]/30 text-[#125442] dark:text-[#4ade80]'
+            ? 'border-brand-border border-l-[#D98324]'
+            : 'border-brand-border border-l-[#125442]'
         }`}
       >
         <div className="flex items-center justify-between w-full gap-3">
@@ -758,35 +754,23 @@ export default function DashboardTab({
                 <CheckCircle2 className="w-5 h-5 text-[#125442] dark:text-[#4ade80]" />
               )}
             </div>
-            <h4 className="text-xs font-black tracking-tight font-sans">
+            <h4 className="text-xs font-black tracking-tight font-sans text-brand-text">
               {alertHeadline}
             </h4>
           </div>
           <button
             onClick={() => setIsAlertExpanded(!isAlertExpanded)}
-            className={`text-[10px] font-black underline shrink-0 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-              alertStatus === 'danger'
-                ? 'hover:bg-[#A63F1B]/10 text-[#A63F1B]/80 dark:text-[#FA7E52]/80'
-                : alertStatus === 'warning'
-                ? 'hover:bg-[#D98324]/10 text-[#D98324]/80 dark:text-[#F2B76B]/80'
-                : 'hover:bg-[#125442]/10 text-[#125442]/80 dark:text-[#4ade80]/80'
-            }`}
+            className="text-[10px] font-black underline shrink-0 px-2.5 py-1 rounded-lg text-brand-muted hover:bg-brand-faint transition-colors cursor-pointer"
           >
             {isAlertExpanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}
           </button>
         </div>
-        
+
         {isAlertExpanded && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className={`pt-2 border-t text-[11px] leading-relaxed font-medium ${
-              alertStatus === 'danger'
-                ? 'border-[#A63F1B]/10 text-[#A63F1B]/90 dark:text-[#FA7E52]/90'
-                : alertStatus === 'warning'
-                ? 'border-[#D98324]/10 text-[#D98324]/90 dark:text-[#F2B76B]/90'
-                : 'border-[#125442]/10 text-[#125442]/90 dark:text-[#4ade80]/90'
-            }`}
+            className="pt-2 border-t border-brand-border/40 text-[11px] leading-relaxed font-medium text-brand-muted"
           >
             {alertFullMessage}
           </motion.div>
@@ -841,11 +825,7 @@ export default function DashboardTab({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className={`p-4 rounded-3xl border flex flex-col justify-between space-y-4 transition-all relative overflow-hidden bg-brand-white ${
-                      m.isSufficient
-                        ? 'border-[#125442]/30 dark:border-emerald-500/20 shadow-xs'
-                        : 'border-[#A63F1B]/30 dark:border-rose-500/20 shadow-xs'
-                    }`}
+                    className="p-4 rounded-3xl border border-brand-border flex flex-col justify-between space-y-4 transition-all bg-brand-white"
                   >
                     {/* ด้านบนการ์ด: ข้อมูลเดือนและสถานะความอุดมสมบูรณ์ */}
                     <div className="flex justify-between items-start">
@@ -862,24 +842,24 @@ export default function DashboardTab({
                         </div>
                         <p className="text-[9px] text-brand-muted">รวมผลผลิตที่คาดฝัน</p>
                       </div>
-                      
+
                       <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-brand-faint border border-brand-border/40">
                         <Mascot mood={m.isSufficient ? "celebrate" : "sleepy"} size={32} />
                       </div>
                     </div>
 
                     {/* ส่วนกลางการ์ด: ดีไซน์รูปทรงกราฟิกโพรงไม้เก็บลูกนัทโอ๊ค (Acorn Hollows Visual) */}
-                    <div className="relative w-full h-20 bg-brand-faint rounded-2xl border border-brand-border flex items-end overflow-hidden group">
-                      <motion.div 
+                    <div className="relative w-full h-20 bg-brand-faint rounded-2xl border border-brand-border flex items-end overflow-hidden">
+                      <motion.div
                         initial={{ height: 0 }}
                         animate={{ height: `${fillPercentage}%` }}
                         transition={{ duration: 0.8, delay: idx * 0.1 }}
                         className={`w-full transition-all rounded-b-xl ${
-                          m.isSufficient ? 'bg-gradient-to-t from-[#D98324] to-[#E65F2B]' : 'bg-gradient-to-t from-[#9C7A5C] to-[#A63F1B]'
+                          m.isSufficient ? 'bg-[#E65F2B]' : 'bg-[#A63F1B]'
                         }`}
                       />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-1 text-center bg-black/5">
-                        <span className="text-xs font-mono font-black text-stone-950 dark:text-stone-100 drop-shadow-xs">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-1 text-center">
+                        <span className="text-xs font-mono font-black text-stone-950 dark:text-stone-100">
                           {formatCurrency(m.totalIncome)}
                         </span>
                         <span className="text-[8px] font-bold text-brand-muted uppercase tracking-wider mt-0.5">
@@ -989,7 +969,7 @@ export default function DashboardTab({
               ค้นหาดีลงานค้างชำระจากทุกช่วงเวลา แล้วกดปุ่มรับเงินได้ทันทีโดยไม่ต้องเลื่อนหา!
             </p>
           </div>
-          <span className="self-start sm:self-center text-[11px] font-extrabold text-[#E65F2B] bg-[#FAECE8] px-3 py-1 rounded-full uppercase tracking-wider">
+          <span className="self-start sm:self-center text-[11px] font-extrabold text-brand-text bg-brand-faint px-3 py-1 rounded-full uppercase tracking-wider">
             ดีลรอเก็บเงินทั้งหมด: {unpaidJobs.length} งาน
           </span>
         </div>
@@ -1001,7 +981,7 @@ export default function DashboardTab({
             type="text"
             value={quickSearch}
             onChange={(e) => setQuickSearch(e.target.value)}
-            className="w-full bg-brand-white border border-brand-border/60 hover:border-brand-border focus:border-[#E65F2B] rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-brand-text placeholder-brand-muted/70 outline-none transition-all shadow-xs"
+            className="w-full bg-brand-white border border-brand-border/60 hover:border-brand-border focus:border-[#E65F2B] rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-brand-text placeholder-brand-muted/70 outline-none transition-all"
             placeholder="พิมพ์ค้นชื่อโปรเจกต์ หรือชื่อแบรนด์ลูกค้า เช่น 'ดีลวิดีโอ', 'Shopee'..."
           />
           {quickSearch && (
@@ -1023,13 +1003,13 @@ export default function DashboardTab({
                 onSwitchTab('report');
               }
             }}
-            className="bg-[#FAECE8]/60 border border-[#A63F1B]/15 rounded-2xl p-3 flex items-center gap-3 cursor-pointer hover:bg-[#FAECE8]/80 transition-all shadow-xs group"
+            className="bg-brand-white border border-l-4 border-brand-border border-l-[#A63F1B] rounded-2xl p-3 flex items-center gap-3 cursor-pointer hover:bg-brand-faint/60 transition-all group"
           >
-            <div className="w-10 h-10 bg-brand-white border border-brand-border/40 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-10 h-10 bg-brand-faint border border-brand-border/40 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
               <Mascot mood="alert" size={32} className="animate-wiggle" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#A63F1B] group-hover:underline">
+              <p className="text-xs font-bold text-brand-text group-hover:underline">
                 ตรวจพบดีลค้างชำระ! มีแบรนด์ส่งมอบช้ากว่าดีลเครดิตเทอม (คลิกเพื่อเปิดแดชบอร์ดติดตามทวงถามเครดิตเทอม ↗️)
               </p>
             </div>
@@ -1040,18 +1020,18 @@ export default function DashboardTab({
         <div className="space-y-2.5">
           {filteredUnpaidJobs.slice(0, visibleCount).map((j: any) => {
             const isOverdue = j.isOverdue;
-            
+
             return (
               <motion.div
                 key={j.id}
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-brand-white hover:shadow-md border border-brand-border/40 hover:border-brand-border/75 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+                className="bg-brand-white hover:border-brand-border/75 border border-brand-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Coin icon circle */}
-                  <div className="w-10 h-10 rounded-full bg-[#FDF6EC] dark:bg-[#352115] flex items-center justify-center text-[#D98324] dark:text-[#F2B76B] border border-brand-border/30 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-brand-faint flex items-center justify-center text-brand-muted border border-brand-border/30 shrink-0">
                     <Coins className="w-5 h-5" />
                   </div>
                   
@@ -1128,14 +1108,14 @@ export default function DashboardTab({
             {filteredUnpaidJobs.length > visibleCount ? (
               <button
                 onClick={() => setVisibleCount(prev => prev + 4)}
-                className="w-full sm:w-auto py-2.5 px-6 bg-[#FAECE8] hover:bg-[#FAECE8]/80 text-[#E65F2B] text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-[#E65F2B]/10 text-center flex-1"
+                className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
                 แสดงเพิ่มอีก {filteredUnpaidJobs.length - visibleCount} งาน (เหลือค้างอีก {unpaidJobs.length - visibleCount} งาน)
               </button>
             ) : visibleCount > 4 ? (
               <button
                 onClick={() => setVisibleCount(4)}
-                className="w-full sm:w-auto py-2.5 px-6 bg-[#FAECE8] hover:bg-[#FAECE8]/80 text-[#E65F2B] text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-[#E65F2B]/10 text-center flex-1"
+                className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
                 ย่อรายการกลับ
               </button>
