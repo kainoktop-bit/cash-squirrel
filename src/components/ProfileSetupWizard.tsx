@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Coins, Target, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Check } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { AppSettings, Goal } from '../types';
 import { defaultSettings } from '../sampleData';
@@ -19,6 +19,18 @@ const JOB_TYPE_OPTIONS = [
   { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', emoji: '🎓' },
   { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', emoji: '🛍️' },
   { id: 'other', label: 'อื่นๆ', emoji: '✏️' },
+];
+
+const STEP_TITLES = [
+  'คุณรับงานแบบไหนบ้าง?',
+  'ค่าใช้จ่ายคงที่ต่อเดือนของคุณ',
+  'อยากตั้งเป้าหมายเก็บเงินไว้เลยไหม?',
+];
+
+const STEP_DESCRIPTIONS = [
+  'เลือกได้มากกว่า 1 ข้อ ใช้ทำโปรไฟล์ของคุณเท่านั้น',
+  'ระบบใช้ยอดนี้คำนวณกำไรสุทธิและแจ้งเตือนให้คุณทุกเดือน',
+  'ไม่บังคับ ตั้งเพิ่มทีหลังได้ในหน้าจัดสรรเงิน',
 ];
 
 export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
@@ -42,7 +54,6 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   if (!isOpen) return null;
 
   const totalSteps = 3;
-  const progressPercent = ((step + 1) / totalSteps) * 100;
 
   const toggleJobType = (id: string) => {
     setJobTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
@@ -77,138 +88,159 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
     onComplete();
   };
 
+  const goNext = () => step === totalSteps - 1 ? finishSetup() : setStep(s => s + 1);
+
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
+      <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm select-none">
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 30 }}
+          initial={{ scale: 0.95, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 30 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-          className="bg-brand-white dark:bg-stone-900 border-2 border-amber-500/30 dark:border-amber-500/20 rounded-3xl p-6 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+          exit={{ scale: 0.95, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+          className="bg-brand-white dark:bg-stone-900 rounded-3xl p-7 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto no-scrollbar"
         >
           {/* Header */}
-          <div className="flex flex-col items-center text-center gap-3 mb-2">
-            <div className="shrink-0 bg-amber-500/5 dark:bg-amber-500/10 p-2.5 rounded-3xl border border-amber-500/10">
-              <Mascot mood="wave" size={72} className="drop-shadow-md" />
+          <div className="flex flex-col items-center text-center gap-4">
+            <Mascot mood="wave" size={64} className="drop-shadow-sm" />
+
+            {/* Step dots */}
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalSteps }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === step ? 'w-6 bg-[#E65F2B]' : i < step ? 'w-1.5 bg-[#E65F2B]/50' : 'w-1.5 bg-brand-faint dark:bg-neutral-800'
+                  }`}
+                />
+              ))}
             </div>
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-[#E65F2B] bg-[#E65F2B]/10 px-2.5 py-0.5 rounded-full">
-                ตั้งค่าบัญชีเริ่มต้น {step + 1} / {totalSteps}
-              </span>
-              <h3 className="font-display font-black text-sm text-brand-text dark:text-amber-100 tracking-tight">
-                {step === 0 && 'คุณรับงานแบบไหนบ้าง?'}
-                {step === 1 && 'ค่าใช้จ่ายคงที่ต่อเดือนของคุณ'}
-                {step === 2 && 'อยากตั้งเป้าหมายเก็บเงินไว้เลยไหม?'}
+
+            <div className="space-y-1.5">
+              <h3 className="font-display font-black text-lg text-brand-text dark:text-white tracking-tight">
+                {STEP_TITLES[step]}
               </h3>
-              <p className="text-[11px] leading-relaxed text-brand-muted dark:text-stone-300 font-medium max-w-xs mx-auto">
-                {step === 0 && 'เลือกได้มากกว่า 1 ข้อ ข้อมูลนี้ไว้ใช้ทำโปรไฟล์ของคุณเท่านั้น'}
-                {step === 1 && 'จำเป็นต้องกรอกก่อนเริ่มใช้งาน ระบบจะใช้ยอดนี้คำนวณกำไรสุทธิและแจ้งเตือนให้คุณทุกเดือน'}
-                {step === 2 && 'ไม่บังคับ ข้ามได้ถ้ายังไม่พร้อม ตั้งเพิ่มทีหลังได้ในหน้าจัดสรรเงิน'}
+              <p className="text-xs leading-relaxed text-brand-muted max-w-xs mx-auto">
+                {STEP_DESCRIPTIONS[step]}
               </p>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="w-full h-1.5 bg-brand-faint dark:bg-neutral-800 rounded-full overflow-hidden my-4">
-            <motion.div
-              className="h-full bg-gradient-to-r from-[#E65F2B] to-[#FFA473] rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-
           {/* Step content */}
-          <div className="space-y-2.5 min-h-[180px]">
-            {step === 0 && (
-              <div className="space-y-2">
-                {JOB_TYPE_OPTIONS.map(opt => {
-                  const selected = jobTypes.includes(opt.id);
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => toggleJobType(opt.id)}
-                      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border text-left text-xs font-bold transition-all cursor-pointer ${
-                        selected
-                          ? 'border-[#E65F2B] bg-[#FDF3EC] text-[#A63F1B] dark:bg-[#352115] dark:text-[#FFA473]'
-                          : 'border-brand-border/60 text-brand-text hover:bg-brand-faint/60'
-                      }`}
-                    >
-                      <span className="text-base shrink-0">{opt.emoji}</span>
-                      <span className="flex-1">{opt.label}</span>
-                      {selected && <Check className="w-4 h-4 text-[#E65F2B] shrink-0" />}
-                    </button>
-                  );
-                })}
-                {jobTypes.includes('other') && (
+          <div className="mt-6 min-h-[190px] flex flex-col justify-center">
+            <AnimatePresence mode="wait">
+              {step === 0 && (
+                <motion.div
+                  key="step0"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2"
+                >
+                  {JOB_TYPE_OPTIONS.map(opt => {
+                    const selected = jobTypes.includes(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => toggleJobType(opt.id)}
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border text-left text-xs font-bold transition-all cursor-pointer ${
+                          selected
+                            ? 'border-[#E65F2B] bg-[#FDF3EC] dark:bg-[#352115] text-brand-text'
+                            : 'border-brand-border/60 text-brand-text hover:bg-brand-faint/60'
+                        }`}
+                      >
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 transition-colors ${
+                          selected ? 'bg-white dark:bg-stone-900' : 'bg-brand-faint dark:bg-neutral-800'
+                        }`}>
+                          {opt.emoji}
+                        </span>
+                        <span className="flex-1">{opt.label}</span>
+                        {selected && <Check className="w-4 h-4 text-[#E65F2B] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                  {jobTypes.includes('other') && (
+                    <input
+                      type="text"
+                      value={jobTypeOther}
+                      onChange={(e) => setJobTypeOther(e.target.value)}
+                      placeholder="ระบุประเภทงานของคุณ..."
+                      className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
+                    />
+                  )}
+                </motion.div>
+              )}
+
+              {step === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center gap-3 bg-brand-faint/60 dark:bg-neutral-800/40 rounded-3xl p-6 border border-brand-border/60"
+                >
+                  <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
+                    ค่าใช้จ่ายคงที่ต่อเดือน
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-2xl font-black text-brand-muted">฿</span>
+                    <input
+                      type="number"
+                      min="0"
+                      autoFocus
+                      value={monthlyExpense}
+                      onChange={(e) => setMonthlyExpense(e.target.value)}
+                      placeholder="12000"
+                      className="w-40 bg-transparent text-4xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2.5 bg-brand-faint/60 dark:bg-neutral-800/40 rounded-3xl p-5 border border-brand-border/60"
+                >
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#E65F2B] shrink-0" />
+                    <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
+                      เป้าหมายแรกของคุณ (ไม่บังคับ)
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    value={jobTypeOther}
-                    onChange={(e) => setJobTypeOther(e.target.value)}
-                    placeholder="ระบุประเภทงานของคุณ..."
-                    className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500"
+                    value={goalName}
+                    onChange={(e) => setGoalName(e.target.value)}
+                    placeholder="เช่น กล้องตัวใหม่, เงินสำรองฉุกเฉิน"
+                    className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
-                )}
-              </div>
-            )}
-
-            {step === 1 && (
-              <div className="flex items-center gap-3 bg-brand-faint/60 rounded-2xl p-4 border border-brand-border">
-                <div className="w-10 h-10 rounded-xl bg-[#FAECE8] dark:bg-[#352115] flex items-center justify-center text-[#E65F2B] dark:text-[#FFA473] shrink-0">
-                  <Coins className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[9px] font-extrabold text-brand-muted uppercase block tracking-wider">
-                    ค่าใช้จ่ายคงที่ต่อเดือน (฿)
-                  </span>
                   <input
                     type="number"
                     min="0"
-                    autoFocus
-                    value={monthlyExpense}
-                    onChange={(e) => setMonthlyExpense(e.target.value)}
-                    placeholder="เช่น 12000"
-                    className="w-full bg-transparent text-lg font-extrabold font-mono text-brand-text outline-none mt-0.5"
+                    value={goalTarget}
+                    onChange={(e) => setGoalTarget(e.target.value)}
+                    placeholder="ยอดเป้าหมาย (฿) เช่น 50000"
+                    className="w-full bg-brand-white dark:bg-stone-800 text-xs font-mono text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-2.5 bg-brand-faint/60 rounded-2xl p-4 border border-brand-border">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
-                    เป้าหมายแรกของคุณ (ไม่บังคับ)
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={goalName}
-                  onChange={(e) => setGoalName(e.target.value)}
-                  placeholder="เช่น กล้องตัวใหม่, เงินสำรองฉุกเฉิน"
-                  className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={goalTarget}
-                  onChange={(e) => setGoalTarget(e.target.value)}
-                  placeholder="ยอดเป้าหมาย (฿) เช่น 50000"
-                  className="w-full bg-brand-white dark:bg-stone-800 text-xs font-mono text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500"
-                />
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Actions */}
-          <div className="mt-6 pt-4 border-t border-brand-border/40 dark:border-neutral-800 flex items-center justify-between gap-3">
+          <div className="mt-6 pt-5 border-t border-brand-border/40 dark:border-neutral-800 flex items-center justify-between gap-3">
             {step > 0 ? (
               <button
                 onClick={() => setStep(s => s - 1)}
-                className="px-3.5 py-2 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3.5 py-2.5 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>ย้อนกลับ</span>
@@ -218,16 +250,16 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
             <div className="flex items-center gap-2">
               {step !== 1 && (
                 <button
-                  onClick={() => step === totalSteps - 1 ? finishSetup() : setStep(s => s + 1)}
-                  className="text-[10px] font-bold text-brand-muted hover:text-rose-500 hover:underline transition-all cursor-pointer"
+                  onClick={goNext}
+                  className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 border border-transparent rounded-xl text-[11px] font-bold transition-all cursor-pointer"
                 >
                   ข้าม
                 </button>
               )}
               <button
-                onClick={() => step === totalSteps - 1 ? finishSetup() : setStep(s => s + 1)}
+                onClick={goNext}
                 disabled={step === 1 && !isExpenseValid}
-                className="px-5 py-2.5 bg-gradient-to-r from-[#E65F2B] to-[#FFA473] text-white hover:opacity-95 shadow-md hover:shadow-lg transition-all rounded-xl text-[11px] font-black flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-sm hover:shadow-md transition-all rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span>{step === totalSteps - 1 ? 'เริ่มใช้งานเลย!' : 'ถัดไป'}</span>
                 {step !== totalSteps - 1 && <ChevronRight className="w-3.5 h-3.5" />}
