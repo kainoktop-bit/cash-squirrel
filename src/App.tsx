@@ -388,17 +388,17 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // User profile avatar image (stored as base64 data URL)
-  const [userAvatar, setUserAvatar] = useState<string>(() => {
-    return localStorage.getItem('cashflow_user_avatar') || '';
-  });
+  // User profile avatar image (stored as base64 data URL, scoped per account email)
+  const [userAvatar, setUserAvatar] = useState<string>('');
 
   const handleUpdateUserAvatar = (newAvatar: string) => {
     setUserAvatar(newAvatar);
+    const email = session?.user?.email;
+    if (!email) return;
     if (newAvatar) {
-      localStorage.setItem('cashflow_user_avatar', newAvatar);
+      localStorage.setItem(`cashflow_user_avatar_${email}`, newAvatar);
     } else {
-      localStorage.removeItem('cashflow_user_avatar');
+      localStorage.removeItem(`cashflow_user_avatar_${email}`);
     }
   };
 
@@ -654,11 +654,15 @@ export default function App() {
         ]);
       }
 
+      const savedAvatar = localStorage.getItem(`cashflow_user_avatar_${email}`);
+      setUserAvatar(savedAvatar || '');
+
       setIsLoadedForUser(email);
       // Trigger Cloud sync loading
       loadCloudData(email);
     } else {
       setIsLoadedForUser(null);
+      setUserAvatar('');
       setSubscription(null);
       setJobs(cleanJobs(defaultJobs));
       setGoals(defaultGoals);
