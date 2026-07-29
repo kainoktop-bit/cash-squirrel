@@ -9,49 +9,14 @@ export const config = {
   },
 };
 
+const RENEWAL_PERIOD_DAYS = 30;
+
 async function readRawBody(req: VercelRequest): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
   }
   return Buffer.concat(chunks);
-}
-
-// Map a Stripe subscription status to the status values the app understands
-function mapStatus(stripeStatus: Stripe.Subscription.Status): 'active' | 'trialing' | 'past_due' | 'canceled' {
-  switch (stripeStatus) {
-    case 'active':
-      return 'active';
-    case 'trialing':
-      return 'trialing';
-    case 'past_due':
-    case 'unpaid':
-    case 'incomplete':
-    case 'paused':
-      return 'past_due';
-    case 'canceled':
-    case 'incomplete_expired':
-    default:
-      return 'canceled';
-  }
-}
-
-async function upsertFromSubscription(userId: string, subscription: Stripe.Subscription) {
-  const item = subscription.items.data[0];
-  await supabaseAdmin.from('subscriptions').upsert(
-    {
-      user_id: userId,
-      stripe_customer_id: subscription.customer as string,
-      stripe_subscription_id: subscription.id,
-      status: mapStatus(subscription.status),
-      plan: item?.price?.id || null,
-      current_period_end: item?.current_period_end
-        ? new Date(item.current_period_end * 1000).toISOString()
-        : null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  );
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -79,27 +44,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.client_reference_id || session.metadata?.userId;
-        if (userId && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-          await upsertFromSubscription(userId, subscription);
-        }
-        break;
+    // The Pro plan is a one-time monthly payment (paid manually each month, supports
+    // PromptPay), not a Stripe subscription -- so we only care about completed one-time
+    // Checkout Sessions here and extend access by RENEWAL_PERIOD_DAYS from now.
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.client_reference_id;
+
+      if (userId && session.mode === 'payment' && session.payment_status === 'paid') {
+        const currentPeriodEnd = new Date(Date.now() + RENEWAL_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+
+        await supabaseAdmin.from('subscriptions').upsert(
+          {
+            user_id: userId,
+            stripe_customer_id: (session.customer as string) || null,
+            stripe_subscription_id: null,
+            status: 'active',
+            plan: 'pro_monthly',
+            current_period_end: currentPeriodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
       }
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
-        if (userId) {
-          await upsertFromSubscription(userId, subscription);
-        }
-        break;
-      }
-      default:
-        break;
     }
 
     res.status(200).json({ received: true });

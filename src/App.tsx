@@ -473,7 +473,24 @@ export default function App() {
     plan: string | null;
     currentPeriodEnd: string | null;
   } | null>(null);
-  const isPro = subscription?.status === 'active' || subscription?.status === 'trialing';
+
+  // First 30 days after signup are free automatically, based on the account's real creation
+  // date from Supabase Auth (not something the client can fake). No Stripe interaction needed.
+  const FREE_TRIAL_DAYS = 30;
+  const trialEndsAt = React.useMemo(() => {
+    const createdAt = session?.user?.created_at;
+    if (!createdAt || session?.isGuest) return null;
+    return new Date(new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+  }, [session?.user?.created_at, session?.isGuest]);
+  const isInFreeTrial = !!trialEndsAt && trialEndsAt.getTime() > Date.now();
+
+  // Paid access: an 'active' one-time payment that hasn't expired yet (renewed monthly by hand)
+  const isPaidActive =
+    subscription?.status === 'active' &&
+    !!subscription.currentPeriodEnd &&
+    new Date(subscription.currentPeriodEnd).getTime() > Date.now();
+
+  const isPro = isInFreeTrial || isPaidActive;
 
   // 🌰 Global Month Exploration (สำรวจฤดูกาลเก็บเกี่ยว)
   const currentMonthKey = React.useMemo(() => {
@@ -557,23 +574,6 @@ export default function App() {
     url.searchParams.set('client_reference_id', currentUser.id);
     if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
     window.location.href = url.toString();
-  };
-
-  const handleManageSubscription = async () => {
-    const currentUser = session?.user;
-    if (!currentUser || session?.isGuest) return;
-    try {
-      const res = await fetch('/api/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || 'ไม่พบข้อมูลสมาชิก');
-      window.location.href = data.url;
-    } catch (err: any) {
-      triggerAlert('เกิดข้อผิดพลาด ❌', err.message || 'ไม่สามารถเปิดหน้าจัดการสมาชิกได้');
-    }
   };
 
   // Handle redirect back from Stripe Checkout
@@ -1400,37 +1400,27 @@ export default function App() {
             </div>
           </div>
 
-          {session && !session.isGuest && subscription && (
+          {session && !session.isGuest && (
             <div className="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40">
-              {subscription.status === 'active' ? (
+              {isPaidActive ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   <span className="text-emerald-600 dark:text-emerald-400 font-display font-black">PRO 👑</span>
-                  {subscription.currentPeriodEnd && (
-                    <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                      ดิว: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
-                    </span>
-                  )}
-                </>
-              ) : subscription.status === 'trialing' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
-                  {subscription.currentPeriodEnd && (
+                  {subscription?.currentPeriodEnd && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
                       ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                 </>
-              ) : subscription.status === 'past_due' ? (
+              ) : isInFreeTrial ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                  <span className="text-amber-600 dark:text-amber-400">ค้างชำระ ⚠️</span>
-                </>
-              ) : subscription.status === 'canceled' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-neutral-400 shrink-0" />
-                  <span className="text-brand-muted">ยกเลิกแล้ว</span>
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                  {trialEndsAt && (
+                    <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                      ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
                 </>
               ) : (
                 <>
@@ -1572,37 +1562,27 @@ export default function App() {
                     </div>
                   </div>
 
-                  {session && !session.isGuest && subscription && (
+                  {session && !session.isGuest && (
                     <div className="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40">
-                      {subscription.status === 'active' ? (
+                      {isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                           <span className="text-emerald-600 dark:text-emerald-400 font-display font-black">PRO 👑</span>
-                          {subscription.currentPeriodEnd && (
-                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                              ดิว: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
-                            </span>
-                          )}
-                        </>
-                      ) : subscription.status === 'trialing' ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
-                          {subscription.currentPeriodEnd && (
+                          {subscription?.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
                             </span>
                           )}
                         </>
-                      ) : subscription.status === 'past_due' ? (
+                      ) : isInFreeTrial ? (
                         <>
-                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                          <span className="text-amber-600 dark:text-amber-400">ค้างชำระ ⚠️</span>
-                        </>
-                      ) : subscription.status === 'canceled' ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-neutral-400 shrink-0" />
-                          <span className="text-brand-muted">ยกเลิกแล้ว</span>
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                          {trialEndsAt && (
+                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                              ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <>
@@ -1954,7 +1934,9 @@ export default function App() {
                   }}
                   subscription={subscription}
                   onUpgrade={handleUpgrade}
-                  onManageSubscription={handleManageSubscription}
+                  isPaidActive={isPaidActive}
+                  isInFreeTrial={isInFreeTrial}
+                  trialEndsAt={trialEndsAt}
                   jobs={jobs}
                 />
               )}
