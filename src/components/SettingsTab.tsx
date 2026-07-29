@@ -17,7 +17,8 @@ import {
   FileJson, 
   Lock, 
   Database,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Heart
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 
@@ -528,6 +529,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <span>ดูหน้าตั้งค่าบัญชีเริ่มต้นอีกครั้ง</span>
                 </button>
               )}
+
+              <a
+                href="https://buy.stripe.com/fZu00l4ZF9bvgFM8HQ3Ru00"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-pink-bg hover:bg-pink-bg/80 text-pink-acc border border-pink-acc/15 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Heart className="w-3.5 h-3.5" />
+                <span>สนับสนุนผู้พัฒนา ☕</span>
+              </a>
 
               {/* Safety switch to toggle Danger Zone */}
               <button
