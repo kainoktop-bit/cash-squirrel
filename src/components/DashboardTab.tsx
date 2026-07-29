@@ -667,18 +667,13 @@ export default function DashboardTab({
     <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
       
       {/* 1. Header Bar */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
-            พยากรณ์รังเสบียง
-          </span>
-          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            ภาพรวมเสบียง
-          </h2>
-        </div>
-        <div className="w-16 h-16 bg-brand-faint rounded-2xl flex items-center justify-center border border-brand-border shadow-inner overflow-hidden">
-          <Mascot mood="wave" size={56} />
-        </div>
+      <div className="px-1">
+        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
+          พยากรณ์รังเสบียง
+        </span>
+        <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
+          ภาพรวมเสบียง
+        </h2>
       </div>
 
       {/* 2. Hero Card */}
