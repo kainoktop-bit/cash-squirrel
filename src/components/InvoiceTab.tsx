@@ -98,7 +98,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         createdDate: new Date().toISOString().split('T')[0],
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         issuer: {
-          name: 'นายสมชาย ดีมีสุข (ฟรีแลนซ์)',
+          name: 'นายสมชาย ดีมีสุข (อาชีพอิสระ)',
           address: '123/45 ถนนสีลม แขวงสุริยวงศ์ เขตบางรัก กรุงเทพมหานคร 10500',
           phone: '081-234-5678',
           email: 'somchai.freelance@gmail.com',
