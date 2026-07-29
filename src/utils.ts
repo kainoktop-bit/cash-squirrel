@@ -10,6 +10,22 @@ export const formatCurrency = (val: number): string => {
   }).format(val).replace('THB', '฿');
 };
 
+// Add thousand-separator commas to a raw numeric string as the user types (e.g. "12000" -> "12,000")
+export const formatNumberWithCommas = (raw: string): string => {
+  if (!raw) return '';
+  const [intPart, decPart] = raw.split('.');
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return decPart !== undefined ? `${withCommas}.${decPart}` : withCommas;
+};
+
+// Strip commas/invalid characters from a formatted number input, keeping digits and a single decimal point
+export const stripNumberInput = (input: string): string => {
+  const cleaned = input.replace(/,/g, '').replace(/[^\d.]/g, '');
+  const firstDotIndex = cleaned.indexOf('.');
+  if (firstDotIndex === -1) return cleaned;
+  return cleaned.slice(0, firstDotIndex + 1) + cleaned.slice(firstDotIndex + 1).replace(/\./g, '');
+};
+
 // Thai fixed annual public holidays (MM-DD format)
 const THAI_FIXED_HOLIDAYS = [
   '01-01', // วันขึ้นปีใหม่

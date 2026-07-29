@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Target, Check } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { AppSettings, Goal } from '../types';
 import { defaultSettings } from '../sampleData';
+import { formatNumberWithCommas, stripNumberInput } from '../utils';
 
 interface ProfileSetupWizardProps {
   isOpen: boolean;
@@ -214,13 +215,13 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className="text-2xl font-black text-[#E65F2B]/70">฿</span>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       autoFocus
-                      value={monthlyExpense}
-                      onChange={(e) => setMonthlyExpense(e.target.value)}
-                      placeholder="12000"
-                      className="w-40 bg-transparent text-5xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
+                      value={formatNumberWithCommas(monthlyExpense)}
+                      onChange={(e) => setMonthlyExpense(stripNumberInput(e.target.value))}
+                      placeholder="12,000"
+                      className="w-56 bg-transparent text-5xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
                     />
                   </div>
                   <p className="text-[10px] text-brand-muted mt-2">ไม่มีค่าใช้จ่ายคงที่? พิมพ์ 0 ได้เลย</p>
@@ -250,11 +251,11 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                     className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
                   <input
-                    type="number"
-                    min="0"
-                    value={goalTarget}
-                    onChange={(e) => setGoalTarget(e.target.value)}
-                    placeholder="ยอดเป้าหมาย (฿) เช่น 50000"
+                    type="text"
+                    inputMode="decimal"
+                    value={formatNumberWithCommas(goalTarget)}
+                    onChange={(e) => setGoalTarget(stripNumberInput(e.target.value))}
+                    placeholder="ยอดเป้าหมาย (฿) เช่น 50,000"
                     className="w-full bg-brand-white dark:bg-stone-800 text-xs font-mono text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-[#E65F2B]"
                   />
                 </motion.div>
