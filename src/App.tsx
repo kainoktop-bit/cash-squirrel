@@ -753,7 +753,7 @@ export default function App() {
 
   // 🐿️ Auto-trigger Onboarding Tour for new users (only after the account setup wizard is done)
   useEffect(() => {
-    if (isLoadedForUser && (settings.profileSetupCompleted || session?.isGuest)) {
+    if (isLoadedForUser && settings.profileSetupCompleted) {
       const completed = localStorage.getItem(`cashflow_onboarding_completed_${isLoadedForUser}`);
       if (completed !== 'true') {
         setTourStep(0);
@@ -761,7 +761,7 @@ export default function App() {
     } else if (!isLoadedForUser) {
       setTourStep(null);
     }
-  }, [isLoadedForUser, settings.profileSetupCompleted, session?.isGuest]);
+  }, [isLoadedForUser, settings.profileSetupCompleted]);
 
   // Sync statuses and jobTypes to LocalStorage
   useEffect(() => {
@@ -1957,7 +1957,7 @@ export default function App() {
         </AnimatePresence>
 
         <ProfileSetupWizard
-          isOpen={!!isLoadedForUser && !session?.isGuest && (!settings.profileSetupCompleted || isSetupWizardPreview)}
+          isOpen={!!isLoadedForUser && (!settings.profileSetupCompleted || isSetupWizardPreview)}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
           onAddGoal={handleAddGoal}
