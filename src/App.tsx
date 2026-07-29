@@ -20,6 +20,7 @@ import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
 import { ProfileSetupWizard } from './components/ProfileSetupWizard';
+import { PremiumUpsell } from './components/PremiumUpsell';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
 
@@ -468,10 +469,11 @@ export default function App() {
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
-    status: 'free' | 'active' | 'past_due' | 'canceled';
+    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
     plan: string | null;
     currentPeriodEnd: string | null;
   } | null>(null);
+  const isPro = subscription?.status === 'active' || subscription?.status === 'trialing';
 
   // 🌰 Global Month Exploration (สำรวจฤดูกาลเก็บเกี่ยว)
   const currentMonthKey = React.useMemo(() => {
@@ -540,6 +542,57 @@ export default function App() {
       setSubscription({ status: 'free', plan: null, currentPeriodEnd: null });
     }
   };
+
+  const handleUpgrade = async () => {
+    const currentUser = session?.user;
+    if (!currentUser || session?.isGuest) {
+      triggerAlert('ต้องสมัครสมาชิกก่อนครับ', 'กรุณาสมัครบัญชีจริงด้วยอีเมล (ไม่ใช่โหมดทดลองใช้งานฟรี) ก่อนอัปเกรดเป็นสมาชิกรายเดือนครับ');
+      return;
+    }
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'ไม่สามารถสร้างหน้าชำระเงินได้');
+      window.location.href = data.url;
+    } catch (err: any) {
+      triggerAlert('เกิดข้อผิดพลาด ❌', err.message || 'ไม่สามารถเปิดหน้าชำระเงินได้ กรุณาลองใหม่อีกครั้ง');
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    const currentUser = session?.user;
+    if (!currentUser || session?.isGuest) return;
+    try {
+      const res = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'ไม่พบข้อมูลสมาชิก');
+      window.location.href = data.url;
+    } catch (err: any) {
+      triggerAlert('เกิดข้อผิดพลาด ❌', err.message || 'ไม่สามารถเปิดหน้าจัดการสมาชิกได้');
+    }
+  };
+
+  // Handle redirect back from Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutResult = params.get('checkout');
+    if (checkoutResult && session?.user?.id) {
+      if (checkoutResult === 'success') {
+        loadSubscriptionData(session.user.id);
+        triggerAlert('สมัครสมาชิกสำเร็จ! 🎉', 'เริ่มทดลองใช้ฟรี 30 วันได้เลยครับ ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+      }
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
 
   // Load Cloud Data function
   const loadCloudData = async (email: string) => {
@@ -1363,6 +1416,16 @@ export default function App() {
                     </span>
                   )}
                 </>
+              ) : subscription.status === 'trialing' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                  {subscription.currentPeriodEnd && (
+                    <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                      ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </>
               ) : subscription.status === 'past_due' ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
@@ -1522,6 +1585,16 @@ export default function App() {
                           {subscription.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ดิว: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </>
+                      ) : subscription.status === 'trialing' ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                          {subscription.currentPeriodEnd && (
+                            <span className="text-[9px] text-brand-muted ml-auto font-mono">
+                              ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
                             </span>
                           )}
                         </>
@@ -1809,22 +1882,38 @@ export default function App() {
               )}
 
               {activeTab === 'tax' && (
-                <TaxTab
-                  jobs={jobs}
-                  expenses={expenses}
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
-                />
+                isPro ? (
+                  <TaxTab
+                    jobs={jobs}
+                    expenses={expenses}
+                    settings={settings}
+                    onUpdateSettings={handleUpdateSettings}
+                    triggerAlert={triggerAlert}
+                    triggerConfirm={triggerConfirm}
+                  />
+                ) : (
+                  <PremiumUpsell
+                    feature="ผู้ช่วยจัดการภาษีบุคคลธรรมดา"
+                    description="คำนวณภาษีเงินได้ แนะนำรายการลดหย่อน และจัดการเอกสารหักภาษี ณ ที่จ่าย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    onUpgrade={handleUpgrade}
+                  />
+                )
               )}
 
               {activeTab === 'invoice' && (
-                <InvoiceTab
-                  jobs={jobs}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
-                />
+                isPro ? (
+                  <InvoiceTab
+                    jobs={jobs}
+                    triggerAlert={triggerAlert}
+                    triggerConfirm={triggerConfirm}
+                  />
+                ) : (
+                  <PremiumUpsell
+                    feature="ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน"
+                    description="ออกเอกสารสำเร็จรูปพร้อมโลโก้และดึงข้อมูลจากดีลงานได้ทันที กดเซฟเป็น PDF ส่งลูกค้าได้เลย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    onUpgrade={handleUpgrade}
+                  />
+                )
               )}
 
               {activeTab === 'report' && (
@@ -1867,6 +1956,9 @@ export default function App() {
                   onReplaySetupWizard={() => {
                     setIsSetupWizardPreview(true);
                   }}
+                  subscription={subscription}
+                  onUpgrade={handleUpgrade}
+                  onManageSubscription={handleManageSubscription}
                   jobs={jobs}
                 />
               )}

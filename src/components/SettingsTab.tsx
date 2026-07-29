@@ -47,6 +47,13 @@ interface SettingsTabProps {
   onUpdateUserAvatar: (newAvatar: string) => void;
   onStartTour?: () => void;
   onReplaySetupWizard?: () => void;
+  subscription?: {
+    status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
+    plan: string | null;
+    currentPeriodEnd: string | null;
+  } | null;
+  onUpgrade?: () => void;
+  onManageSubscription?: () => void;
   jobs: Job[];
 }
 
@@ -68,6 +75,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateUserAvatar,
   onStartTour,
   onReplaySetupWizard,
+  subscription,
+  onUpgrade,
+  onManageSubscription,
   jobs
 }) => {
   const [showDangerZone, setShowDangerZone] = useState(false);
@@ -507,6 +517,44 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <span>ออกจากระบบ</span>
                 </button>
               </div>
+
+              {session && !session.isGuest && (
+                <div className="p-4 bg-gradient-to-br from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-brand-text dark:text-white">สมาชิกรายเดือน 👑</span>
+                    {subscription?.status === 'active' && (
+                      <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
+                    )}
+                    {subscription?.status === 'trialing' && (
+                      <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase">ทดลองใช้ฟรี</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-brand-muted leading-relaxed">
+                    ปลดล็อกเครื่องมือออกบิล/ใบเสร็จ และผู้ช่วยจัดการภาษี ทดลองใช้ฟรี 30 วันก่อนเริ่มเก็บเงิน
+                  </p>
+                  {subscription?.status === 'active' || subscription?.status === 'trialing' ? (
+                    onManageSubscription && (
+                      <button
+                        type="button"
+                        onClick={onManageSubscription}
+                        className="w-full py-2 bg-brand-white dark:bg-stone-800 hover:bg-brand-faint border border-brand-border text-brand-text text-[10px] font-black rounded-xl transition-all cursor-pointer"
+                      >
+                        จัดการการสมาชิก
+                      </button>
+                    )
+                  ) : (
+                    onUpgrade && (
+                      <button
+                        type="button"
+                        onClick={onUpgrade}
+                        className="w-full py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-[10px] font-black rounded-xl transition-all cursor-pointer"
+                      >
+                        ทดลองใช้ฟรี 30 วัน ✨
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
 
               {onStartTour && (
                 <button
