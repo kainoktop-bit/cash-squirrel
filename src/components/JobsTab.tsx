@@ -1,0 +1,2250 @@
+import React, { useState } from 'react';
+import { Job, StatusOption } from '../types';
+import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate } from '../utils';
+import { motion, AnimatePresence } from 'motion/react';
+import { Mascot } from './Mascot';
+import { 
+  Briefcase, 
+  Search, 
+  Filter, 
+  Trash2, 
+  CheckCircle, 
+  Calendar, 
+  ChevronDown, 
+  User, 
+  FileText,
+  Clock,
+  ExternalLink,
+  Edit2
+} from 'lucide-react';
+
+interface JobsTabProps {
+  jobs: Job[];
+  onAddJob: (job: Omit<Job, 'id'>) => void;
+  onEditJob: (id: string, updated: Partial<Job>) => void;
+  onDeleteJob: (id: string) => void;
+  isAddJobOpen: boolean;
+  onCloseAddJob: () => void;
+  statuses: StatusOption[];
+  setStatuses: React.Dispatch<React.SetStateAction<StatusOption[]>>;
+  jobTypes: string[];
+  setJobTypes: React.Dispatch<React.SetStateAction<string[]>>;
+  triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
+  triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
+  triggerPrompt: (
+    title: string,
+    message: string,
+    defaultValue: string,
+    placeholder: string,
+    inputType: 'text' | 'number',
+    onConfirm: (val: string) => void,
+    onCancel?: () => void
+  ) => void;
+}
+
+export default function JobsTab({
+  jobs,
+  onAddJob,
+  onEditJob,
+  onDeleteJob,
+  isAddJobOpen,
+  onCloseAddJob,
+  statuses,
+  setStatuses,
+  jobTypes,
+  setJobTypes,
+  triggerAlert,
+  triggerConfirm,
+  triggerPrompt,
+}: JobsTabProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [subTab, setSubTab] = useState<'all' | 'wip' | 'posted'>('all');
+  
+  // Local form states for adding a job
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('ยังไม่ระบุ');
+  const [formClient, setFormClient] = useState('');
+  const [formValue, setFormValue] = useState('');
+  const [formReceived, setFormReceived] = useState('');
+  const [formStatus, setFormStatus] = useState<string>('pending');
+  const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
+  const [formPostDate, setFormPostDate] = useState('');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formIsPosted, setFormIsPosted] = useState(false);
+  const [formNote, setFormNote] = useState('');
+  const [formWhtRate, setFormWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
+  const [formExcludeHolidays, setFormExcludeHolidays] = useState(false); // ไม่นับเสาร์อาทิตย์และวันหยุดข้าราชการ
+  
+  // 🌰 Wizard/Step form state
+  const [formStep, setFormStep] = useState(1);
+  const [canSubmit, setCanSubmit] = useState(false);
+
+  React.useEffect(() => {
+    if (isAddJobOpen) {
+      setFormStep(1);
+      setCanSubmit(false);
+    }
+  }, [isAddJobOpen]);
+
+  React.useEffect(() => {
+    if (formStep === 3) {
+      setCanSubmit(false);
+      const timer = setTimeout(() => {
+        setCanSubmit(true);
+      }, 500); // 500ms debounce to prevent accidental double-click / click carry-over
+      return () => clearTimeout(timer);
+    } else {
+      setCanSubmit(false);
+    }
+  }, [formStep]);
+
+  // States for custom entry on-the-fly
+  const [customTypeInput, setCustomTypeInput] = useState('');
+  const [customStatusLabelInput, setCustomStatusLabelInput] = useState('');
+  const [customStatusBehavior, setCustomStatusBehavior] = useState<'pending' | 'partial' | 'done'>('pending');
+
+  // States for Manage Expandable Panel
+  const [isManageOpen, setIsManageOpen] = useState(false);
+  const [quickTypeInput, setQuickTypeInput] = useState('');
+  const [quickStatusLabel, setQuickStatusLabel] = useState('');
+  const [quickStatusBehavior, setQuickStatusBehavior] = useState<'pending' | 'partial' | 'done'>('pending');
+
+  // Editing logic (optional but amazing!)
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+
+  // Edit form states
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editClient, setEditClient] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [editReceived, setEditReceived] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editCreditTerm, setEditCreditTerm] = useState<number>(0);
+  const [editPostDate, setEditPostDate] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editIsPosted, setEditIsPosted] = useState(true);
+  const [editNote, setEditNote] = useState('');
+  const [editWhtRate, setEditWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
+  const [editExcludeHolidays, setEditExcludeHolidays] = useState(false); // ไม่นับเสาร์อาทิตย์และวันหยุดข้าราชการ
+
+  // States for custom entry inside Edit Form
+  const [editCustomTypeInput, setEditCustomTypeInput] = useState('');
+  const [editCustomStatusLabelInput, setEditCustomStatusLabelInput] = useState('');
+  const [editCustomStatusBehavior, setEditCustomStatusBehavior] = useState<'pending' | 'partial' | 'done'>('pending');
+
+  // 🌰 Edit Wizard/Step form state
+  const [editFormStep, setEditFormStep] = useState(1);
+  const [editCanSubmit, setEditCanSubmit] = useState(false);
+
+  React.useEffect(() => {
+    if (editingJob) {
+      setEditName(editingJob.name);
+      setEditType(editingJob.type);
+      setEditClient(editingJob.client || '');
+      setEditValue(String(editingJob.value));
+      setEditReceived(String(editingJob.received));
+      setEditStatus(editingJob.status);
+      setEditCreditTerm(editingJob.creditTerm);
+      setEditPostDate(editingJob.postDate || '');
+      setEditStartDate(editingJob.startDate || '');
+      setEditIsPosted(editingJob.isPosted !== false);
+      setEditNote(editingJob.note || '');
+      setEditWhtRate(editingJob.whtRate || 0);
+      setEditExcludeHolidays(editingJob.excludeHolidays || false);
+      setEditCustomTypeInput('');
+      setEditCustomStatusLabelInput('');
+      setEditCustomStatusBehavior('pending');
+      setEditFormStep(1);
+      setEditCanSubmit(false);
+    }
+  }, [editingJob]);
+
+  React.useEffect(() => {
+    if (editFormStep === 3) {
+      setEditCanSubmit(false);
+      const timer = setTimeout(() => {
+        setEditCanSubmit(true);
+      }, 500); // 500ms debounce to prevent accidental double-click / click carry-over
+      return () => clearTimeout(timer);
+    } else {
+      setEditCanSubmit(false);
+    }
+  }, [editFormStep]);
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Intercept submit keypresses for multi-step flow
+    if (editFormStep < 3) {
+      if (editFormStep === 1) {
+        if (!editName.trim()) {
+          triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          return;
+        }
+      }
+      if (editFormStep === 2) {
+        const val = parseFloat(editValue);
+        if (!editValue.trim() || isNaN(val) || val < 0) {
+          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          return;
+        }
+      }
+      setEditFormStep(prev => prev + 1);
+      return;
+    }
+
+    // Block submission if step 3 is not yet ready (debounce)
+    if (editFormStep === 3 && !editCanSubmit) {
+      return;
+    }
+
+    if (!editingJob || !editName.trim()) return;
+
+    let finalType = editType;
+    if (editType === '__custom__') {
+      const trimmed = editCustomTypeInput.trim();
+      if (!trimmed) {
+        triggerAlert('กรุณากรอกประเภทงาน ⚠️', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        return;
+      }
+      finalType = trimmed;
+      if (!jobTypes.includes(trimmed)) {
+        setJobTypes(prev => [...prev, trimmed]);
+      }
+    }
+
+    let finalStatus = editStatus;
+    let behavior: 'done' | 'partial' | 'pending' = 'pending';
+    if (editStatus === '__custom__') {
+      const labelTrimmed = editCustomStatusLabelInput.trim();
+      if (!labelTrimmed) {
+        triggerAlert('กรุณากรอกชื่อสถานะ ⚠️', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        return;
+      }
+      finalStatus = `status-${Date.now()}`;
+      behavior = editCustomStatusBehavior;
+      const newStatusOpt: StatusOption = {
+        id: finalStatus,
+        label: labelTrimmed,
+        behavior: editCustomStatusBehavior
+      };
+      setStatuses(prev => [...prev, newStatusOpt]);
+    } else {
+      const matched = statuses.find(s => s.id === editStatus);
+      behavior = matched ? matched.behavior : 'pending';
+    }
+
+    const valueNum = parseFloat(editValue) || 0;
+    const whtAmountNum = Math.round(valueNum * (editWhtRate / 100));
+    const netReceivable = valueNum - whtAmountNum;
+    let receivedNum = 0;
+
+    if (behavior === 'done') {
+      receivedNum = netReceivable;
+    } else if (behavior === 'partial') {
+      receivedNum = parseFloat(editReceived) || 0;
+    } else {
+      receivedNum = 0; // pending/unspecified
+    }
+    const pendingNum = Math.max(0, netReceivable - receivedNum);
+
+    const calculatedPay = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
+
+    onEditJob(editingJob.id, {
+      name: editName,
+      type: finalType,
+      client: editClient,
+      value: valueNum,
+      received: receivedNum,
+      pending: pendingNum,
+      status: finalStatus,
+      creditTerm: editCreditTerm,
+      postDate: editPostDate,
+      startDate: editStartDate,
+      isPosted: editIsPosted,
+      payDate: calculatedPay,
+      note: editNote,
+      whtRate: editWhtRate,
+      whtAmount: whtAmountNum,
+      excludeHolidays: editExcludeHolidays
+    });
+
+    triggerAlert('แก้ไขสำเร็จ! ✨', 'ปรับปรุงข้อมูลดีลงานชิ้นนี้เรียบร้อยแล้ว');
+    setEditingJob(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Intercept submit keypresses for multi-step flow
+    if (formStep < 3) {
+      if (formStep === 1) {
+        if (!formName.trim()) {
+          triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          return;
+        }
+      }
+      if (formStep === 2) {
+        const val = parseFloat(formValue);
+        if (!formValue.trim() || isNaN(val) || val < 0) {
+          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          return;
+        }
+      }
+      setFormStep(prev => prev + 1);
+      return;
+    }
+
+    // Block submission if step 3 is not yet ready (debounce)
+    if (formStep === 3 && !canSubmit) {
+      return;
+    }
+
+    if (!formName.trim()) {
+      triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณ');
+      return;
+    }
+
+    let finalType = formType;
+    if (formType === '__custom__') {
+      const trimmed = customTypeInput.trim();
+      if (!trimmed) {
+        triggerAlert('กรุณากรอกประเภทงาน ⚠️', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        return;
+      }
+      finalType = trimmed;
+      if (!jobTypes.includes(trimmed)) {
+        setJobTypes(prev => [...prev, trimmed]);
+      }
+    }
+
+    let finalStatus = formStatus;
+    let behavior: 'done' | 'partial' | 'pending' = 'pending';
+    if (formStatus === '__custom__') {
+      const labelTrimmed = customStatusLabelInput.trim();
+      if (!labelTrimmed) {
+        triggerAlert('กรุณากรอกชื่อสถานะ ⚠️', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        return;
+      }
+      finalStatus = `status-${Date.now()}`;
+      behavior = customStatusBehavior;
+      const newStatusOpt: StatusOption = {
+        id: finalStatus,
+        label: labelTrimmed,
+        behavior: customStatusBehavior
+      };
+      setStatuses(prev => [...prev, newStatusOpt]);
+    } else {
+      const matched = statuses.find(s => s.id === formStatus);
+      behavior = matched ? matched.behavior : 'pending';
+    }
+
+    const valueNum = parseFloat(formValue) || 0;
+    const whtAmountNum = Math.round(valueNum * (formWhtRate / 100));
+    const netReceivable = valueNum - whtAmountNum;
+    let receivedNum = 0;
+    if (behavior === 'done') {
+      receivedNum = netReceivable;
+    } else if (behavior === 'partial') {
+      receivedNum = parseFloat(formReceived) || 0;
+    } else {
+      receivedNum = 0; // pending/unspecified
+    }
+    const pendingNum = Math.max(0, netReceivable - receivedNum);
+
+    const payDateCalculated = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
+
+    onAddJob({
+      name: formName,
+      type: finalType,
+      client: formClient,
+      value: valueNum,
+      received: receivedNum,
+      pending: pendingNum,
+      status: finalStatus,
+      creditTerm: formCreditTerm,
+      postDate: formPostDate,
+      startDate: formStartDate,
+      isPosted: formIsPosted,
+      payDate: payDateCalculated,
+      note: formNote,
+      whtRate: formWhtRate,
+      whtAmount: whtAmountNum,
+      excludeHolidays: formExcludeHolidays
+    });
+
+    // Reset Form
+    setFormName('');
+    setFormClient('');
+    setFormValue('');
+    setFormReceived('');
+    setFormStatus('pending');
+    setFormType('ยังไม่ระบุ');
+    setCustomTypeInput('');
+    setCustomStatusLabelInput('');
+    setCustomStatusBehavior('pending');
+    setFormCreditTerm(0);
+    setFormPostDate('');
+    setFormStartDate('');
+    setFormIsPosted(false);
+    setFormNote('');
+    setFormWhtRate(0);
+    setFormExcludeHolidays(false);
+    setFormStep(1);
+    onCloseAddJob();
+  };
+
+  // Helper to get category tag color
+  const getCategoryColor = (type: string) => {
+    switch (type) {
+      case 'Sponsored':
+      case 'Sponsored Post':
+        return { bg: 'bg-indigo-50 border-indigo-100 dark:bg-indigo-500/10 dark:border-indigo-500/20', text: 'text-indigo-600 dark:text-indigo-300', dot: 'bg-indigo-600' };
+      case 'Video Production':
+        return { bg: 'bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-300', dot: 'bg-emerald-600' };
+      case 'Digital Product':
+        return { bg: 'bg-purple-50 border-purple-100 dark:bg-purple-500/10 dark:border-purple-500/20', text: 'text-purple-600 dark:text-purple-300', dot: 'bg-purple-600' };
+      case 'Consulting':
+      case 'Consulting / Advisory':
+        return { bg: 'bg-amber-50 border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20', text: 'text-amber-600 dark:text-amber-300', dot: 'bg-amber-600' };
+      default:
+        return { bg: 'bg-cyan-50 border-cyan-100 dark:bg-cyan-500/10 dark:border-cyan-500/20', text: 'text-cyan-600 dark:text-cyan-300', dot: 'bg-cyan-600' };
+    }
+  };
+
+  // Helper to get status information
+  const getStatusDisplay = (statusId: string) => {
+    const s = statuses.find(opt => opt.id === statusId);
+    if (!s) {
+      if (statusId === 'unspecified') return { label: 'ยังไม่ระบุ', behavior: 'pending' as const };
+      if (statusId === 'done') return { label: 'จ่ายเงินครบแล้ว', behavior: 'done' as const };
+      if (statusId === 'partial') return { label: 'มัดจำแล้ว', behavior: 'partial' as const };
+      return { label: 'ยังไม่จ่าย', behavior: 'pending' as const };
+    }
+    return { label: s.label, behavior: s.behavior };
+  };
+
+  // Unique job categories in current list for secondary filter
+  const uniqueTypes = Array.from(new Set(jobs.map(j => j.type)));
+
+  // Counts for each sub-tab
+  const totalCount = jobs.length;
+  const wipCount = jobs.filter(j => j.isPosted === false).length;
+  const postedCount = jobs.filter(j => j.isPosted !== false).length;
+
+  // Filter & Search Jobs logic
+  const filteredJobs = jobs.filter(j => {
+    const matchesSearch = j.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          j.client.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || j.status === statusFilter;
+    const matchesType = typeFilter === 'all' || j.type === typeFilter;
+    const matchesSubTab = subTab === 'all' || 
+                          (subTab === 'wip' && j.isPosted === false) || 
+                          (subTab === 'posted' && j.isPosted !== false);
+    return matchesSearch && matchesStatus && matchesType && matchesSubTab;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Header with Stats */}
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
+            ผู้ช่วยจัดการดีล
+          </span>
+          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
+            จัดการงาน ({jobs.length})
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              // Ensure form values are clean
+              setFormName('');
+              setFormClient('');
+              setFormValue('');
+              setFormReceived('');
+              setFormStatus('pending');
+              setFormType('ยังไม่ระบุ');
+              setCustomTypeInput('');
+              setCustomStatusLabelInput('');
+              setCustomStatusBehavior('pending');
+              setFormCreditTerm(0);
+              setFormPostDate('');
+              setFormStartDate('');
+              setFormIsPosted(false);
+              setFormNote('');
+              setFormWhtRate(0);
+              setFormStep(1);
+              onCloseAddJob(); // toggles/opens
+            }}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+          >
+            <Briefcase className="w-3.5 h-3.5" /> + เพิ่มงานใหม่
+          </motion.button>
+        </div>
+      </div>
+
+      {/* 2. Search & Filters Bar */}
+      <div className="space-y-3 bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-4 shadow-xs">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-brand-muted" />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่องาน หรือแบรนด์..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl pl-10 pr-4 py-3 outline-none border border-transparent focus:border-emerald-500/50 transition-all font-medium"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Status Filter */}
+          <div className="flex items-center gap-1.5 bg-brand-faint px-3 py-2 rounded-xl border border-brand-border/40">
+            <Filter className="w-3.5 h-3.5 text-brand-muted shrink-0" />
+            <select
+              value={statusFilter}
+              onChange={(e: any) => setStatusFilter(e.target.value)}
+              className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
+            >
+              <option value="all">สถานะ: ทั้งหมด</option>
+              {statuses.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div className="flex items-center gap-1.5 bg-brand-faint px-3 py-2 rounded-xl border border-brand-border/40">
+            <Briefcase className="w-3.5 h-3.5 text-brand-muted shrink-0" />
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
+            >
+              <option value="all">ประเภท: ทั้งหมด</option>
+              {Array.from(new Set(jobTypes)).filter(Boolean).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+              {uniqueTypes.filter(ut => !jobTypes.includes(ut)).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+
+
+      {/* Sub-tab Navigation Selector */}
+      <div className="flex flex-col sm:flex-row bg-brand-white border border-brand-border rounded-2xl p-1.5 gap-1.5 shadow-2xs">
+        <button
+          onClick={() => setSubTab('all')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
+            subTab === 'all'
+              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              : 'text-brand-muted hover:text-brand-text'
+          }`}
+        >
+          ดีลทั้งหมด ({totalCount})
+        </button>
+        <button
+          onClick={() => setSubTab('wip')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
+            subTab === 'wip'
+              ? 'bg-indigo-600 text-white shadow-xs border border-indigo-700/20'
+              : 'text-indigo-600 hover:bg-indigo-50/50 dark:text-indigo-400 dark:hover:bg-indigo-950/20'
+          }`}
+        >
+          สต๊อกคิดงาน/เตรียมผลิต ({wipCount})
+        </button>
+        <button
+          onClick={() => setSubTab('posted')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
+            subTab === 'posted'
+              ? 'bg-emerald-600 text-white shadow-xs border border-emerald-700/20'
+              : 'text-emerald-600 hover:bg-emerald-50/50 dark:text-emerald-400 dark:hover:bg-emerald-950/20'
+          }`}
+        >
+          โพสต์คลิปแล้ว & ดิวเก็บเงิน ({postedCount})
+        </button>
+      </div>
+
+      {/* 3. Jobs List */}
+      <div className="space-y-3">
+        {filteredJobs.length === 0 ? (
+          <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
+            <Mascot mood="sleepy" size={100} />
+            <div>
+              <p className="text-xs font-semibold text-brand-text">ไม่พบข้อมูลงานตามเงื่อนไขที่เลือก</p>
+              <p className="text-[10px] mt-1">ลองปรับตัวกรอง หรือสร้างงานใหม่ด้านบน</p>
+            </div>
+          </div>
+        ) : (
+          filteredJobs.map(j => {
+            const catColors = getCategoryColor(j.type);
+            const relText = getRelativeDaysText(j.payDate || j.postDate);
+            const showPayCountdown = j.pending > 0 && j.payDate && j.isPosted !== false;
+
+            return (
+              <motion.div
+                key={j.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden"
+              >
+                {/* Visual Accent bar on the left */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${catColors.dot}`} />
+
+                {/* Job Info Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${catColors.bg} ${catColors.text}`}>
+                        {j.type}
+                      </span>
+                      {j.client && (
+                        <span className="text-xs text-brand-muted font-medium flex items-center gap-1">
+                          <User className="w-3 h-3" /> {j.client}
+                        </span>
+                      )}
+                      {j.isPosted === false && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 border border-indigo-100/50 dark:bg-indigo-950/40 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400">
+                          กำลังเตรียมงาน / ถ่ายทำ
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-base font-bold text-brand-text leading-snug mt-1">
+                      {j.name}
+                    </h4>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xl font-extrabold font-mono text-brand-text">
+                      {formatCurrency(j.value)}
+                    </p>
+                    {(() => {
+                      const statusInfo = getStatusDisplay(j.status);
+                      const isDone = statusInfo.behavior === 'done';
+                      const isPartial = statusInfo.behavior === 'partial';
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                          isDone 
+                            ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-100/40 dark:border-emerald-500/10' 
+                            : isPartial
+                            ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
+                            : 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
+                        }`}>
+                          {statusInfo.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Dates & Credit Terms or WIP section */}
+                {j.isPosted === false ? (
+                  <div className="pt-3 border-t border-brand-faint dark:border-neutral-800 text-xs space-y-2.5">
+                    <div className="flex items-center gap-2 bg-indigo-50/40 dark:bg-indigo-500/5 border border-indigo-100/30 dark:border-indigo-500/10 p-2.5 rounded-xl">
+                      <div>
+                        <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">ขั้นตอนเตรียมงาน & ผลิต</p>
+                        <p className="text-[11px] font-bold text-brand-text dark:text-neutral-300 mt-0.5">กำลังเขียนสคริปต์ ถ่ายทำ หรือเตรียมคอนเทนต์ (ยังไม่ได้โพสต์จริง)</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">วันเริ่มดีลงาน</p>
+                        <p className="font-bold text-brand-text dark:text-neutral-200 mt-0.5 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span className="text-[11px] truncate">{safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' })}</span>
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">เป้าหมายออนแอร์</p>
+                        <p className="font-bold text-brand-text dark:text-neutral-300 mt-0.5 flex flex-col gap-0.5">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-brand-muted shrink-0" />
+                            <span className="text-[11px] truncate">{safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' })}</span>
+                          </span>
+                          {j.postDate && (
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm w-fit ${
+                              getRelativeDaysText(j.postDate).isOverdue
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                            }`}>
+                              {getRelativeDaysText(j.postDate).text}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">เครดิตเทอมดีล</p>
+                        <p className="font-bold text-brand-text dark:text-neutral-300 mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {j.creditTerm === 0 ? 'รับทันที' : `+${j.creditTerm} วัน`}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-brand-faint text-xs">
+                    <div>
+                      <p className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">วันดีล / วันออนแอร์</p>
+                      <p className="font-bold text-brand-text mt-0.5 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-brand-muted" /> 
+                        {safeFormatThaiDate(j.postDate)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
+                        เครดิตเทอม / วันรับเงิน
+                      </p>
+                      <p className="font-bold text-brand-text mt-0.5">
+                        {j.creditTerm === 0 ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">รับทันที (No Credit)</span>
+                        ) : (
+                          <span className="flex flex-col">
+                            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-black">
+                              <Clock className="w-3.5 h-3.5" /> +{j.creditTerm} วัน
+                            </span>
+                            <span className="text-[10px] text-brand-muted font-bold">
+                              (ดิว {j.payDate ? safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' }) : ''})
+                            </span>
+                            {/* Remaining days calculation on the card itself */}
+                            {j.pending > 0 && j.payDate && (
+                              <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 mt-1 rounded-sm border w-fit ${
+                                relText.isOverdue
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                              }`}>
+                                <Clock className="w-2.5 h-2.5 shrink-0" /> {relText.text}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Financial breakdown */}
+                <div className="bg-brand-faint p-3 rounded-2xl border border-brand-border/40 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">มูลค่าเต็ม</span>
+                    <span className="font-extrabold text-brand-text font-mono">{formatCurrency(j.value)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">รับแล้ว</span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(j.received)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">ค้างจ่าย</span>
+                    <span className={`font-extrabold font-mono ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-brand-muted'}`}>
+                      {formatCurrency(j.pending)}
+                    </span>
+                  </div>
+                </div>
+
+                {j.whtRate && j.whtRate > 0 ? (
+                  <div className="flex items-center justify-between text-[10px] bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl text-amber-800 dark:text-amber-400 font-bold leading-none select-none">
+                    <span className="flex items-center gap-1">หัก ณ ที่จ่าย {j.whtRate}%</span>
+                    <span className="font-mono">-{formatCurrency(j.whtAmount || 0)}</span>
+                  </div>
+                ) : null}
+
+                {/* Pay date countdown badge */}
+                {showPayCountdown && (
+                  <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
+                    relText.isOverdue 
+                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10' 
+                      : 'bg-amber-50/50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
+                  }`}>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-emerald-500 shrink-0" /> กำหนดชำระเงินที่เหลือ
+                    </span>
+                    <span className="font-black">{relText.text}</span>
+                  </div>
+                )}
+
+                {/* WIP countdown badge */}
+                {j.isPosted === false && j.postDate && (
+                  <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
+                    getRelativeDaysText(j.postDate).isOverdue 
+                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10' 
+                      : 'bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-800 dark:text-indigo-300 border-indigo-100/40 dark:border-indigo-500/10'
+                  }`}>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-indigo-500 shrink-0" /> ระยะเวลาผลิตที่เหลือ (เป้าหมายออนแอร์)
+                    </span>
+                    <span className="font-black">{getRelativeDaysText(j.postDate).text}</span>
+                  </div>
+                )}
+
+                {j.note && (
+                  <p className="text-xs text-brand-muted bg-brand-faint p-2.5 rounded-xl border border-brand-border/40 italic">
+                    โน้ต: {j.note}
+                  </p>
+                )}
+
+                {/* Mini Interaction row */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const statusInfo = getStatusDisplay(j.status);
+                      const isDone = statusInfo.behavior === 'done';
+                      const isPending = statusInfo.behavior === 'pending';
+                      return (
+                        <>
+                          {!isDone && (
+                            <button
+                              onClick={() => {
+                                const today = new Date();
+                                const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                onEditJob(j.id, { 
+                                  status: 'done', 
+                                  received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)), 
+                                  pending: 0,
+                                  paymentStatus: 'paid',
+                                  payDate: localDateStr
+                                });
+                              }}
+                              className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-emerald-100/20 dark:border-emerald-500/10 cursor-pointer"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" /> ได้เงินครบแล้ว
+                            </button>
+                          )}
+                          {isPending && (
+                            <button
+                              onClick={() => {
+                                const partialVal = Math.round(j.value * 0.3); // suggest 30% deposit
+                                triggerPrompt(
+                                  'รับเงินมัดจำบางส่วน',
+                                  `ใส่ยอดเงินมัดจำที่ได้รับสำหรับงาน "${j.name}" (แนะนำ 30% คือ ${partialVal.toLocaleString()} ฿):`,
+                                  String(partialVal),
+                                  'ป้อนยอดเงิน (฿)',
+                                  'number',
+                                  (val) => {
+                                    const amt = parseFloat(val) || 0;
+                                    if (amt > 0) {
+                                      const today = new Date();
+                                      const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                      onEditJob(j.id, { 
+                                        status: 'partial', 
+                                        received: amt, 
+                                        pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
+                                        paymentStatus: 'partial',
+                                        payDate: localDateStr
+                                      });
+                                    }
+                                  }
+                                );
+                              }}
+                              className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg transition-colors border border-amber-100/20 dark:border-amber-500/10 cursor-pointer"
+                            >
+                              ได้มัดจำ
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditingJob(j)}
+                      className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/15 rounded-lg transition-colors cursor-pointer"
+                      title="แก้ไขดีลงาน"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteJob(j.id)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/15 rounded-lg transition-colors cursor-pointer"
+                      title="ลบงาน"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })
+        )}
+      </div>
+
+      {/* 4. Sliding Bottom Sheet Modal for Adding Job */}
+      <AnimatePresence>
+        {isAddJobOpen && (
+          <div className="fixed inset-0 z-200">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onCloseAddJob}
+              className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+            />
+
+            {/* Content sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
+            >
+              {/* Drag indicator */}
+              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
+
+              <div className="flex justify-between items-center shrink-0">
+                <div>
+                  <span className="text-[9px] font-black tracking-wider text-[#E65F2B] dark:text-[#FFA473] uppercase">
+                    ขั้นตอน {formStep} จาก 3
+                  </span>
+                  <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5">
+                    เพิ่มโปรเจกต์งานใหม่
+                  </h3>
+                </div>
+                <button 
+                  onClick={onCloseAddJob} 
+                  className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Progress Stepper Indicator */}
+              <div className="flex items-center justify-between py-2 border-b border-brand-border/30 shrink-0">
+                {[
+                  { step: 1, name: 'ข้อมูลดีล' },
+                  { step: 2, name: 'เงินและภาษี' },
+                  { step: 3, name: 'ส่งมอบงาน' },
+                ].map((s) => (
+                  <div key={s.step} className="flex items-center gap-2">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+                        formStep === s.step
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : formStep > s.step
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-brand-faint dark:bg-stone-850 border border-brand-border/60 text-brand-muted'
+                      }`}
+                    >
+                      {formStep > s.step ? '✓' : s.step}
+                    </div>
+                    <span
+                      className={`text-[10px] font-black transition-all ${
+                        formStep === s.step
+                          ? 'text-brand-text dark:text-white'
+                          : 'text-brand-muted'
+                      }`}
+                    >
+                      {s.name}
+                    </span>
+                    {s.step < 3 && <div className="w-4 h-[1px] bg-brand-border/30 hidden sm:block" />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Guideline / Mascot Advice Balloon */}
+              <div className="bg-gradient-to-r from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10 border border-emerald-500/15 rounded-2xl p-3.5 flex gap-3 items-start animate-fade-in shrink-0">
+                <div className="shrink-0 pt-0.5">
+                  <Mascot mood="happy" size={38} />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
+                    คำแนะนำจากลูกนัท
+                  </h4>
+                  <p className="text-[11px] text-brand-text/80 dark:text-neutral-200 font-medium leading-relaxed">
+                    {formStep === 1 && "เย้! เริ่มบันทึกเสบียงใหม่กัน กรอก 'ชื่อโปรเจกต์' แล้วคลิกเลือก 'ประเภทงาน' ด้านล่างได้เลยนะ (เปลี่ยนหรือเพิ่มเองได้เสมอ!)"}
+                    {formStep === 2 && "ใส่ค่าตัวได้เลยน้า ฟรีแลนซ์ส่วนใหญ่จะโดนหัก ณ ที่จ่าย 3% ระบบจะจำลองใบเสร็จรับเงินจริงและหักภาษีให้อัตโนมัติทันที!"}
+                    {formStep === 3 && "สุดท้ายแล้ว! เลือกว่าตอนนี้งานเสร็จหรือยังไม่เสร็จ (WIP) และกำหนดวันเพื่อเตือนเวลาเสบียงเข้าคลังในเมนูหน้าหลักได้เลย!"}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4 text-xs font-semibold flex-1">
+                <AnimatePresence mode="wait">
+                  {/* STEP 1: Basic Project Info */}
+                  {formStep === 1 && (
+                    <motion.div
+                      key="step1"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      {/* Name */}
+                      <div className="space-y-1.5">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชื่องาน / ดีลสัญญา <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="เช่น รับเขียนบทความรีวิว / รีวิวลิปสติกแบรนด์ A"
+                          value={formName}
+                          onChange={(e) => setFormName(e.target.value)}
+                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 transition-all font-medium"
+                        />
+                      </div>
+
+                      {/* Brand Client */}
+                      <div className="space-y-1.5">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">แบรนด์ / ลูกค้าที่จ้าง</label>
+                        <input
+                          type="text"
+                          placeholder="เช่น Biore / Shopee ประเทศไทย"
+                          value={formClient}
+                          onChange={(e) => setFormClient(e.target.value)}
+                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 transition-all font-medium"
+                        />
+                      </div>
+
+                      {/* Category Type as Pills */}
+                      <div className="space-y-2">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
+                        
+                        <div className="flex flex-wrap gap-1.5 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[140px] overflow-y-auto no-scrollbar">
+                          {Array.from(new Set(['ยังไม่ระบุ', ...jobTypes])).filter(Boolean).map(t => {
+                            const isSelected = formType === t;
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => {
+                                  setFormType(t);
+                                  setCustomTypeInput('');
+                                }}
+                                className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
+                                  isSelected
+                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormType('__custom__');
+                            }}
+                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed ${
+                              formType === '__custom__'
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                            }`}
+                          >
+                            เขียนประเภทงานเอง...
+                          </button>
+                        </div>
+
+                        {formType === '__custom__' && (
+                          <div className="animate-fade-in space-y-2 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/15">
+                            <label className="text-[10px] text-emerald-800 dark:text-emerald-400 font-extrabold uppercase block">เขียนประเภทงานใหม่</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="เช่น ถ่ายรูปโปรไฟล์, วิดีโอ TikTok"
+                                value={customTypeInput}
+                                onChange={(e) => setCustomTypeInput(e.target.value)}
+                                className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const trimmed = customTypeInput.trim();
+                                  if (trimmed) {
+                                    if (!jobTypes.includes(trimmed)) {
+                                      setJobTypes(prev => [...prev, trimmed]);
+                                    }
+                                    setFormType(trimmed);
+                                    setCustomTypeInput('');
+                                  }
+                                }}
+                                className="px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
+                              >
+                                ตกลง
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* STEP 2: Money, Taxes, Progress, Terms, and Notes */}
+                  {formStep === 2 && (
+                    <motion.div
+                      key="step2"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Contract value */}
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            placeholder="เช่น 30000"
+                            value={formValue}
+                            onChange={(e) => setFormValue(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Withholding Tax visual selector cards */}
+                      <div className="space-y-2">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
+                          หัก ณ ที่จ่าย (Withholding Tax)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { rate: 0, label: 'ไม่มีหัก (0%)', desc: 'รับยอดเต็ม เช่น ไม่เข้าระบบภาษี' },
+                            { rate: 1, label: 'หัก 1% (ขนส่ง)', desc: 'งานโฆษณาขนส่งบริการพิเศษ' },
+                            { rate: 3, label: 'หัก 3% (ทั่วไป)', desc: 'งานจ้างทำของ ฟรีแลนซ์ไทย' },
+                            { rate: 5, label: 'หัก 5% (ค่าเช่า)', desc: 'ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ' },
+                          ].map(({ rate, label, desc }) => {
+                            const isSelected = formWhtRate === rate;
+                            return (
+                              <button
+                                key={rate}
+                                type="button"
+                                onClick={() => setFormWhtRate(rate)}
+                                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-[68px] ${
+                                  isSelected
+                                    ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-400 shadow-xs'
+                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                }`}
+                              >
+                                <span className="text-xs font-black">{label}</span>
+                                <span className="text-[9px] text-brand-muted dark:text-neutral-400 mt-0.5 leading-tight">{desc}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Project Status Selection */}
+                      <div className="space-y-2">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
+                          สถานะโครงการ <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {statuses.map(s => {
+                            const isSelected = formStatus === s.id;
+                            let statusColor = 'border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300 bg-brand-white dark:bg-stone-800';
+                            if (isSelected) {
+                              if (s.behavior === 'done') {
+                                statusColor = 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-950 dark:text-emerald-400 shadow-xs ring-2 ring-emerald-500/20';
+                              } else if (s.behavior === 'partial') {
+                                statusColor = 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-400 shadow-xs ring-2 ring-amber-500/20';
+                              } else {
+                                statusColor = 'bg-rose-500/10 dark:bg-rose-500/15 border-rose-500 text-rose-950 dark:text-rose-400 shadow-xs ring-2 ring-rose-500/20';
+                              }
+                            }
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormStatus(s.id);
+                                  if (s.behavior === 'done') {
+                                    setFormReceived(formValue);
+                                  } else if (s.behavior === 'partial') {
+                                    if (parseFloat(formReceived) === parseFloat(formValue)) {
+                                      setFormReceived('');
+                                    }
+                                  } else {
+                                    setFormReceived('0');
+                                  }
+                                }}
+                                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center h-[54px] ${statusColor}`}
+                              >
+                                <span className="text-xs font-black">{s.label}</span>
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => setFormStatus('__custom__')}
+                            className={`p-3 rounded-2xl border border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center h-[54px] ${
+                              formStatus === '__custom__'
+                                ? 'bg-purple-500/10 dark:bg-purple-500/15 border-purple-500 text-purple-950 dark:text-purple-400 shadow-xs ring-2 ring-purple-500/20'
+                                : 'border-brand-border/50 hover:border-brand-text/30 text-brand-muted bg-brand-white dark:bg-stone-800'
+                            }`}
+                          >
+                            <span className="text-xs font-black">เขียนสถานะเอง...</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Live calculated mockup tax receipt */}
+                      <div className="bg-[#E65F2B]/5 dark:bg-[#FFA473]/5 border border-[#E65F2B]/15 dark:border-[#FFA473]/15 rounded-2xl p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
+                          <span>ใบจำลองคำนวณเงินและภาษี</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">มูลค่าโครงการเต็ม:</div>
+                          <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(formValue) || 0).toLocaleString()}</div>
+                          
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({formWhtRate}%):</div>
+                          <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)).toLocaleString()}</div>
+                          
+                          <div className="border-t border-brand-border/30 dark:border-neutral-800 col-span-2 my-1" />
+
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
+                          <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
+                            ฿{( (parseFloat(formValue) || 0) - Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)) ).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Custom Status Setup */}
+                      {formStatus === '__custom__' && (
+                        <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
+                          <div>
+                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ระบุชื่อสถานะใหม่</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="เช่น รอส่งมอบงาน, รองวดที่ 2"
+                              value={customStatusLabelInput}
+                              onChange={(e) => setCustomStatusLabelInput(e.target.value)}
+                              className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ประเภทการรับเงินของสถานะนี้</label>
+                            <select
+                              value={customStatusBehavior}
+                              onChange={(e: any) => {
+                                const b = e.target.value;
+                                setCustomStatusBehavior(b);
+                                if (b === 'done') {
+                                  setFormReceived(formValue);
+                                } else if (b === 'partial') {
+                                  if (parseFloat(formReceived) === parseFloat(formValue)) {
+                                    setFormReceived('');
+                                  }
+                                } else {
+                                  setFormReceived('0');
+                                }
+                              }}
+                              className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
+                            >
+                              <option value="pending">ยังไม่จ่าย (Pending)</option>
+                              <option value="partial">ได้มัดจำบางส่วนแล้ว (Partial)</option>
+                              <option value="done">ได้รับเงินครบถ้วนแล้ว (Done)</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Received Deposit input - shown only if status is "partial" */}
+                      {(formStatus === 'partial' || 
+                        (formStatus !== '__custom__' && statuses.find(s => s.id === formStatus)?.behavior === 'partial') ||
+                        (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
+                            value={formReceived}
+                            onChange={(e) => setFormReceived(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* STEP 3: Timeline & Terms & Notes */}
+                  {formStep === 3 && (
+                    <motion.div
+                      key="step3"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      {/* WIP vs Posted progress level */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">ระดับความคืบหน้าของโครงการ</label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormIsPosted(false);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                              !formIsPosted
+                                ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-400 font-extrabold shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
+                            }`}
+                          >
+                            <span className="text-sm font-bold">สต๊อกเตรียมผลิต (WIP)</span>
+                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">คุยดีล / แพลนคอนเทนต์ / เตรียมตัวผลิต</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormIsPosted(true);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                              formIsPosted
+                                ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-950 dark:text-emerald-400 font-extrabold shadow-xs ring-2 ring-emerald-500/20'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
+                            }`}
+                          >
+                            <span className="text-sm font-bold">ส่งงานแล้ว (POSTED)</span>
+                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">ส่งมอบงาน / ออนแอร์ / เตรียมเก็บเงิน</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <AnimatePresence mode="wait">
+                        {!formIsPosted ? (
+                          <motion.div
+                            key="wip-fields"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="space-y-4"
+                          >
+                            {/* วันเริ่มดีลงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">📅 วันเริ่มดีลงาน / ได้รับสัญญา</label>
+                                {formStartDate && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setFormStartDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    ❌ ล้างวันที่
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={formStartDate}
+                                onChange={(e) => setFormStartDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
+                              />
+                              <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
+                                * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
+                              </p>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">📝 บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <textarea
+                                placeholder="เช่น มัดจำก่อนถ่าย 50%, สัญญาหลักเก็บไว้ในโน้ตไลน์กลุ่ม แบรนด์ขอตรวจดราฟท์แรกวันที่..."
+                                rows={3}
+                                value={formNote}
+                                onChange={(e) => setFormNote(e.target.value)}
+                                className="w-full bg-brand-faint dark:bg-stone-850 text-xs text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-amber-500 font-medium leading-relaxed transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="posted-fields"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="space-y-4"
+                          >
+                            {/* Credit Term Selection */}
+                            <div className="space-y-2.5 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold block text-[11px] uppercase tracking-wider">
+                                  ⏳ ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
+                                </label>
+                                <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold">
+                                  (คำนวณอัตโนมัติ)
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {[
+                                  { value: 0, label: 'ทันที' },
+                                  { value: 30, label: '30 วัน' },
+                                  { value: 45, label: '45 วัน' },
+                                  { value: 60, label: '60 วัน' },
+                                  { value: 90, label: '90 วัน' },
+                                ].map((opt) => {
+                                  const isSelected = formCreditTerm === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => setFormCreditTerm(opt.value)}
+                                      className={`py-2.5 px-0.5 rounded-xl border text-center text-[10px] font-black transition-all cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-[#E65F2B] border-[#E65F2B] text-white shadow-xs scale-102'
+                                          : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:border-brand-text/30'
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {formCreditTerm > 0 && (
+                                <div className="mt-2.5 pt-2.5 border-t border-emerald-500/10 flex items-center justify-between">
+                                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={formExcludeHolidays}
+                                      onChange={(e) => setFormExcludeHolidays(e.target.checked)}
+                                      className="w-4 h-4 rounded border-brand-border/60 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
+                                    />
+                                    <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400">
+                                      ไม่นับวันหยุดราชการและเสาร์-อาทิตย์
+                                    </span>
+                                  </label>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
+                                    วันทำการเท่านั้น
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* วันส่งมอบงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold block text-[11px] uppercase tracking-wider">📅 วันส่งมอบงาน หรือวันออนแอร์จริง</label>
+                                {formPostDate && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setFormPostDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    ❌ ล้างวันที่
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={formPostDate}
+                                onChange={(e) => setFormPostDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold cursor-pointer transition-all"
+                              />
+
+                              {/* Live calculation of Due date and remaining days */}
+                              {formPostDate && formCreditTerm > 0 && (
+                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold">📅 วันกำหนดชำระเงิน (Due Date):</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                                      {safeFormatThaiDate(calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays))}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold flex items-center gap-1">
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> กำหนดชำระเงินที่เหลือ:
+                                    </span>
+                                    {(() => {
+                                      const payDateVal = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
+                                      const rel = getRelativeDaysText(payDateVal);
+                                      return (
+                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
+                                          rel.isOverdue
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                                        }`}>
+                                          {rel.text}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">📝 บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <textarea
+                                placeholder="เช่น ส่งมอบไฟล์ผ่าน Google Drive แล้ว, ดำเนินการวางบิลรอบสิ้นเดือนนี้..."
+                                rows={3}
+                                value={formNote}
+                                onChange={(e) => setFormNote(e.target.value)}
+                                className="w-full bg-brand-faint dark:bg-stone-850 text-xs text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-medium leading-relaxed transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Bottom Navigation buttons */}
+                <div className="flex items-center gap-3 pt-3 border-t border-brand-border/30 shrink-0">
+                  {formStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormStep(prev => prev - 1)}
+                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer text-center"
+                    >
+                      ← ย้อนกลับ
+                    </button>
+                  )}
+                  
+                  {formStep < 3 ? (
+                    <button
+                      key="btn-next"
+                      type="button"
+                      onClick={() => {
+                        if (formStep === 1) {
+                          if (!formName.trim()) {
+                            triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            return;
+                          }
+                        }
+                        if (formStep === 2) {
+                          const val = parseFloat(formValue);
+                          if (!formValue.trim() || isNaN(val) || val < 0) {
+                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            return;
+                          }
+                        }
+                        setFormStep(prev => prev + 1);
+                      }}
+                      className="flex-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer text-center shadow-xs"
+                    >
+                      ขั้นตอนถัดไป →
+                    </button>
+                  ) : (
+                    <button
+                      key="btn-submit"
+                      type="submit"
+                      disabled={!canSubmit}
+                      className={`flex-2 py-3 text-white rounded-xl text-xs font-black transition-all text-center shadow-sm ${
+                        canSubmit 
+                          ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer' 
+                          : 'bg-emerald-600/50 cursor-not-allowed opacity-75'
+                      }`}
+                    >
+                      บันทึกข้อมูลดีลงาน ✨
+                    </button>
+                  )}
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 5. Sliding Bottom Sheet Modal for Editing Job */}
+      <AnimatePresence>
+        {editingJob && (
+          <div className="fixed inset-0 z-200">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingJob(null)}
+              className="absolute inset-0 bg-black/45 backdrop-blur-xs"
+            />
+
+            {/* Content sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
+            >
+              {/* Drag indicator */}
+              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
+
+              <div className="flex justify-between items-center shrink-0">
+                <div>
+                  <span className="text-[9px] font-black tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">
+                    ขั้นตอน {editFormStep} จาก 3
+                  </span>
+                  <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5">
+                    แก้ไขโปรเจกต์งานดีล
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setEditingJob(null)} 
+                  className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Progress Stepper Indicator */}
+              <div className="flex items-center justify-between py-2 border-b border-brand-border/30 shrink-0">
+                {[
+                  { step: 1, name: 'ข้อมูลดีล' },
+                  { step: 2, name: 'เงินและภาษี' },
+                  { step: 3, name: 'ส่งมอบงาน' },
+                ].map((s) => (
+                  <div key={s.step} className="flex items-center gap-2">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+                        editFormStep === s.step
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : editFormStep > s.step
+                          ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+                          : 'bg-brand-faint dark:bg-stone-850 border border-brand-border/60 text-brand-muted'
+                      }`}
+                    >
+                      {editFormStep > s.step ? '✓' : s.step}
+                    </div>
+                    <span
+                      className={`text-[10px] font-black transition-all ${
+                        editFormStep === s.step
+                          ? 'text-brand-text dark:text-white'
+                          : 'text-brand-muted'
+                      }`}
+                    >
+                      {s.name}
+                    </span>
+                    {s.step < 3 && <div className="w-4 h-[1px] bg-brand-border/30 hidden sm:block" />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Guideline / Mascot Advice Balloon */}
+              <div className="bg-gradient-to-r from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 border border-indigo-500/15 rounded-2xl p-3.5 flex gap-3 items-start animate-fade-in shrink-0">
+                <div className="shrink-0 pt-0.5">
+                  <Mascot mood="happy" size={38} />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-[10px] font-black text-indigo-800 dark:text-indigo-400 uppercase tracking-wider">
+                    คำแนะนำจากลูกนัท
+                  </h4>
+                  <p className="text-[11px] text-brand-text/80 dark:text-neutral-200 font-medium leading-relaxed">
+                    {editFormStep === 1 && "ปรับเปลี่ยนรายละเอียดดีล 'ชื่อดีลงาน' หรือ 'ประเภทงาน' ของคุณเพื่อความเหมาะสมได้เลยนะค้าบ!"}
+                    {editFormStep === 2 && "ปรับแก้ตัวเลขค่าจ้าง หรือเลือกเปอร์เซ็นต์หัก ณ ที่จ่ายใหม่ได้เลย ระบบหักคำนวณภาษีให้อัตโนมัติทันที!"}
+                    {editFormStep === 3 && "อัปเดตความคืบหน้า (WIP/Posted) กำหนดระยะเวลาเครดิตเทอม และใส่โน้ตช่วยจำสุดท้ายก่อนจัดเก็บเสบียงกัน!"}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4 text-xs font-semibold flex-1">
+                <AnimatePresence mode="wait">
+                  {/* STEP 1: Basic Project Info */}
+                  {editFormStep === 1 && (
+                    <motion.div
+                      key="edit-step1"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      {/* Name */}
+                      <div className="space-y-1.5">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชื่องาน / ดีลสัญญา <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="เช่น รับเขียนบทความรีวิว / รีวิวลิปสติกแบรนด์ A"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 transition-all font-medium"
+                        />
+                      </div>
+
+                      {/* Brand Client */}
+                      <div className="space-y-1.5">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">แบรนด์ / ลูกค้าที่จ้าง</label>
+                        <input
+                          type="text"
+                          placeholder="เช่น Biore / Shopee ประเทศไทย"
+                          value={editClient}
+                          onChange={(e) => setEditClient(e.target.value)}
+                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 transition-all font-medium"
+                        />
+                      </div>
+
+                      {/* Category Type as Pills */}
+                      <div className="space-y-2">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
+                        
+                        <div className="flex flex-wrap gap-1.5 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[140px] overflow-y-auto no-scrollbar">
+                          {Array.from(new Set(['ยังไม่ระบุ', ...jobTypes])).filter(Boolean).map(t => {
+                            const isSelected = editType === t;
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => {
+                                  setEditType(t);
+                                  setEditCustomTypeInput('');
+                                }}
+                                className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
+                                  isSelected
+                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm hover:bg-indigo-700'
+                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditType('__custom__');
+                            }}
+                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed ${
+                              editType === '__custom__'
+                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                            }`}
+                          >
+                            เขียนประเภทงานเอง...
+                          </button>
+                        </div>
+
+                        {editType === '__custom__' && (
+                          <div className="animate-fade-in space-y-2 bg-indigo-500/5 dark:bg-indigo-500/10 p-3 rounded-2xl border border-indigo-500/15">
+                            <label className="text-[10px] text-indigo-800 dark:text-indigo-400 font-extrabold uppercase block">เขียนประเภทงานใหม่</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="เช่น ถ่ายรูปโปรไฟล์, วิดีโอ TikTok"
+                                value={editCustomTypeInput}
+                                onChange={(e) => setEditCustomTypeInput(e.target.value)}
+                                className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const trimmed = editCustomTypeInput.trim();
+                                  if (trimmed) {
+                                    if (!jobTypes.includes(trimmed)) {
+                                      setJobTypes(prev => [...prev, trimmed]);
+                                    }
+                                    setEditType(trimmed);
+                                    setEditCustomTypeInput('');
+                                  }
+                                }}
+                                className="px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
+                              >
+                                ตกลง
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* STEP 2: Money, Taxes, Progress, Terms, and Notes */}
+                  {editFormStep === 2 && (
+                    <motion.div
+                      key="edit-step2"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Contract value */}
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
+                          <input
+                            type="number"
+                            required
+                            min="0"
+                            placeholder="เช่น 30000"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Status Selection */}
+                      <div className="space-y-1.5">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">สถานะโครงการ</label>
+                        <select
+                          value={editStatus}
+                          onChange={(e: any) => {
+                            const val = e.target.value;
+                            setEditStatus(val);
+                            const matched = statuses.find(s => s.id === val);
+                            if (val === 'done' || matched?.behavior === 'done') {
+                              setEditReceived(editValue);
+                            } else if (val === 'partial' || matched?.behavior === 'partial') {
+                              if (parseFloat(editReceived) === parseFloat(editValue)) {
+                                setEditReceived('');
+                              }
+                            } else {
+                              setEditReceived('0');
+                            }
+                          }}
+                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 cursor-pointer font-bold"
+                        >
+                          <option value="unspecified">ยังไม่ระบุ</option>
+                          {statuses.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {s.label}
+                            </option>
+                          ))}
+                          <option value="__custom__">เขียนสถานะเอง...</option>
+                        </select>
+
+                        {editStatus === '__custom__' && (
+                          <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
+                            <div>
+                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ระบุชื่อสถานะใหม่</label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="ระบุสถานะใหม่ เช่น รอตรวจบรีฟ"
+                                value={editCustomStatusLabelInput}
+                                onChange={(e) => setEditCustomStatusLabelInput(e.target.value)}
+                                className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">พฤติกรรมการจ่ายเงิน</label>
+                              <select
+                                value={editCustomStatusBehavior}
+                                onChange={(e: any) => {
+                                  const b = e.target.value;
+                                  setEditCustomStatusBehavior(b);
+                                  if (b === 'done') {
+                                    setEditReceived(editValue);
+                                  } else if (b === 'partial') {
+                                    if (parseFloat(editReceived) === parseFloat(editValue)) {
+                                      setEditReceived('');
+                                    }
+                                  } else {
+                                    setEditReceived('0');
+                                  }
+                                }}
+                                className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
+                              >
+                                <option value="pending">ยังไม่จ่าย (Pending)</option>
+                                <option value="partial">มัดจำแล้ว (Partial)</option>
+                                <option value="done">จ่ายเงินครบแล้ว (Done)</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Received Deposit input - shown only if status is "partial" */}
+                      {(editStatus === 'partial' || 
+                        (editStatus !== '__custom__' && statuses.find(s => s.id === editStatus)?.behavior === 'partial') ||
+                        (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
+                            value={editReceived}
+                            onChange={(e) => setEditReceived(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+                      )}
+
+                      {/* Withholding Tax visual selector cards */}
+                      <div className="space-y-2">
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
+                          หัก ณ ที่จ่าย (Withholding Tax)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { rate: 0, label: 'ไม่มีหัก (0%)', desc: 'รับยอดเต็ม เช่น ไม่เข้าระบบภาษี' },
+                            { rate: 1, label: 'หัก 1% (ขนส่ง)', desc: 'งานโฆษณาขนส่งบริการพิเศษ' },
+                            { rate: 3, label: 'หัก 3% (ทั่วไป)', desc: 'งานจ้างทำของ ฟรีแลนซ์ไทย' },
+                            { rate: 5, label: 'หัก 5% (ค่าเช่า)', desc: 'ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ' },
+                          ].map(({ rate, label, desc }) => {
+                            const isSelected = editWhtRate === rate;
+                            return (
+                              <button
+                                key={rate}
+                                type="button"
+                                onClick={() => setEditWhtRate(rate)}
+                                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-[68px] ${
+                                  isSelected
+                                    ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-400 shadow-xs'
+                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                }`}
+                              >
+                                <span className="text-xs font-black">{label}</span>
+                                <span className="text-[9px] text-brand-muted dark:text-neutral-400 mt-0.5 leading-tight">{desc}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Live calculated mockup tax receipt */}
+                      <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/15 dark:border-indigo-500/15 rounded-2xl p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
+                          <span>ใบจำลองคำนวณเงินและภาษี (แก้ไข)</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">มูลค่าโครงการเต็ม:</div>
+                          <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(editValue) || 0).toLocaleString()}</div>
+
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({editWhtRate}%):</div>
+                          <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100)).toLocaleString()}</div>
+                          
+                          <div className="border-t border-brand-border/30 dark:border-neutral-800 col-span-2 my-1" />
+
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
+                          <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
+                            ฿{((parseFloat(editValue) || 0) - Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100))).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* STEP 3: Delivery Timeline & Notes */}
+                  {editFormStep === 3 && (
+                    <motion.div
+                      key="edit-step3"
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 15 }}
+                      className="space-y-4"
+                    >
+                      {/* WIP vs Posted progress level */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">ระดับความคืบหน้าของโครงการ</label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditIsPosted(false);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                              !editIsPosted
+                                ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-955 dark:text-amber-400 font-extrabold shadow-xs ring-2 ring-amber-500/20'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
+                            }`}
+                          >
+                            <span className="text-sm font-bold">สต๊อกเตรียมผลิต (WIP)</span>
+                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">คุยดีล / แพลนคอนเทนต์ / เตรียมตัวผลิต</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditIsPosted(true);
+                            }}
+                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                              editIsPosted
+                                ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-955 dark:text-emerald-400 font-extrabold shadow-xs ring-2 ring-emerald-500/20'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
+                            }`}
+                          >
+                            <span className="text-sm font-bold">ส่งงานแล้ว (POSTED)</span>
+                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">ส่งมอบงาน / ออนแอร์ / เตรียมเก็บเงิน</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <AnimatePresence mode="wait">
+                        {!editIsPosted ? (
+                          <motion.div
+                            key="edit-wip-fields"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="space-y-4"
+                          >
+                            {/* วันเริ่มดีลงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">วันเริ่มดีลงาน / ได้รับสัญญา</label>
+                                {editStartDate && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setEditStartDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    ล้างวันที่
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={editStartDate}
+                                onChange={(e) => setEditStartDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
+                              />
+                              <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
+                                * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
+                              </p>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <textarea
+                                placeholder="เช่น มัดจำก่อนถ่าย 50%, สัญญาหลักเก็บไว้ในโน้ตไลน์กลุ่ม แบรนด์ขอตรวจดราฟท์แรกวันที่..."
+                                rows={3}
+                                value={editNote}
+                                onChange={(e) => setEditNote(e.target.value)}
+                                className="w-full bg-brand-faint dark:bg-stone-850 text-xs text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-medium leading-relaxed transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="edit-posted-fields"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="space-y-4"
+                          >
+                            {/* Credit Term Selection */}
+                            <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[#E65F2B] dark:text-[#FFA473] font-extrabold block text-[11px] uppercase tracking-wider">
+                                  ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
+                                </label>
+                                <span className="text-[10px] text-[#E65F2B] dark:text-[#FFA473] font-bold">
+                                  (คำนวณอัตโนมัติ)
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {[
+                                  { value: 0, label: 'ทันที' },
+                                  { value: 30, label: '30 วัน' },
+                                  { value: 45, label: '45 วัน' },
+                                  { value: 60, label: '60 วัน' },
+                                  { value: 90, label: '90 วัน' },
+                                ].map((opt) => {
+                                  const isSelected = editCreditTerm === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => setEditCreditTerm(opt.value)}
+                                      className={`py-2.5 px-0.5 rounded-xl border text-center text-[10px] font-black transition-all cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-[#E65F2B] border-[#E65F2B] text-white shadow-xs scale-102'
+                                          : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:border-brand-text/30'
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {editCreditTerm > 0 && (
+                                <div className="mt-2.5 pt-2.5 border-t border-[#E65F2B]/10 flex items-center justify-between">
+                                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={editExcludeHolidays}
+                                      onChange={(e) => setEditExcludeHolidays(e.target.checked)}
+                                      className="w-4 h-4 rounded border-[#E65F2B]/30 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
+                                    />
+                                    <span className="text-[10px] font-bold text-[#E65F2B] dark:text-[#FFA473]">
+                                      ไม่นับวันหยุดราชการและเสาร์-อาทิตย์
+                                    </span>
+                                  </label>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] font-bold">
+                                    วันทำการเท่านั้น
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* วันส่งมอบงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">วันส่งมอบงาน หรือวันออนแอร์จริง</label>
+                                {editPostDate && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setEditPostDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    ล้างวันที่
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={editPostDate}
+                                onChange={(e) => setEditPostDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                              />
+
+                              {/* Live calculation of Due date and remaining days */}
+                              {editPostDate && editCreditTerm > 0 && (
+                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold">วันกำหนดชำระเงิน (Due Date):</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                                      {safeFormatThaiDate(calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays))}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold flex items-center gap-1">
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> กำหนดชำระเงินที่เหลือ:
+                                    </span>
+                                    {(() => {
+                                      const payDateVal = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
+                                      const rel = getRelativeDaysText(payDateVal);
+                                      return (
+                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
+                                          rel.isOverdue
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                                        }`}>
+                                          {rel.text}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notes */}
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <textarea
+                                placeholder="เช่น ส่งมอบไฟล์ผ่าน Google Drive แล้ว, ดำเนินการวางบิลรอบสิ้นเดือนนี้..."
+                                rows={3}
+                                value={editNote}
+                                onChange={(e) => setEditNote(e.target.value)}
+                                className="w-full bg-brand-faint dark:bg-stone-850 text-xs text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-medium leading-relaxed transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Bottom Navigation buttons */}
+                <div className="flex items-center gap-3 pt-3 border-t border-brand-border/30 shrink-0">
+                  {editFormStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditFormStep(prev => prev - 1)}
+                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer text-center"
+                    >
+                      ← ย้อนกลับ
+                    </button>
+                  )}
+                  
+                  {editFormStep < 3 ? (
+                    <button
+                      key="edit-btn-next"
+                      type="button"
+                      onClick={() => {
+                        if (editFormStep === 1) {
+                          if (!editName.trim()) {
+                            triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            return;
+                          }
+                        }
+                        if (editFormStep === 2) {
+                          const val = parseFloat(editValue);
+                          if (!editValue.trim() || isNaN(val) || val < 0) {
+                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            return;
+                          }
+                        }
+                        setEditFormStep(prev => prev + 1);
+                      }}
+                      className="flex-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer text-center shadow-xs"
+                    >
+                      ขั้นตอนถัดไป →
+                    </button>
+                  ) : (
+                    <button
+                      key="edit-btn-submit"
+                      type="submit"
+                      disabled={!editCanSubmit}
+                      className={`flex-2 py-3 text-white rounded-xl text-xs font-black transition-all text-center shadow-sm ${
+                        editCanSubmit 
+                          ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer' 
+                          : 'bg-indigo-600/50 cursor-not-allowed opacity-75'
+                      }`}
+                    >
+                      บันทึกการแก้ไขดีลงาน ✨
+                    </button>
+                  )}
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

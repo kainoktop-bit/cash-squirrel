@@ -1,0 +1,318 @@
+import React from 'react';
+import { Job, AppSettings, StatusOption } from '../types';
+import { formatCurrency, getForecastMonths, formatMonthKey, getMonthKey, getRelativeDaysText } from '../utils';
+import { motion } from 'motion/react';
+import { 
+  Calendar, 
+  CheckCircle, 
+  Clock, 
+  AlertTriangle, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  ChevronRight 
+} from 'lucide-react';
+import { Mascot } from './Mascot';
+
+interface TimelineTabProps {
+  jobs: Job[];
+  settings: AppSettings;
+  statuses: StatusOption[];
+}
+
+export default function TimelineTab({ jobs, settings, statuses }: TimelineTabProps) {
+  const forecastMonths = getForecastMonths();
+
+  // Create timeline events grouped by month
+  const timelineMonths = forecastMonths.map(monthKey => {
+    const monthlyEvents: Array<{
+      id: string;
+      title: string;
+      client: string;
+      amount: number;
+      isConfirmed: boolean;
+      dateStr: string;
+      daysRemainingText: string;
+      isOverdue: boolean;
+      isWipMilestone?: boolean;
+      isWipPending?: boolean;
+    }> = [];
+
+    let totalConfirmed = 0;
+    let totalPending = 0;
+
+    jobs.forEach(j => {
+      // 1. Confirmed portion: lands on the payDate || postDate month
+      if (j.received > 0 && getMonthKey(j.payDate || j.postDate) === monthKey) {
+        totalConfirmed += j.received;
+        const isDone = j.status === 'done' || statuses.find(s => s.id === j.status)?.behavior === 'done';
+        monthlyEvents.push({
+          id: `${j.id}-rec`,
+          title: j.name + (!isDone ? ' (มัดจำ)' : ''),
+          client: j.client,
+          amount: j.received,
+          isConfirmed: true,
+          dateStr: j.payDate || j.postDate,
+          daysRemainingText: 'ได้รับแล้ว ✅',
+          isOverdue: false,
+        });
+      }
+
+      // 2. Pending portion: lands on the payDate month (or postDate month if payDate is null)
+      if (j.pending > 0) {
+        const expectedPayDate = j.payDate || j.postDate;
+        if (getMonthKey(expectedPayDate) === monthKey) {
+          totalPending += j.pending;
+          const rel = getRelativeDaysText(expectedPayDate);
+          const isWip = j.isPosted === false;
+          
+          monthlyEvents.push({
+            id: `${j.id}-pend`,
+            title: j.name + (isWip ? ' (WIP - คาดการณ์รับเงิน)' : j.creditTerm > 0 ? ` (+${j.creditTerm} วัน)` : ''),
+            client: j.client,
+            amount: j.pending,
+            isConfirmed: false,
+            dateStr: expectedPayDate,
+            daysRemainingText: isWip ? `รอออนแอร์: ${rel.text}` : rel.text,
+            isOverdue: rel.isOverdue,
+            isWipPending: isWip,
+          });
+        }
+      }
+
+      // 3. WIP Milestone: lands on the postDate month (Target production/on-air)
+      if (j.isPosted === false && j.postDate) {
+        if (getMonthKey(j.postDate) === monthKey) {
+          const rel = getRelativeDaysText(j.postDate);
+          monthlyEvents.push({
+            id: `${j.id}-milestone`,
+            title: `🎬 WIP: ${j.name} (เป้าหมายออนแอร์/ส่งงาน)`,
+            client: j.client,
+            amount: 0,
+            isConfirmed: false,
+            dateStr: j.postDate,
+            daysRemainingText: `เหลือเวลาผลิต: ${rel.text}`,
+            isOverdue: rel.isOverdue,
+            isWipMilestone: true,
+          });
+        }
+      }
+    });
+
+    // Sort monthly events by date ascending
+    monthlyEvents.sort((a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime());
+
+    const totalIncome = totalConfirmed + totalPending;
+    const isShortfall = totalIncome < settings.monthlyExpense;
+    const balance = totalIncome - settings.monthlyExpense;
+
+    return {
+      monthKey,
+      events: monthlyEvents,
+      totalConfirmed,
+      totalPending,
+      totalIncome,
+      isShortfall,
+      balance,
+    };
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
+            กระแสเงินสดรายวัน/รายเดือน ✨
+          </span>
+          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
+            ไทม์ไลน์รับเงิน
+          </h2>
+        </div>
+      </div>
+
+      {/* Intro info box */}
+      <div className="bg-brand-faint border border-brand-border/60 rounded-2xl p-4 text-xs font-medium text-brand-muted flex items-center gap-3">
+        <Mascot mood="happy" size={36} animated={true} className="shrink-0" />
+        <p className="leading-relaxed">
+          ไทม์ไลน์นี้ประเมินยอดเงินเข้าตาม <span className="text-brand-text font-bold">Credit Terms</span> ของสัญญาจ้าง เพื่อช่วยให้คุณรู้ตัวล่วงหน้าว่าเงินเข้าวันไหนและเพียงพอสำหรับใช้จ่ายรายเดือนหรือไม่
+        </p>
+      </div>
+
+      {/* Month cards */}
+      <div className="space-y-6 relative">
+        {/* Continuous line connecting months */}
+        <div className="absolute left-6 top-4 bottom-4 w-0.5 bg-brand-border pointer-events-none" />
+
+        {timelineMonths.map((m, mIdx) => (
+          <motion.div
+            key={m.monthKey}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: mIdx * 0.1 }}
+            className="relative pl-12 space-y-4"
+          >
+            {/* Timeline Node Point */}
+            <div className={`absolute left-4 top-3 w-4 h-4 rounded-full border-4 border-white dark:border-stone-900 z-10 shadow-sm ${
+              m.isShortfall ? 'bg-rose-500 ring-4 ring-rose-500/10' : 'bg-emerald-500 ring-4 ring-emerald-500/10'
+            }`} />
+
+            {/* Month title */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-extrabold font-display text-brand-text tracking-tight">
+                {formatMonthKey(m.monthKey)}
+              </h3>
+            </div>
+
+            {/* Month Header and Total expected income - HIGHLY VISIBLE */}
+            <div className="bg-brand-white border border-brand-border rounded-xl p-4 flex items-center justify-between shadow-xs">
+              <div>
+                <span className="text-[10px] text-brand-muted uppercase font-extrabold tracking-wider block">
+                  💰 ยอดเงินเข้ารวมเดือนนี้
+                </span>
+                <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                  {formatCurrency(m.totalIncome)}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider inline-block ${
+                  m.isShortfall 
+                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-100 dark:border-rose-500/10' 
+                    : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-100/10'
+                }`}>
+                  {m.isShortfall ? '⚠️ ขาดแคลน' : '✅ ปลอดภัย'}
+                </span>
+                <span className="text-[10px] text-brand-muted mt-1.5 block">
+                  เกณฑ์จ่าย: {formatCurrency(settings.monthlyExpense)}
+                </span>
+              </div>
+            </div>
+
+            {/* List of payment events in this month */}
+            <div className="space-y-2.5">
+              {m.events.length === 0 ? (
+                <div className="bg-brand-white border border-brand-border/60 rounded-xl p-5 text-center text-brand-muted text-xs flex flex-col items-center justify-center gap-2">
+                  <Mascot mood="sleepy" size={56} className="mx-auto" />
+                  <span>ยังไม่มีแผนการเงินที่รับรู้รายได้ในเดือนนี้ 😴</span>
+                </div>
+              ) : (
+                m.events.map((evt, evtIdx) => {
+                  const isWipMilestone = evt.isWipMilestone;
+                  const isWipPending = evt.isWipPending;
+                  
+                  let borderLeftClass = 'border-l-amber-500';
+                  if (evt.isConfirmed) {
+                    borderLeftClass = 'border-l-emerald-500';
+                  } else if (evt.isOverdue) {
+                    borderLeftClass = 'border-l-rose-500';
+                  } else if (isWipMilestone) {
+                    borderLeftClass = 'border-l-indigo-500';
+                  } else if (isWipPending) {
+                    borderLeftClass = 'border-l-violet-500';
+                  }
+
+                  return (
+                    <div 
+                      key={evt.id} 
+                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass}`}
+                    >
+                      {/* Top Row with Title & Amount */}
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5 min-w-0">
+                          <h4 className="text-xs font-bold text-brand-text truncate max-w-[200px]">
+                            {evt.title}
+                          </h4>
+                          <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
+                            <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
+                            <span>•</span>
+                            <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          {isWipMilestone ? (
+                            <p className="text-xs font-semibold text-brand-muted italic">
+                              (รอส่งมอบงาน)
+                            </p>
+                          ) : (
+                            <p className={`text-sm font-bold font-mono ${evt.isConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {formatCurrency(evt.amount)}
+                            </p>
+                          )}
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-md border ${
+                            evt.isConfirmed 
+                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
+                              : evt.isOverdue 
+                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/20 animate-pulse' 
+                              : isWipMilestone
+                              ? 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20'
+                              : isWipPending
+                              ? 'bg-violet-500/10 text-violet-700 border-violet-500/20'
+                              : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+                          }`}>
+                            <Clock className="w-2.5 h-2.5 shrink-0" /> {evt.daysRemainingText}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Bottom Alert Bar for Pending / Remaining Days */}
+                      {!evt.isConfirmed && (
+                        <div className={`p-2 px-2.5 rounded-lg border text-[11px] flex justify-between items-center font-bold ${
+                          evt.isOverdue 
+                            ? 'bg-rose-500/5 border-rose-500/15 text-rose-600 dark:text-rose-400' 
+                            : isWipMilestone
+                            ? 'bg-indigo-500/5 border-indigo-500/15 text-indigo-700 dark:text-indigo-400'
+                            : isWipPending
+                            ? 'bg-violet-500/5 border-violet-500/15 text-violet-700 dark:text-violet-400'
+                            : 'bg-amber-500/5 border-amber-500/15 text-amber-700 dark:text-amber-400'
+                        }`}>
+                          <span className="flex items-center gap-1">
+                            <Clock className={`w-3.5 h-3.5 shrink-0 ${evt.isOverdue ? 'text-rose-500' : isWipMilestone ? 'text-indigo-500' : isWipPending ? 'text-violet-500' : 'text-amber-500'}`} />
+                            {isWipMilestone 
+                              ? '🎬 กำหนดออนแอร์/ส่งงานที่เหลือ:' 
+                              : isWipPending 
+                              ? '⏳ คาดการณ์รับเงินที่เหลือ:' 
+                              : evt.isOverdue 
+                              ? '🚨 เลยกำหนดชำระเงิน:' 
+                              : '📅 กำหนดชำระเงินที่เหลือ:'}
+                          </span>
+                          <span className="font-black text-[12px] font-mono shrink-0">
+                            {evt.daysRemainingText.replace('รอออนแอร์: ', '').replace('เหลือเวลาผลิต: ', '')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Month Summary strip */}
+            <div className={`p-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold ${
+              m.isShortfall 
+                ? 'bg-rose-50/60 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 text-rose-800 dark:text-rose-200' 
+                : 'bg-emerald-50/40 dark:bg-emerald-500/10 border border-emerald-100/50 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-200'
+            }`}>
+              <div className="flex items-center gap-1.5">
+                {m.isShortfall ? (
+                  <ArrowDownRight className="w-4 h-4 text-rose-500" />
+                ) : (
+                  <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                )}
+                <span>
+                  {m.isShortfall 
+                    ? `ขาดอีก ${formatCurrency(Math.abs(m.balance))} ถึงจะคุ้มทุน`
+                    : `เหลือกำไรเก็บออม ${formatCurrency(m.balance)}`
+                  }
+                </span>
+              </div>
+              <div className="text-[10px] text-brand-muted font-normal flex gap-3">
+                <span>ได้รับแล้ว: <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalConfirmed)}</strong></span>
+                <span>รอเข้า: <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalPending)}</strong></span>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}

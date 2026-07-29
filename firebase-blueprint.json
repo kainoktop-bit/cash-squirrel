@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "UserCashflowData": {
+      "title": "User Cashflow Data",
+      "description": "All financial records, goals, settings, and jobs for a specific user",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The unique user ID from Firebase Authentication"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "jobs": {
+          "type": "array",
+          "description": "List of freelance jobs/deals"
+        },
+        "goals": {
+          "type": "array",
+          "description": "Savings and investment goals"
+        },
+        "statuses": {
+          "type": "array",
+          "description": "Custom status configurations"
+        },
+        "job_types": {
+          "type": "array",
+          "description": "Custom job classifications"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Custom application settings, taxes, and evidences"
+        },
+        "notif_settings": {
+          "type": "object",
+          "description": "Notification settings"
+        },
+        "expenses": {
+          "type": "array",
+          "description": "List of recorded expenses"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of the last modification"
+        }
+      },
+      "required": ["userId", "email"]
+    }
+  },
+  "firestore": {
+    "/user_cashflow_data/{userId}": {
+      "schema": "UserCashflowData",
+      "description": "Secure collection storing cashflow data per authenticated user ID"
+    }
+  }
+}
