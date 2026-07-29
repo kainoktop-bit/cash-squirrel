@@ -1882,38 +1882,22 @@ export default function App() {
               )}
 
               {activeTab === 'tax' && (
-                isPro ? (
-                  <TaxTab
-                    jobs={jobs}
-                    expenses={expenses}
-                    settings={settings}
-                    onUpdateSettings={handleUpdateSettings}
-                    triggerAlert={triggerAlert}
-                    triggerConfirm={triggerConfirm}
-                  />
-                ) : (
-                  <PremiumUpsell
-                    feature="ผู้ช่วยจัดการภาษีบุคคลธรรมดา"
-                    description="คำนวณภาษีเงินได้ แนะนำรายการลดหย่อน และจัดการเอกสารหักภาษี ณ ที่จ่าย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
-                    onUpgrade={handleUpgrade}
-                  />
-                )
+                <TaxTab
+                  jobs={jobs}
+                  expenses={expenses}
+                  settings={settings}
+                  onUpdateSettings={handleUpdateSettings}
+                  triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
+                />
               )}
 
               {activeTab === 'invoice' && (
-                isPro ? (
-                  <InvoiceTab
-                    jobs={jobs}
-                    triggerAlert={triggerAlert}
-                    triggerConfirm={triggerConfirm}
-                  />
-                ) : (
-                  <PremiumUpsell
-                    feature="ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน"
-                    description="ออกเอกสารสำเร็จรูปพร้อมโลโก้และดึงข้อมูลจากดีลงานได้ทันที กดเซฟเป็น PDF ส่งลูกค้าได้เลย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
-                    onUpgrade={handleUpgrade}
-                  />
-                )
+                <InvoiceTab
+                  jobs={jobs}
+                  triggerAlert={triggerAlert}
+                  triggerConfirm={triggerConfirm}
+                />
               )}
 
               {activeTab === 'report' && (
