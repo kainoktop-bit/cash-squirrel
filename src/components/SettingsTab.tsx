@@ -524,7 +524,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {session && !session.isGuest && (
                 <div className="p-4 bg-gradient-to-br from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-2xl space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-brand-text dark:text-white">สมาชิกรายเดือน 👑</span>
+                    <span className="text-xs font-black text-brand-text dark:text-white">แพ็กเกจโปร 👑</span>
                     {isPaidActive && (
                       <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
                     )}
@@ -534,18 +534,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                   <p className="text-[10px] text-brand-muted leading-relaxed">
                     {isPaidActive && subscription?.currentPeriodEnd
-                      ? `ปลดล็อกเครื่องมือออกบิล/ใบเสร็จ และผู้ช่วยจัดการภาษี ใช้ได้ถึงวันที่ ${new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} — จ่ายรายเดือนด้วยตัวเอง (ไม่ตัดอัตโนมัติ)`
+                      ? `ใช้ได้ถึงวันที่ ${new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} — จ่ายรายเดือนด้วยตัวเอง (ไม่ตัดอัตโนมัติ)`
                       : isInFreeTrial && trialEndsAt
-                      ? `กำลังทดลองใช้ฟรี ถึงวันที่ ${trialEndsAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} จ่ายก่อนหมดเวลาเพื่อใช้งานต่อเนื่องได้เลย`
-                      : 'ปลดล็อกเครื่องมือออกบิล/ใบเสร็จ และผู้ช่วยจัดการภาษี ฿39/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
+                      ? `กำลังทดลองใช้ฟรี ถึงวันที่ ${trialEndsAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} สมัครแพ็กเกจโปรก่อนหมดเวลาเพื่อใช้งานต่อเนื่องได้เลย`
+                      : 'แพ็กเกจโปร ฿39/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
                   </p>
+
+                  {!isPaidActive && (
+                    <ul className="space-y-1 pt-0.5">
+                      {[
+                        'ผู้ช่วยจัดการภาษีบุคคลธรรมดา คำนวณภาษี แนะนำรายการลดหย่อน และจัดการเอกสารหัก ณ ที่จ่าย',
+                        'ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงินพร้อมโลโก้ ดึงข้อมูลจากดีลงานได้ทันที เซฟเป็น PDF ส่งลูกค้าได้เลย'
+                      ].map((benefit) => (
+                        <li key={benefit} className="flex items-start gap-1.5 text-[10px] text-brand-text dark:text-neutral-200 leading-relaxed">
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                          <span>{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
                   {onUpgrade && (
                     <button
                       type="button"
                       onClick={onUpgrade}
                       className="w-full py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-[10px] font-black rounded-xl transition-all cursor-pointer"
                     >
-                      {isPaidActive || isInFreeTrial ? 'ต่ออายุ ฿39/เดือน' : 'สมัครสมาชิก ฿39/เดือน'}
+                      {isPaidActive ? 'ต่ออายุแพ็กเกจโปร ฿39/เดือน' : 'สมัครแพ็กเกจโปร ฿39/เดือน'}
                     </button>
                   )}
                 </div>
