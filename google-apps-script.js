@@ -23,6 +23,9 @@
  *    - Time of day: "8am to 9am" (checks and alerts you every morning)
  *
  * 5. Save and authorize Google permissions to allow sending email.
+ *    NOTE: the monthly report now also attaches a PDF + CSV (Excel) file, which uses
+ *    DocumentApp/DriveApp in addition to MailApp -- the first run after adding this will
+ *    ask you to re-authorize with those extra permissions. Approve them, that's expected.
  *
  * Once saved, this script runs completely in Google's cloud server hands-free!
  * It automatically syncs with your Supabase Cloud Database to fetch live data!
@@ -43,6 +46,112 @@ if (!SUPABASE_ANON_KEY) {
     "เลื่อนลงมาที่ 'Script Properties' > Add script property > " +
     "Property: SUPABASE_SERVICE_KEY, Value: (วาง service_role key จาก Supabase Dashboard > Settings > API)"
   );
+}
+
+/**
+ * Builds a CSV (opens directly in Excel/Sheets) summarizing the month's jobs & expenses.
+ */
+function buildMonthlyReportCSV(monthDisplay, userEmail, targetMonthJobs, targetMonthExpenses, totals) {
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return "";
+    const str = String(val).replace(/"/g, '""');
+    return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+  };
+
+  const rows = [];
+  rows.push([`สรุปงบกระแสเงินสดรอบเดือน ${monthDisplay}`]);
+  rows.push(["บัญชีผู้ใช้", userEmail]);
+  rows.push([]);
+  rows.push(["สรุปยอด"]);
+  rows.push(["มูลค่ารวมสัญญาดีลทั้งหมด (บาท)", totals.totalContract]);
+  rows.push(["ยอดโอนรับแล้วจริง (บาท)", totals.totalReceived]);
+  rows.push(["ค่าใช้จ่ายคงที่รายเดือน (บาท)", totals.fixedExpense]);
+  rows.push(["รายจ่ายผันแปรเพิ่มเติม (บาท)", totals.totalVariableExpense]);
+  rows.push(["รวมรายจ่ายทั้งหมด (บาท)", totals.totalExpenses]);
+  rows.push(["กระแสเงินสดสุทธิคงเหลือ (บาท)", totals.netCashFlow]);
+  rows.push(["ยอดค้างชำระเครดิตคงเหลือ (บาท)", totals.totalPending]);
+  rows.push([]);
+  rows.push(["รายชื่อดีลงานในรอบเดือนนี้"]);
+  rows.push(["ชื่องานดีล", "ลูกค้า", "มูลค่างาน (บาท)", "รับแล้ว (บาท)", "ค้างจ่าย (บาท)", "สถานะ"]);
+  targetMonthJobs.forEach(j => {
+    rows.push([j.name, j.client || "-", j.value || 0, j.received || 0, j.pending || 0, j.pending === 0 ? "ครบถ้วน" : "ค้างจ่าย"]);
+  });
+  rows.push([]);
+  rows.push(["รายการรายจ่ายในรอบเดือนนี้"]);
+  rows.push(["รายการ", "หมวดหมู่", "จำนวนเงิน (บาท)", "วันที่"]);
+  targetMonthExpenses.forEach(e => {
+    rows.push([e.name, e.category, e.amount || 0, e.date || "-"]);
+  });
+
+  const csvContent = "﻿" + rows.map(r => r.map(escapeCSV).join(",")).join("\n");
+  return Utilities.newBlob(csvContent, "text/csv", `สรุปรายเดือน_${monthDisplay}.csv`);
+}
+
+/**
+ * Applies a simple emerald header-row style to a Google Docs table.
+ */
+function styleDocTableHeader_(table) {
+  const headerRow = table.getRow(0);
+  for (let i = 0; i < headerRow.getNumCells(); i++) {
+    const cell = headerRow.getCell(i);
+    cell.setBackgroundColor("#059669");
+    cell.editAsText().setBold(true).setForegroundColor("#ffffff");
+  }
+}
+
+/**
+ * Builds a PDF report by rendering a temporary Google Doc, exporting it, then discarding
+ * the Doc so it doesn't clutter Drive. Requires DocumentApp + DriveApp authorization.
+ */
+function buildMonthlyReportPDF(monthDisplay, userEmail, targetMonthJobs, targetMonthExpenses, totals) {
+  const doc = DocumentApp.create(`[Temp] สรุปรายเดือน ${monthDisplay} - ${userEmail}`);
+  const body = doc.getBody();
+  body.setMarginTop(36).setMarginBottom(36).setMarginLeft(36).setMarginRight(36);
+
+  body.appendParagraph(`สรุปงบกระแสเงินสดรอบเดือน ${monthDisplay}`).setHeading(DocumentApp.ParagraphHeading.TITLE);
+  body.appendParagraph(`บัญชีผู้ใช้: ${userEmail}`).editAsText().setFontSize(10).setForegroundColor("#6b7280");
+
+  body.appendParagraph("สรุปยอด").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  styleDocTableHeader_(body.appendTable([
+    ["รายการ", "จำนวนเงิน (บาท)"],
+    ["มูลค่ารวมสัญญาดีลทั้งหมด", totals.totalContract.toLocaleString()],
+    ["ยอดโอนรับแล้วจริง", totals.totalReceived.toLocaleString()],
+    ["ค่าใช้จ่ายคงที่รายเดือน", totals.fixedExpense.toLocaleString()],
+    ["รายจ่ายผันแปรเพิ่มเติม", totals.totalVariableExpense.toLocaleString()],
+    ["กระแสเงินสดสุทธิคงเหลือ", totals.netCashFlow.toLocaleString()],
+    ["ยอดค้างชำระเครดิตคงเหลือ", totals.totalPending.toLocaleString()],
+  ]));
+
+  body.appendParagraph(`รายชื่อดีลงานในรอบเดือนนี้ (${targetMonthJobs.length} รายการ)`).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  if (targetMonthJobs.length > 0) {
+    const jobRows = [["ชื่องานดีล", "ลูกค้า", "มูลค่างาน", "สถานะ"]];
+    targetMonthJobs.forEach(j => {
+      jobRows.push([j.name, j.client || "-", "฿" + (j.value || 0).toLocaleString(), j.pending === 0 ? "ครบถ้วน" : "ค้าง ฿" + (j.pending || 0).toLocaleString()]);
+    });
+    styleDocTableHeader_(body.appendTable(jobRows));
+  } else {
+    body.appendParagraph("ไม่มีรายการงานดีลในรอบเดือนนี้").editAsText().setItalic(true);
+  }
+
+  body.appendParagraph(`รายการรายจ่ายในรอบเดือนนี้ (${targetMonthExpenses.length} รายการ)`).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  if (targetMonthExpenses.length > 0) {
+    const expRows = [["รายการ", "หมวดหมู่", "จำนวนเงิน"]];
+    targetMonthExpenses.forEach(e => {
+      expRows.push([e.name, e.category, "฿" + (e.amount || 0).toLocaleString()]);
+    });
+    styleDocTableHeader_(body.appendTable(expRows));
+  } else {
+    body.appendParagraph("ไม่มีการลงบันทึกรายจ่ายในรอบเดือนนี้").editAsText().setItalic(true);
+  }
+
+  body.appendParagraph("จัดทำโดยระบบ กระรอกตุนเงิน").editAsText().setFontSize(9).setForegroundColor("#9ca3af");
+
+  doc.saveAndClose();
+
+  const pdfBlob = DriveApp.getFileById(doc.getId()).getAs("application/pdf").setName(`สรุปรายเดือน_${monthDisplay}.pdf`);
+  DriveApp.getFileById(doc.getId()).setTrashed(true); // Clean up the temp Doc, we only wanted the PDF export
+
+  return pdfBlob;
 }
 
 /**
@@ -281,11 +390,25 @@ function sendMonthlyCashFlowReport() {
         </div>
       `;
 
+      // Build PDF + CSV(Excel) attachments. If this fails for any reason, still send the
+      // email without attachments rather than losing the reminder entirely.
+      let attachments = [];
+      try {
+        const totals = { totalContract, totalReceived, fixedExpense, totalVariableExpense, totalExpenses, netCashFlow, totalPending };
+        attachments = [
+          buildMonthlyReportCSV(monthDisplay, userEmail, targetMonthJobs, targetMonthExpenses, totals),
+          buildMonthlyReportPDF(monthDisplay, userEmail, targetMonthJobs, targetMonthExpenses, totals)
+        ];
+      } catch (attachErr) {
+        Logger.log("Failed to build report attachments for " + userEmail + ": " + attachErr.toString());
+      }
+
       // Send the email
       MailApp.sendEmail({
         to: recipientEmail,
         subject: `[Monthly Cashflow Report] สรุปงบประแสเงินสดประจำเดือน ${monthDisplay} (${userEmail})`,
-        htmlBody: htmlBody
+        htmlBody: htmlBody,
+        attachments: attachments
       });
 
       Logger.log("Email sent successfully for account: " + userEmail + " to recipient: " + recipientEmail);
