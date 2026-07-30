@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AppSettings, Job } from '../types';
-import { formatCurrency, exportJobsToCSV } from '../utils';
+import { AppSettings } from '../types';
+import { formatCurrency } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Settings, 
@@ -14,19 +14,18 @@ import {
   ShieldAlert, 
   Check, 
   RefreshCcw, 
-  FileJson, 
-  Lock, 
-  Database,
-  FileSpreadsheet
+  FileJson,
+  Lock,
+  Database
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCrown } from './icons';
 
 interface SettingsTabProps {
   settings: AppSettings;
+  onSwitchTab: (tabId: string) => void;
   onUpdateSettings: (settings: AppSettings) => void;
   onImportData: (data: string) => void;
-  onExportData: () => void;
   onClearAllData: () => void;
   cloudSyncStatus: 'synced' | 'pending' | 'failed' | 'not_setup';
   loadCloudData: (email: string) => void;
@@ -56,14 +55,13 @@ interface SettingsTabProps {
   isPaidActive?: boolean;
   isInFreeTrial?: boolean;
   trialEndsAt?: Date | null;
-  jobs: Job[];
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   settings,
+  onSwitchTab,
   onUpdateSettings,
   onImportData,
-  onExportData,
   onClearAllData,
   cloudSyncStatus,
   loadCloudData,
@@ -81,24 +79,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpgrade,
   isPaidActive,
   isInFreeTrial,
-  trialEndsAt,
-  jobs
+  trialEndsAt
 }) => {
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-
-  // Export to CSV for Google Sheets / Excel
-  const handleExportCSV = () => {
-    if (!exportJobsToCSV(jobs)) {
-      triggerAlert('ไม่พบข้อมูล', 'คุณยังไม่มีข้อมูลโปรเจกต์งานที่จะส่งออกครับ ลองเพิ่มโปรเจกต์งานก่อนนะครับ');
-      return;
-    }
-
-    triggerAlert(
-      'ส่งออก CSV สำเร็จ',
-      'ระบบดาวน์โหลดไฟล์ CSV สำหรับนำไปใส่ Google Sheets หรือ Excel เรียบร้อยแล้ว!\n\nวิธีนำเข้า Google Sheets:\n1. เปิด Google Sheets\n2. ไปที่เมนู "ไฟล์" (File) > "นำเข้า" (Import)\n3. เลือกแท็บ "อัปโหลด" (Upload) แล้วเลือกไฟล์ที่เพิ่งดาวน์โหลดไปนี้ครับ'
-    );
-  };
 
   // Drag and drop handlers
   const handleDrag = (e: React.DragEvent) => {
@@ -328,21 +312,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </label>
               </div>
 
-              {/* Download backup button */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  onClick={onExportData}
-                  className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-indigo-100/30 dark:border-indigo-500/10"
-                >
-                  <Download className="w-3.5 h-3.5" /> สำรองข้อมูล (.json)
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-emerald-100/30 dark:border-emerald-500/10"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> สำรองไป Google Sheets (.csv)
-                </button>
-              </div>
+              {/* Pointer to export buttons, which now live on the Summary tab */}
+              <button
+                type="button"
+                onClick={() => onSwitchTab('summary')}
+                className="w-full py-2.5 bg-brand-faint dark:bg-neutral-800/50 hover:bg-brand-border/30 dark:hover:bg-neutral-800 text-brand-text dark:text-neutral-200 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-brand-border/40 dark:border-neutral-700"
+              >
+                <Download className="w-3.5 h-3.5" /> ต้องการสำรอง/Export ข้อมูล? ไปที่หน้า "สรุปยอดรายรับ"
+              </button>
             </div>
           </div>
 

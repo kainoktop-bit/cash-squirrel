@@ -1991,9 +1991,9 @@ export default function App() {
               {activeTab === 'settings' && (
                 <SettingsTab
                   settings={settings}
+                  onSwitchTab={setActiveTab}
                   onUpdateSettings={handleUpdateSettings}
                   onImportData={handleImportData}
-                  onExportData={handleExportData}
                   onClearAllData={handleClearAllData}
                   cloudSyncStatus={cloudSyncStatus}
                   loadCloudData={loadCloudData}
@@ -2017,7 +2017,6 @@ export default function App() {
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
-                  jobs={jobs}
                 />
               )}
             </motion.div>
