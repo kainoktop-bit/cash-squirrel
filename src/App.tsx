@@ -564,12 +564,32 @@ export default function App() {
   // webhook know which app user just paid, without needing a server-created Checkout Session.
   const PRO_PAYMENT_LINK = 'https://buy.stripe.com/6oUeVc8jj7KEgvP4XV5wI00';
 
+  // The webhook extends access by setting current_period_end to (now + 30 days) rather than
+  // adding onto the existing period, since this is a manual monthly payment, not an auto-charging
+  // Stripe subscription. Paying again while still well within an active period would therefore
+  // just discard the remaining paid days instead of stacking them -- so only let people through to
+  // pay once they're close to (or past) their current expiry date.
+  const RENEWAL_GRACE_DAYS = 3;
+
   const handleUpgrade = () => {
     const currentUser = session?.user;
     if (!currentUser || session?.isGuest) {
       triggerAlert('ต้องสมัครสมาชิกก่อนครับ', 'กรุณาสมัครบัญชีจริงด้วยอีเมล (ไม่ใช่โหมดทดลองใช้งานฟรี) ก่อนอัปเกรดเป็นสมาชิกรายเดือนครับ');
       return;
     }
+
+    if (isPaidActive && subscription?.currentPeriodEnd) {
+      const periodEnd = new Date(subscription.currentPeriodEnd);
+      const daysRemaining = Math.ceil((periodEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+      if (daysRemaining > RENEWAL_GRACE_DAYS) {
+        triggerAlert(
+          'ยังไม่ต้องต่ออายุตอนนี้ครับ 👑',
+          `แพ็กเกจ Pro ของคุณยังใช้งานได้ถึงวันที่ ${periodEnd.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (เหลืออีก ${daysRemaining} วัน) เนื่องจากระบบต่ออายุแบบจ่ายเองรายเดือน การจ่ายซ้ำตอนนี้จะทำให้วันที่เหลืออยู่หายไปฟรีๆ ระบบจะเปิดให้ต่ออายุอีกครั้งเมื่อใกล้ครบกำหนด (ประมาณ ${RENEWAL_GRACE_DAYS} วันก่อนหมดอายุ) หรือหลังจากหมดอายุแล้วครับ`
+        );
+        return;
+      }
+    }
+
     const url = new URL(PRO_PAYMENT_LINK);
     url.searchParams.set('client_reference_id', currentUser.id);
     if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
