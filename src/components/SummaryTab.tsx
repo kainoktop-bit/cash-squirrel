@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Job, Goal, AppSettings, Expense, StatusOption } from '../types';
-import { formatCurrency, getMonthKey, formatMonthKey } from '../utils';
+import { formatCurrency, getMonthKey, formatMonthKey, exportJobsToCSV } from '../utils';
 import { 
   Calendar, 
   TrendingUp, 
@@ -23,7 +23,8 @@ import {
   Plus,
   Trash2,
   Download,
-  Upload
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import { fireMascot } from '../mascotBus';
 import { Mascot } from './Mascot';
@@ -121,6 +122,18 @@ export default function SummaryTab({
     setExpAmount('');
     setExpNote('');
     triggerAlert('บันทึกรายจ่ายสำเร็จ!', 'บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว');
+  };
+
+  const handleExportCSV = () => {
+    if (!exportJobsToCSV(jobs)) {
+      triggerAlert('ไม่พบข้อมูล', 'คุณยังไม่มีข้อมูลโปรเจกต์งานที่จะส่งออกครับ ลองเพิ่มโปรเจกต์งานก่อนนะครับ');
+      return;
+    }
+
+    triggerAlert(
+      'ส่งออกไฟล์สำเร็จ!',
+      'ระบบดาวน์โหลดไฟล์ .csv ของงานดีลทั้งหมดเรียบร้อยแล้ว เปิดด้วย Excel หรือ Google Sheets ได้ทันที เผื่อนำไปทำเอกสารบัญชี/รายงานต่อได้เลยครับ'
+    );
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,6 +409,27 @@ export default function SummaryTab({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* 1.5 Export to Excel / Google Sheets banner */}
+      <div className="bg-emerald-50/60 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+            <FileSpreadsheet className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-brand-text dark:text-white">Export ข้อมูลงานดีลทั้งหมดไป Excel</h4>
+            <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-0.5 leading-relaxed">
+              ดาวน์โหลดเป็นไฟล์ .csv เปิดได้ทันทีทั้ง Excel และ Google Sheets เผื่อนำไปทำเอกสารบัญชีหรือรายงานต่อ
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleExportCSV}
+          className="w-full sm:w-auto shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+        >
+          <Download className="w-3.5 h-3.5" /> Export เป็น Excel (.csv)
+        </button>
       </div>
 
       {/* 2. Interactive Bento Card Grid layout (Highly responsive for iPad/MacBook columns) */}

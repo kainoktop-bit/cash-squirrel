@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppSettings, Job } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, exportJobsToCSV } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Settings, 
@@ -87,87 +87,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  // Export to CSV for Google Sheets
+  // Export to CSV for Google Sheets / Excel
   const handleExportCSV = () => {
-    if (!jobs || jobs.length === 0) {
+    if (!exportJobsToCSV(jobs)) {
       triggerAlert('ไม่พบข้อมูล', 'คุณยังไม่มีข้อมูลโปรเจกต์งานที่จะส่งออกครับ ลองเพิ่มโปรเจกต์งานก่อนนะครับ');
       return;
     }
 
-    // Define CSV headers
-    const headers = [
-      'ชื่อโปรเจกต์',
-      'ประเภทงาน',
-      'ลูกค้า',
-      'มูลค่ารวม (บาท)',
-      'หัก ณ ที่จ่าย (%)',
-      'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
-      'ยอดได้รับแล้ว (บาท)',
-      'ยอดค้างชำระ (บาท)',
-      'สถานะโครงการ',
-      'เครดิตเทอม (วัน)',
-      'วันเริ่มงาน',
-      'วันดีล/วันเผยแพร่',
-      'กำหนดชำระเงิน',
-      'หมายเหตุ'
-    ];
-
-    // Map jobs to rows
-    const rows = jobs.map(j => {
-      // Determine status label
-      let statusText = j.status;
-      if (j.status === 'done') statusText = 'จ่ายแล้ว 🟢';
-      else if (j.status === 'partial') statusText = 'มัดจำ/จ่ายบางส่วน 🟡';
-      else if (j.status === 'pending') statusText = 'ยังไม่จ่าย 🔴';
-      else {
-        // Custom or matching ID status
-        statusText = j.status;
-      }
-
-      // Helper to escape CSV quotes
-      const escapeCSV = (val: any) => {
-        if (val === null || val === undefined) return '';
-        const str = String(val).replace(/"/g, '""');
-        return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str}"` : str;
-      };
-
-      return [
-        escapeCSV(j.name),
-        escapeCSV(j.type || 'ทั่วไป'),
-        escapeCSV(j.client || '-'),
-        j.value || 0,
-        j.whtRate || 0,
-        j.whtAmount || 0,
-        j.received || 0,
-        j.pending || 0,
-        escapeCSV(statusText),
-        j.creditTerm || 0,
-        escapeCSV(j.startDate || '-'),
-        escapeCSV(j.postDate || '-'),
-        escapeCSV(j.payDate || '-'),
-        escapeCSV(j.note || '')
-      ];
-    });
-
-    // Create CSV with UTF-8 BOM
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-
-    // Download blob
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    const dateStr = new Date().toISOString().split('T')[0];
-    link.setAttribute('href', url);
-    link.setAttribute('download', `โปรเจกต์รายรับ_กระรอกตุนเสบียง_${dateStr}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
     triggerAlert(
       'ส่งออก CSV สำเร็จ',
-      'ระบบดาวน์โหลดไฟล์ CSV สำหรับนำไปใส่ Google Sheets เรียบร้อยแล้ว!\n\nวิธีนำเข้า Google Sheets:\n1. เปิด Google Sheets\n2. ไปที่เมนู "ไฟล์" (File) > "นำเข้า" (Import)\n3. เลือกแท็บ "อัปโหลด" (Upload) แล้วเลือกไฟล์ที่เพิ่งดาวน์โหลดไปนี้ครับ'
+      'ระบบดาวน์โหลดไฟล์ CSV สำหรับนำไปใส่ Google Sheets หรือ Excel เรียบร้อยแล้ว!\n\nวิธีนำเข้า Google Sheets:\n1. เปิด Google Sheets\n2. ไปที่เมนู "ไฟล์" (File) > "นำเข้า" (Import)\n3. เลือกแท็บ "อัปโหลด" (Upload) แล้วเลือกไฟล์ที่เพิ่งดาวน์โหลดไปนี้ครับ'
     );
   };
 

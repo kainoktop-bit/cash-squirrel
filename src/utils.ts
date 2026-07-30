@@ -208,3 +208,72 @@ export const safeFormatThaiDate = (dateStr: string | undefined | null, options: 
     return 'ยังไม่ระบุ';
   }
 };
+
+// Download all jobs as a CSV file (UTF-8 BOM so Excel/Google Sheets read Thai text correctly).
+// Returns false if there was nothing to export.
+export const exportJobsToCSV = (jobs: Job[]): boolean => {
+  if (!jobs || jobs.length === 0) return false;
+
+  const headers = [
+    'ชื่อโปรเจกต์',
+    'ประเภทงาน',
+    'ลูกค้า',
+    'มูลค่ารวม (บาท)',
+    'หัก ณ ที่จ่าย (%)',
+    'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
+    'ยอดได้รับแล้ว (บาท)',
+    'ยอดค้างชำระ (บาท)',
+    'สถานะโครงการ',
+    'เครดิตเทอม (วัน)',
+    'วันเริ่มงาน',
+    'วันดีล/วันเผยแพร่',
+    'กำหนดชำระเงิน',
+    'หมายเหตุ'
+  ];
+
+  const escapeCSV = (val: any) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val).replace(/"/g, '""');
+    return str.includes(',') || str.includes('\n') || str.includes('"') ? `"${str}"` : str;
+  };
+
+  const rows = jobs.map(j => {
+    let statusText = j.status;
+    if (j.status === 'done') statusText = 'จ่ายแล้ว';
+    else if (j.status === 'partial') statusText = 'มัดจำ/จ่ายบางส่วน';
+    else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
+
+    return [
+      escapeCSV(j.name),
+      escapeCSV(j.type || 'ทั่วไป'),
+      escapeCSV(j.client || '-'),
+      j.value || 0,
+      j.whtRate || 0,
+      j.whtAmount || 0,
+      j.received || 0,
+      j.pending || 0,
+      escapeCSV(statusText),
+      j.creditTerm || 0,
+      escapeCSV(j.startDate || '-'),
+      escapeCSV(j.postDate || '-'),
+      escapeCSV(j.payDate || '-'),
+      escapeCSV(j.note || '')
+    ];
+  });
+
+  const csvContent = '﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  link.setAttribute('href', url);
+  link.setAttribute('download', `โปรเจกต์รายรับ_กระรอกตุนเสบียง_${dateStr}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  return true;
+};
