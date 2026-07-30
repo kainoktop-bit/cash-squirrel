@@ -80,8 +80,15 @@ export interface Goal {
   history?: GoalTransaction[]; // ประวัติรายการโอนเข้า & ดึงเงินออก
 }
 
+export interface FixedExpenseItem {
+  id: string;
+  name: string; // e.g. ค่าห้อง, ค่ารถ, ค่าเน็ต
+  amount: number;
+}
+
 export interface AppSettings {
-  monthlyExpense: number;
+  monthlyExpense: number; // kept in sync as the sum of fixedExpenseItems whenever that list is edited
+  fixedExpenseItems?: FixedExpenseItem[]; // itemized breakdown of the fixed monthly cost
   monthlyRevenueGoal: number;
   savingsPercentage: number; // e.g. 40
   taxEvidences?: TaxEvidence[];

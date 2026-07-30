@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Target, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Check, Plus } from 'lucide-react';
 import { Mascot } from './Mascot';
-import { IconCamera, IconLaptop, IconGraduation, IconBag, IconPencil } from './icons';
-import { AppSettings, Goal } from '../types';
-import { defaultSettings } from '../sampleData';
-import { formatNumberWithCommas, stripNumberInput } from '../utils';
+import { IconCamera, IconLaptop, IconGraduation, IconBag, IconPencil, IconClose } from './icons';
+import { AppSettings, Goal, FixedExpenseItem } from '../types';
+import { formatCurrency, formatNumberWithCommas, stripNumberInput, sumFixedExpenseItems } from '../utils';
 
 interface ProfileSetupWizardProps {
   isOpen: boolean;
@@ -48,23 +47,17 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   const [step, setStep] = useState(0);
   const [jobTypes, setJobTypes] = useState<string[]>([]);
   const [jobTypeOther, setJobTypeOther] = useState('');
-  const [monthlyExpense, setMonthlyExpense] = useState(
-    isPreview || (settings.monthlyExpense && settings.monthlyExpense !== defaultSettings.monthlyExpense)
-      ? String(settings.monthlyExpense || '')
-      : ''
-  );
+  const [fixedExpenseItems, setFixedExpenseItems] = useState<FixedExpenseItem[]>(settings.fixedExpenseItems || []);
+  const [newExpenseName, setNewExpenseName] = useState('');
+  const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
 
-  // Always start from step 0 with a fresh money value whenever the wizard is (re)opened
+  // Always start from step 0 with fresh values whenever the wizard is (re)opened
   React.useEffect(() => {
     if (isOpen) {
       setStep(0);
-      setMonthlyExpense(
-        isPreview || (settings.monthlyExpense && settings.monthlyExpense !== defaultSettings.monthlyExpense)
-          ? String(settings.monthlyExpense || '')
-          : ''
-      );
+      setFixedExpenseItems(settings.fixedExpenseItems || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -77,13 +70,25 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
     setJobTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   };
 
-  const expenseValue = parseFloat(monthlyExpense);
-  const isExpenseValid = monthlyExpense.trim() !== '' && !isNaN(expenseValue) && expenseValue >= 0;
+  const handleAddExpenseItem = () => {
+    const amount = parseFloat(newExpenseAmount);
+    if (!newExpenseName.trim() || isNaN(amount) || amount < 0) return;
+    setFixedExpenseItems(prev => [...prev, { id: `fx-${Date.now()}`, name: newExpenseName.trim(), amount }]);
+    setNewExpenseName('');
+    setNewExpenseAmount('');
+  };
+
+  const handleRemoveExpenseItem = (id: string) => {
+    setFixedExpenseItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const expenseTotal = sumFixedExpenseItems(fixedExpenseItems);
 
   const finishSetup = () => {
     onUpdateSettings({
       ...settings,
-      monthlyExpense: isExpenseValid ? expenseValue : settings.monthlyExpense,
+      fixedExpenseItems: fixedExpenseItems.length > 0 ? fixedExpenseItems : settings.fixedExpenseItems,
+      monthlyExpense: fixedExpenseItems.length > 0 ? expenseTotal : settings.monthlyExpense,
       profileJobTypes: jobTypes,
       profileJobTypeOther: jobTypeOther.trim() || undefined,
       profileSetupCompleted: true,
@@ -208,24 +213,65 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -12 }}
                   transition={{ duration: 0.2 }}
-                  className="relative flex flex-col items-center gap-1 bg-gradient-to-b from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-[24px] p-7 overflow-hidden"
+                  className="relative flex flex-col gap-3 bg-gradient-to-b from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-[24px] p-5"
                 >
-                  <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
-                    ค่าใช้จ่ายคงที่ต่อเดือน
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-2xl font-black text-[#E65F2B]/70">฿</span>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
+                      รวมค่าใช้จ่ายคงที่ต่อเดือน
+                    </span>
+                    <span className="text-3xl font-black font-mono text-[#E65F2B]">{formatCurrency(expenseTotal)}</span>
+                  </div>
+
+                  {fixedExpenseItems.length > 0 && (
+                    <div className="space-y-1.5">
+                      {fixedExpenseItems.map(item => (
+                        <div key={item.id} className="flex items-center justify-between gap-2 bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-xl px-3 py-2">
+                          <span className="text-xs font-bold text-brand-text dark:text-neutral-200 truncate">{item.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-mono font-black text-brand-text dark:text-white">{formatCurrency(item.amount)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveExpenseItem(item.id)}
+                              className="text-neutral-400 hover:text-rose-600 cursor-pointer transition-colors"
+                              title="ลบรายการนี้"
+                            >
+                              <IconClose className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={newExpenseName}
+                      onChange={(e) => setNewExpenseName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExpenseItem(); } }}
+                      placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
+                      className="flex-1 min-w-0 bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
+                    />
                     <input
                       type="text"
                       inputMode="decimal"
-                      autoFocus
-                      value={formatNumberWithCommas(monthlyExpense)}
-                      onChange={(e) => setMonthlyExpense(stripNumberInput(e.target.value))}
-                      placeholder="12,000"
-                      className="w-56 bg-transparent text-5xl font-black font-mono text-brand-text dark:text-white outline-none text-center placeholder-brand-border"
+                      value={formatNumberWithCommas(newExpenseAmount)}
+                      onChange={(e) => setNewExpenseAmount(stripNumberInput(e.target.value))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExpenseItem(); } }}
+                      placeholder="บาท"
+                      className="w-20 shrink-0 bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-xl px-2.5 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B]"
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddExpenseItem}
+                      className="shrink-0 p-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-xl transition-all cursor-pointer"
+                      title="เพิ่มรายการ"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                   </div>
-                  <p className="text-[10px] text-brand-muted mt-2">ไม่มีค่าใช้จ่ายคงที่? พิมพ์ 0 ได้เลย</p>
+
+                  <p className="text-[10px] text-brand-muted text-center">ไม่มีค่าใช้จ่ายคงที่? ข้ามขั้นตอนนี้ไปได้เลย</p>
                 </motion.div>
               )}
 
@@ -278,18 +324,15 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
             ) : <div />}
 
             <div className="flex items-center gap-2">
-              {step !== 1 && (
-                <button
-                  onClick={goNext}
-                  className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
-                >
-                  ข้าม
-                </button>
-              )}
+              <button
+                onClick={goNext}
+                className="px-3.5 py-2.5 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-neutral-800 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+              >
+                ข้าม
+              </button>
               <motion.button
                 whileTap={{ scale: 0.96 }}
                 onClick={goNext}
-                disabled={step === 1 && !isExpenseValid}
                 className="px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <span>{step === totalSteps - 1 ? 'เริ่มใช้งานเลย!' : 'ถัดไป'}</span>

@@ -1,4 +1,10 @@
-import { Job } from './types';
+import { Job, FixedExpenseItem } from './types';
+
+// Sum an itemized fixed-expense list (rent, car, internet, etc.) into the single total
+// that the rest of the app's profit/cashflow math consumes.
+export const sumFixedExpenseItems = (items: FixedExpenseItem[]): number => {
+  return items.reduce((sum, item) => sum + (item.amount || 0), 0);
+};
 
 // Format currency beautifully
 export const formatCurrency = (val: number): string => {

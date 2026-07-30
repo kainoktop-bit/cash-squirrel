@@ -1,25 +1,26 @@
 import React, { useState } from 'react';
-import { AppSettings } from '../types';
-import { formatCurrency } from '../utils';
+import { AppSettings, FixedExpenseItem } from '../types';
+import { formatCurrency, sumFixedExpenseItems } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Settings, 
-  Cloud, 
-  Download, 
-  Upload, 
-  User, 
-  LogOut, 
-  Trash2, 
-  AlertCircle, 
-  ShieldAlert, 
-  Check, 
-  RefreshCcw, 
+import {
+  Settings,
+  Cloud,
+  Download,
+  Upload,
+  User,
+  LogOut,
+  Trash2,
+  AlertCircle,
+  ShieldAlert,
+  Check,
+  RefreshCcw,
   FileJson,
   Lock,
-  Database
+  Database,
+  Plus
 } from 'lucide-react';
 import { Mascot } from './Mascot';
-import { IconCrown } from './icons';
+import { IconCrown, IconClose } from './icons';
 
 interface SettingsTabProps {
   settings: AppSettings;
@@ -83,6 +84,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [newFixedExpenseName, setNewFixedExpenseName] = useState('');
+  const [newFixedExpenseAmount, setNewFixedExpenseAmount] = useState('');
+
+  const fixedExpenseItems = settings.fixedExpenseItems || [];
+
+  const handleAddFixedExpenseItem = () => {
+    const amount = parseFloat(newFixedExpenseAmount);
+    if (!newFixedExpenseName.trim() || isNaN(amount) || amount < 0) return;
+
+    // First item ever added: carry the existing lump-sum value forward so nothing is lost
+    let baseItems = fixedExpenseItems;
+    if (baseItems.length === 0 && settings.monthlyExpense > 0) {
+      baseItems = [{ id: `fx-legacy-${Date.now()}`, name: 'ค่าใช้จ่ายเดิม (แก้ไขชื่อได้)', amount: settings.monthlyExpense }];
+    }
+
+    const newItem: FixedExpenseItem = { id: `fx-${Date.now()}`, name: newFixedExpenseName.trim(), amount };
+    const updatedItems = [...baseItems, newItem];
+
+    onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
+    setNewFixedExpenseName('');
+    setNewFixedExpenseAmount('');
+  };
+
+  const handleRemoveFixedExpenseItem = (id: string) => {
+    const updatedItems = fixedExpenseItems.filter(item => item.id !== id);
+    onUpdateSettings({ ...settings, fixedExpenseItems: updatedItems, monthlyExpense: sumFixedExpenseItems(updatedItems) });
+  };
 
   // Drag and drop handlers
   const handleDrag = (e: React.DragEvent) => {
@@ -151,25 +179,67 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
 
             <div className="space-y-4">
-              {/* Base Expense */}
+              {/* Base Expense - itemized breakdown */}
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-baseline">
                   <label className="text-xs font-bold text-brand-text dark:text-neutral-200">
                     ค่าใช้จ่ายส่วนตัวรายเดือนคงที่ (฿)
                   </label>
                   <span className="text-[10px] font-mono font-black text-emerald-600">
-                    {formatCurrency(settings.monthlyExpense)}
+                    รวม {formatCurrency(settings.monthlyExpense)}
                   </span>
                 </div>
-                <input
-                  type="number"
-                  value={settings.monthlyExpense}
-                  onChange={(e) => onUpdateSettings({ ...settings, monthlyExpense: parseFloat(e.target.value) || 0 })}
-                  className="bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500 w-full"
-                  placeholder="เช่น 15000"
-                />
+
+                {fixedExpenseItems.length > 0 && (
+                  <div className="space-y-1.5">
+                    {fixedExpenseItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between gap-2 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2">
+                        <span className="text-xs font-bold text-brand-text dark:text-neutral-200 truncate">{item.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-mono font-black text-brand-text dark:text-white">{formatCurrency(item.amount)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFixedExpenseItem(item.id)}
+                            className="text-neutral-400 hover:text-rose-600 cursor-pointer transition-colors"
+                            title="ลบรายการนี้"
+                          >
+                            <IconClose className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={newFixedExpenseName}
+                    onChange={(e) => setNewFixedExpenseName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
+                    placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
+                    className="flex-1 min-w-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-emerald-500"
+                  />
+                  <input
+                    type="number"
+                    value={newFixedExpenseAmount}
+                    onChange={(e) => setNewFixedExpenseAmount(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
+                    placeholder="บาท"
+                    className="w-24 shrink-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddFixedExpenseItem}
+                    className="shrink-0 p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer"
+                    title="เพิ่มรายการ"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
                 <p className="text-[9px] text-brand-muted leading-relaxed">
-                  เงินขั้นต่ำที่ต้องจ่ายออกทุกเดือนสำหรับค่ากิน ค่าห้อง ค่าน้ำ ค่าไฟคงที่
+                  เงินขั้นต่ำที่ต้องจ่ายออกทุกเดือนสำหรับค่ากิน ค่าห้อง ค่าน้ำ ค่าไฟคงที่ — แตกเป็นรายการย่อยได้เอง ระบบรวมยอดให้อัตโนมัติ
                 </p>
               </div>
 
