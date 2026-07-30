@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { TaxEvidence, WhtDocument, Expense } from '../types';
 import { Mascot } from './Mascot';
+import { IconWarning, IconAlertDot, IconCalendar, IconCheck, IconBulb } from './icons';
 
 interface MonthlyReportTabProps {
   jobs: Job[];
@@ -102,7 +103,7 @@ export default function MonthlyReportTab({
       setIsSavedText(false);
     }, 3000);
     triggerAlert(
-      'บันทึกข้อมูลตั้งค่าสำเร็จ! ✨',
+      'บันทึกข้อมูลตั้งค่าสำเร็จ!',
       'ระบบทำการบันทึกช่องทางจัดส่งแจ้งเตือนเข้าคลาวด์ Supabase เรียบร้อยแล้วครับ'
     );
   };
@@ -147,10 +148,10 @@ export default function MonthlyReportTab({
         if (res.ok) {
           const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
           onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ! ✉️🎉', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
+          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
         } else {
           res.text().then(errText => {
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลเพื่อส่งแบบ manual แทนครับ`, () => {
+            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลเพื่อส่งแบบ manual แทนครับ`, () => {
               window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
               const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
               onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
@@ -159,7 +160,7 @@ export default function MonthlyReportTab({
         }
       })
       .catch(err => {
-        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณกดส่งเองแทนครับ`, () => {
+        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณกดส่งเองแทนครับ`, () => {
           window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
           const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
           onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
@@ -169,7 +170,7 @@ export default function MonthlyReportTab({
       window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
       const updated = q.map(r => r.id === reminderId ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
       onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-      triggerAlert('ดำเนินการเปิดเมลสำเร็จ! ✉️', 'ระบบเปิดหน้าต่างเขียนอีเมลของคุณเพื่อทวงถามยอดดังกล่าวแล้ว และปรับสถานะในคิวเรียบร้อย');
+      triggerAlert('ดำเนินการเปิดเมลสำเร็จ!', 'ระบบเปิดหน้าต่างเขียนอีเมลของคุณเพื่อทวงถามยอดดังกล่าวแล้ว และปรับสถานะในคิวเรียบร้อย');
     }
   };
 
@@ -221,10 +222,10 @@ export default function MonthlyReportTab({
         if (res.ok) {
           const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
           onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ! ✉️🎉', `ส่งข้อมูลทวงถามค้างชำระทั้งหมดรวม ${pending.length} รายการไปที่ ${recipient} เรียบร้อยแล้ว`);
+          triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ส่งข้อมูลทวงถามค้างชำระทั้งหมดรวม ${pending.length} รายการไปที่ ${recipient} เรียบร้อยแล้ว`);
         } else {
           res.text().then(errText => {
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลรวมเพื่อส่งแบบ manual แทนครับ`, () => {
+            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลรวมเพื่อส่งแบบ manual แทนครับ`, () => {
               window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
               const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
               onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
@@ -233,7 +234,7 @@ export default function MonthlyReportTab({
         }
       })
       .catch(err => {
-        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณส่งเองแทนครับ`, () => {
+        triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลเพื่อให้คุณส่งเองแทนครับ`, () => {
           window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
           const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
           onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
@@ -243,13 +244,13 @@ export default function MonthlyReportTab({
       window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
       const updated = q.map(r => r.status === 'pending' ? { ...r, status: 'sent' as const, sentDate: todayStr } : r);
       onUpdateNotifSettings({ ...notifSettings, pendingQueue: updated });
-      triggerAlert('ดำเนินการเปิดเมลรวมสำเร็จ! ✉️', 'ระบบได้เปิดหน้าต่างเมลรวมรายการค้างจ่ายทั้งหมดยอดแล้ว');
+      triggerAlert('ดำเนินการเปิดเมลรวมสำเร็จ!', 'ระบบได้เปิดหน้าต่างเมลรวมรายการค้างจ่ายทั้งหมดยอดแล้ว');
     }
   };
 
   const handleClearQueueHistory = () => {
     triggerConfirm(
-      'ยืนยันการล้างประวัติคิว? 🗑️',
+      'ยืนยันการล้างประวัติคิว?',
       'คุณแน่ใจหรือไม่ว่าต้องการลบประวัติและรายการในคิวทั้งหมด? (รายการดีลที่ค้างชำระจริงจะยังคงอยู่)',
       () => {
         onUpdateNotifSettings({ ...notifSettings, pendingQueue: [] });
@@ -564,10 +565,10 @@ export default function MonthlyReportTab({
           setIsSendingSimulated(false);
           setSimulationStep(0);
           if (res.ok) {
-            triggerAlert('ส่งรายงานสำเร็จ! ✉️🎉', `ระบบส่งอีเมลสรุปข้อมูลเครดิตเทอมไปที่ ${recipient} เรียบร้อยแล้ว`);
+            triggerAlert('ส่งรายงานสำเร็จ!', `ระบบส่งอีเมลสรุปข้อมูลเครดิตเทอมไปที่ ${recipient} เรียบร้อยแล้ว`);
           } else {
             res.text().then(errText => {
-              triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `EmailJS รายงานข้อผิดพลาด: ${errText}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
+              triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS รายงานข้อผิดพลาด: ${errText}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
                 window.location.href = mailtoUrl;
               });
             });
@@ -576,7 +577,7 @@ export default function MonthlyReportTab({
         .catch(err => {
           setIsSendingSimulated(false);
           setSimulationStep(0);
-          triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
+          triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบเปิดแอปเมลสำรอง (Mailto) แทนเพื่อให้คุณส่งครับ`, () => {
             window.location.href = mailtoUrl;
           });
         });
@@ -588,7 +589,7 @@ export default function MonthlyReportTab({
           setIsSendingSimulated(false);
           setSimulationStep(0);
           triggerAlert(
-            'เปิดระบบเมลสำเร็จ! ✉️🚀',
+            'เปิดระบบเมลสำเร็จ!',
             `รายงานจะถูกร่างและเปิดขึ้นบนระบบของคุณเรียบร้อยแล้ว ปลายทางคือ ${recipient}`
           );
         }, 1000);
@@ -634,7 +635,7 @@ export default function MonthlyReportTab({
     const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
 
     triggerConfirm(
-      'แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง ✉️🔔',
+      'แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง',
       `คุณต้องการส่งร่างอีเมลแจ้งเตือนถึงตัวเอง เพื่อติดตามงาน "${job.name}" ที่${alertStatusText} หรือไม่? ระบบจะส่งอีเมลหาตัวคุณเองที่ ${recipient}`,
       () => {
         if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
@@ -656,10 +657,10 @@ export default function MonthlyReportTab({
           .then(res => {
             setIsSendingSimulated(false);
             if (res.ok) {
-              triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ! ✉️🎉', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
+              triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
             } else {
               res.text().then(errText => {
-                triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
+                triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
                   window.location.href = mailtoUrl;
                 });
               });
@@ -667,7 +668,7 @@ export default function MonthlyReportTab({
           })
           .catch(err => {
             setIsSendingSimulated(false);
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
+            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
               window.location.href = mailtoUrl;
             });
           });
@@ -1040,7 +1041,7 @@ export default function MonthlyReportTab({
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-pink-acc bg-pink-bg px-2.5 py-1 rounded-md flex items-center gap-1">
-                  ⚠️ เกินกำหนดชำระแล้ว (OVERDUE)
+                  <IconWarning className="w-3 h-3" /> เกินกำหนดชำระแล้ว (OVERDUE)
                 </span>
                 <span className="font-mono text-xs font-black text-pink-acc">{creditTermReport.overdue.length} ดีล</span>
               </div>
@@ -1061,7 +1062,7 @@ export default function MonthlyReportTab({
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-pink-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง ✉️</span>
+                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
                       </button>
                     </div>
                   );
@@ -1069,7 +1070,7 @@ export default function MonthlyReportTab({
 
                 {creditTermReport.overdue.length === 0 && (
                   <div className="text-center py-8 text-brand-muted text-[11px] font-medium">
-                    🎉 ยอดเยี่ยม! ไม่มีงานเกินกำหนดชำระเลย
+                    <span className="inline-flex items-center gap-1"><IconCheck className="w-3 h-3" /> ยอดเยี่ยม! ไม่มีงานเกินกำหนดชำระเลย</span>
                   </div>
                 )}
               </div>
@@ -1081,7 +1082,7 @@ export default function MonthlyReportTab({
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-yellow-acc bg-yellow-bg px-2.5 py-1 rounded-md flex items-center gap-1">
-                  🚨 ครบกำหนดชำระวันนี้ (DUE TODAY)
+                  <IconAlertDot className="w-3 h-3" /> ครบกำหนดชำระวันนี้ (DUE TODAY)
                 </span>
                 <span className="font-mono text-xs font-black text-yellow-acc">{creditTermReport.dueToday.length} ดีล</span>
               </div>
@@ -1094,14 +1095,14 @@ export default function MonthlyReportTab({
                       <p className="text-[10px] text-brand-muted font-semibold mt-0.5">ลูกค้า: {j.client}</p>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-brand-border/20">
                         <span className="font-mono font-black text-yellow-acc">{formatCurrency(j.pending)}</span>
-                        <span className="text-[9px] bg-yellow-bg text-yellow-acc font-black px-1.5 py-0.5 rounded-sm">วันนี้ 🚨</span>
+                        <span className="text-[9px] bg-yellow-bg text-yellow-acc font-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5">วันนี้ <IconAlertDot className="w-2.5 h-2.5" /></span>
                       </div>
                       <button
                         onClick={() => handleAlertSelfEmail(j)}
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-yellow-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง ✉️</span>
+                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
                       </button>
                     </div>
                   );
@@ -1121,7 +1122,7 @@ export default function MonthlyReportTab({
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-acc bg-blue-bg px-2.5 py-1 rounded-md flex items-center gap-1">
-                  📅 กำลังจะถึงกำหนด (IN 14 DAYS)
+                  <IconCalendar className="w-3 h-3" /> กำลังจะถึงกำหนด (IN 14 DAYS)
                 </span>
                 <span className="font-mono text-xs font-black text-blue-acc">{creditTermReport.upcoming.length} ดีล</span>
               </div>
@@ -1142,7 +1143,7 @@ export default function MonthlyReportTab({
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-blue-acc" />
-                        <span>แจ้งเตือนเข้าเมลตัวเอง ✉️</span>
+                        <span>แจ้งเตือนเข้าเมลตัวเอง</span>
                       </button>
                     </div>
                   );
@@ -1171,7 +1172,7 @@ export default function MonthlyReportTab({
             className="w-full sm:w-auto py-2.5 px-4 bg-brand-text hover:bg-brand-muted text-brand-white font-extrabold rounded-xl text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>ส่งรายงานสรุปยอดค้างจ่ายทั้งหมดเข้าเมลตนเอง ✉️</span>
+            <span>ส่งรายงานสรุปยอดค้างจ่ายทั้งหมดเข้าเมลตนเอง</span>
           </button>
         </div>
       </div>
@@ -1287,10 +1288,10 @@ export default function MonthlyReportTab({
               <span>คิดสัดส่วนเงินออม <span className="font-bold text-brand-text">{displaySavingsPercentage}%</span> จากรายรับที่โอนเข้าบัญชีสำเร็จแล้วเท่านั้น</span>
             </div>
             <button 
-              onClick={() => triggerAlert('คำแนะนำทางการเงิน 💡', 'ในเดือนที่รายรับเข้ามาต่ำกว่าเป้าหมาย ควรลดรายจ่ายฟุ่มเฟือยลง แต่รักษาอัตราส่วนเงินออมไว้ เพื่อความปลอดภัยของแผนกระแสเงินสดในระยะยาว')}
-              className="text-emerald-600 dark:text-emerald-400 font-extrabold hover:underline"
+              onClick={() => triggerAlert('คำแนะนำทางการเงิน', 'ในเดือนที่รายรับเข้ามาต่ำกว่าเป้าหมาย ควรลดรายจ่ายฟุ่มเฟือยลง แต่รักษาอัตราส่วนเงินออมไว้ เพื่อความปลอดภัยของแผนกระแสเงินสดในระยะยาว')}
+              className="text-emerald-600 dark:text-emerald-400 font-extrabold hover:underline inline-flex items-center gap-1"
             >
-              ดูแนวทางจัดสรร 💡
+              ดูแนวทางจัดสรร <IconBulb className="w-3 h-3" />
             </button>
           </div>
         </div>

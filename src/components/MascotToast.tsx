@@ -53,10 +53,10 @@ export function MascotToast() {
             {/* Content speech bubble */}
             <div className="flex-grow text-xs font-semibold leading-relaxed pr-5 select-text">
               <p className="text-brand-text dark:text-neutral-100 font-display text-[13px] font-extrabold flex items-center gap-1">
-                {toast.mood === 'happy' && '🐿️ พี่สควีเรลแชร์:'}
-                {toast.mood === 'celebrate' && '🎉 ยินดีด้วยนะค้าบ!:'}
-                {toast.mood === 'alert' && '⚠️ เตือนหน่อยนะค้าบ!:'}
-                {toast.mood === 'sleepy' && '😴 พักผ่อนบ้างนะค้าบ:'}
+                {toast.mood === 'happy' && 'พี่สควีเรลแชร์:'}
+                {toast.mood === 'celebrate' && 'ยินดีด้วยนะค้าบ!:'}
+                {toast.mood === 'alert' && 'เตือนหน่อยนะค้าบ!:'}
+                {toast.mood === 'sleepy' && 'พักผ่อนบ้างนะค้าบ:'}
               </p>
               <p className="text-brand-muted dark:text-neutral-300 mt-1 font-medium">{toast.message}</p>
             </div>

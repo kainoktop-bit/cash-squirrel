@@ -25,7 +25,7 @@ export const PremiumUpsell: React.FC<PremiumUpsellProps> = ({ feature, descripti
         onClick={onUpgrade}
         className="mt-6 px-6 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-xl text-xs font-black cursor-pointer"
       >
-        ทดลองใช้ฟรี 30 วัน ✨
+        ทดลองใช้ฟรี 30 วัน
       </button>
     </div>
   );

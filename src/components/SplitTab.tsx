@@ -33,6 +33,28 @@ import {
   Tag
 } from 'lucide-react';
 import { Mascot } from './Mascot';
+import {
+  IconTarget,
+  IconWarning,
+  IconAlertDot,
+  IconSpark,
+  IconCoin,
+  IconCoinOut,
+  IconCheck,
+  IconBolt,
+  IconRocket,
+  IconLoop,
+  IconPencil,
+  IconPalette,
+  IconGraduation,
+  IconGift,
+  IconCamera,
+  IconTool,
+  IconBarChart,
+  IconClear,
+  IconScale,
+  IconDot,
+} from './icons';
 
 interface SplitTabProps {
   jobs: Job[];
@@ -200,7 +222,7 @@ export default function SplitTab({
       });
 
       triggerAlert(
-        'จัดสรรกำไรสุทธิสำเร็จ! 🎉',
+        'จัดสรรกำไรสุทธิสำเร็จ!',
         `ระบบได้ทำการตัดยอดเงินรวมจำนวน ${formatCurrency(totalCustomAllocated)} จากยอดกำไรสุทธิ และแอดออนกระจายเข้าสู่แต่ละเป้าหมายเรียบร้อยแล้ว`
       );
       handleResetAllocations();
@@ -215,7 +237,7 @@ export default function SplitTab({
 
     if (totalToSplit <= 0) {
       triggerAlert(
-        'ไม่มีกำไรสุทธิคงเหลือ ⚠️',
+        'ไม่มีกำไรสุทธิคงเหลือ',
         'ยอดกำไรสุทธิคงเหลือสำหรับจัดสรร และเศษเงินคงเหลือสะสมของคุณในรอบเดือนนี้เป็น 0 บาท'
       );
       return;
@@ -225,7 +247,7 @@ export default function SplitTab({
 
     if (activeGoals.length === 0) {
       triggerAlert(
-        'ระบุกำหนดสัดส่วนเปอร์เซ็นต์ก่อน ⚠️',
+        'ระบุกำหนดสัดส่วนเปอร์เซ็นต์ก่อน',
         'กรุณาระบุสัดส่วนการโอนเข้าเป้าหมายอย่างน้อยหนึ่งเป้าหมาย (ที่ยังเก็บไม่ครบ) เพื่อจัดสรรอัตโนมัติ โดยแก้ไขสัดส่วนที่เป้าหมายนั้นด้านล่าง'
       );
       return;
@@ -277,7 +299,7 @@ export default function SplitTab({
 
     if (totalAllocatedToGoals <= 0) {
       triggerAlert(
-        'เป้าหมายการเงินของคุณเต็มหมดแล้ว! 🎉',
+        'เป้าหมายการเงินของคุณเต็มหมดแล้ว!',
         'ยอดสะสมปัจจุบันของเป้าหมายที่เลือกเต็มขีดจำกัดแล้ว ทำให้ไม่สามารถจัดสรรเพิ่มได้'
       );
       return;
@@ -291,7 +313,7 @@ export default function SplitTab({
     const messageHtml = `คุณกำลังจะจัดสรรงบรวมทั้งหมด ${formatCurrency(totalToSplit)} (มาจาก กำไรสุทธิคงเหลือเดือนนี้: ${formatCurrency(netProfit)} และ เศษสะสมยกมา: ${formatCurrency(accumulatedRemainder)})\n\nโดยเงินจะถูกหักตัดยอด และแบ่งเข้าเป้าหมายต่างๆ ทันทีดังนี้:\n${allocationsListText}\n\n** ยอดคงเหลือนำไปจัดสรรรอบเดือนนี้จะเป็น 0 บาท\n** เศษคงเหลือจากการหารไม่ลงตัวจำนวน ${formatCurrency(finalRemainder)} จะสะสมไว้เพื่อจัดสรรต่อรอบหน้า\n\nยืนยันเพื่อทำการตัดยอดเงินทันทีหรือไม่?`;
 
     triggerConfirm(
-      'ยืนยันจัดสุดด่วนตามสัดส่วน ⚡',
+      'ยืนยันจัดสุดด่วนตามสัดส่วน',
       messageHtml,
       () => {
         const updatedAllocatedMonths = { ...(settings.allocatedMonths || {}) };
@@ -303,7 +325,7 @@ export default function SplitTab({
         });
 
         triggerAlert(
-          'ตัดยอดเงินและจัดสรรสำเร็จ! 🚀',
+          'ตัดยอดเงินและจัดสรรสำเร็จ!',
           `โอนเงินรวม ${formatCurrency(totalAllocatedToGoals)} เข้าสู่เป้าหมายเรียบร้อยแล้ว โดยมียอดเศษเหลือสะสมเก็บยกยอดไปสะสมต่อที่ ${formatCurrency(finalRemainder)}`
         );
       }
@@ -316,7 +338,7 @@ export default function SplitTab({
 
     const nonFullGoals = goals.filter(g => g.current < g.target);
     if (nonFullGoals.length === 0) {
-      triggerAlert('ข้อผิดพลาด ⚠️', 'เป้าหมายทั้งหมดของคุณเต็มแล้ว ไม่สามารถหยอดเศษออมเพิ่มได้');
+      triggerAlert('ข้อผิดพลาด', 'เป้าหมายทั้งหมดของคุณเต็มแล้ว ไม่สามารถหยอดเศษออมเพิ่มได้');
       return;
     }
 
@@ -325,7 +347,7 @@ export default function SplitTab({
       .join('\n');
 
     triggerPrompt(
-      `หยอดเศษออมสะสมจำนวน ${formatCurrency(remainder)} 💸`,
+      `หยอดเศษออมสะสมจำนวน ${formatCurrency(remainder)}`,
       `กรุณาพิมพ์หมายเลขลำดับเป้าหมายที่ต้องการหยอดเศษออมนี้เข้าไปทั้งหมด:\n\n${optionsText}`,
       '1',
       'พิมพ์ตัวเลขลำดับ (เช่น 1)',
@@ -333,7 +355,7 @@ export default function SplitTab({
       (val) => {
         const idx = parseInt(val) - 1;
         if (isNaN(idx) || idx < 0 || idx >= nonFullGoals.length) {
-          triggerAlert('ข้อมูลไม่ถูกต้อง ⚠️', 'กรุณาระบุตัวเลขลำดับที่ถูกต้องตามรายการ');
+          triggerAlert('ข้อมูลไม่ถูกต้อง', 'กรุณาระบุตัวเลขลำดับที่ถูกต้องตามรายการ');
           return;
         }
 
@@ -345,7 +367,7 @@ export default function SplitTab({
         });
 
         triggerAlert(
-          'ฝากเศษออมสำเร็จ! 🐷',
+          'ฝากเศษออมสำเร็จ!',
           `ได้โอนย้ายเศษเงินคงเหลือสะสมจำนวน ${formatCurrency(remainder)} เข้าสู่เป้าหมาย "${selected.name}" เรียบร้อยแล้ว`
         );
       }
@@ -424,7 +446,7 @@ export default function SplitTab({
     setIsTxModalOpen(false);
 
     triggerAlert(
-      'บันทึกประวัติสำเร็จ! 🎉',
+      'บันทึกประวัติสำเร็จ!',
       `บันทึกรายการ${txType === 'deposit' ? 'โอนเงินเข้า' : 'ดึงเงินออก'} จำนวน ${formatCurrency(amount)} (${finalReason}) เรียบร้อยแล้ว`
     );
   };
@@ -459,7 +481,7 @@ export default function SplitTab({
 
     if (amount > transferFromGoal.current) {
       triggerAlert(
-        'ยอดเงินคงเหลือไม่พอ ⚠️',
+        'ยอดเงินคงเหลือไม่พอ',
         `เป้าหมาย "${transferFromGoal.name}" มียอดคงเหลือ ${formatCurrency(transferFromGoal.current)} เท่านั้น ไม่สามารถโอนย้าย ${formatCurrency(amount)} ได้`
       );
       return;
@@ -524,7 +546,7 @@ export default function SplitTab({
     });
 
     setIsEditGoalLocalOpen(false);
-    triggerAlert('สำเร็จ ✨', 'อัปเดตข้อมูลเป้าหมายเรียบร้อยแล้ว!');
+    triggerAlert('สำเร็จ', 'อัปเดตข้อมูลเป้าหมายเรียบร้อยแล้ว!');
   };
 
   // Preset arrays for targets
@@ -567,7 +589,7 @@ export default function SplitTab({
     setFormAllocatedPercentage('0');
     setIsAddGoalLocalOpen(false);
 
-    triggerAlert('สำเร็จ ✨', 'สร้างเป้าหมายทางการเงินใหม่และบันทึกลงระบบเรียบร้อยแล้ว!');
+    triggerAlert('สำเร็จ', 'สร้างเป้าหมายทางการเงินใหม่และบันทึกลงระบบเรียบร้อยแล้ว!');
   };
 
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>, isForExistingGoal: boolean = false) => {
@@ -575,12 +597,12 @@ export default function SplitTab({
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      triggerAlert('ข้อผิดพลาด ⚠️', 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (png, jpg, jpeg, webp)');
+      triggerAlert('ข้อผิดพลาด', 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (png, jpg, jpeg, webp)');
       return;
     }
 
     if (file.size > 3 * 1024 * 1024) {
-      triggerAlert('ไฟล์ขนาดใหญ่เกินไป ⚠️', 'กรุณาเลือกรูปภาพขนาดไม่เกิน 3MB เพื่อประสิทธิภาพระบบ');
+      triggerAlert('ไฟล์ขนาดใหญ่เกินไป', 'กรุณาเลือกรูปภาพขนาดไม่เกิน 3MB เพื่อประสิทธิภาพระบบ');
       return;
     }
 
@@ -591,10 +613,10 @@ export default function SplitTab({
         if (isForExistingGoal && selectedGoal) {
           onUpdateGoal(selectedGoal.id, { imageUrl: base64String });
           setSelectedGoal(prev => prev ? { ...prev, imageUrl: base64String } : null);
-          triggerAlert('อัปโหลดสำเร็จ ✨', 'อัปเดตรูปภาพเป้าหมายจากแกลเลอรีของคุณแล้ว!');
+          triggerAlert('อัปโหลดสำเร็จ', 'อัปเดตรูปภาพเป้าหมายจากแกลเลอรีของคุณแล้ว!');
         } else {
           setFormImageUrl(base64String);
-          triggerAlert('เตรียมรูปภาพสำเร็จ ✨', 'รูปภาพพร้อมใช้งานเป็นรูปเป้าหมายแล้ว!');
+          triggerAlert('เตรียมรูปภาพสำเร็จ', 'รูปภาพพร้อมใช้งานเป็นรูปเป้าหมายแล้ว!');
         }
       }
     };
@@ -611,9 +633,9 @@ export default function SplitTab({
         try {
           const str = evt.target.result as string;
           onImportData(str);
-          triggerAlert('นำเข้าสำเร็จ 🎉', 'ดึงข้อมูลงานและเป้าหมายจากไฟล์สำรองเข้าสู่ระบบเรียบร้อยแล้ว!');
+          triggerAlert('นำเข้าสำเร็จ', 'ดึงข้อมูลงานและเป้าหมายจากไฟล์สำรองเข้าสู่ระบบเรียบร้อยแล้ว!');
         } catch (err) {
-          triggerAlert('เกิดข้อผิดพลาด ⚠️', 'รูปแบบไฟล์สำรองไม่ถูกต้อง กรุณาเลือกไฟล์ .json ที่ถูกต้อง');
+          triggerAlert('เกิดข้อผิดพลาด', 'รูปแบบไฟล์สำรองไม่ถูกต้อง กรุณาเลือกไฟล์ .json ที่ถูกต้อง');
         }
       }
     };
@@ -625,8 +647,8 @@ export default function SplitTab({
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
-            ระบบจัดสรรเงินออมและเป้าหมายการเงิน ✨
+          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
+            ระบบจัดสรรเงินออมและเป้าหมายการเงิน <IconSpark className="w-3 h-3" />
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
             จัดสรรเงิน & เป้าหมายออม
@@ -638,8 +660,8 @@ export default function SplitTab({
       {/* Section 1: Interactive Pie/Bar Split representation */}
       <div className="bg-brand-white border border-brand-border rounded-[var(--radius-xl)] p-5 space-y-6 shadow-xs">
         <div>
-          <h4 className="text-xs font-bold tracking-wider text-brand-muted uppercase">
-            สัดส่วนการแบ่งกระแสเงินสดเดือนนี้ 📊
+          <h4 className="text-xs font-bold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
+            สัดส่วนการแบ่งกระแสเงินสดเดือนนี้ <IconBarChart className="w-3 h-3" />
           </h4>
           
           {/* Multi-colored horizontal stacked bar representing all configured goal quotas */}
@@ -733,7 +755,7 @@ export default function SplitTab({
           <div className="pt-4 space-y-4">
             <div className="bg-neutral-50 dark:bg-neutral-800/40 border border-brand-border rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center border-b border-brand-faint pb-2">
-                <span className="text-xs font-bold text-brand-text">สรุปโควตาเป้าหมายออมรายเดือน 🎯</span>
+                <span className="text-xs font-bold text-brand-text inline-flex items-center gap-1">สรุปโควตาเป้าหมายออมรายเดือน <IconTarget className="w-3 h-3" /></span>
                 <span className={`text-xs font-mono font-black py-0.5 px-2 rounded-full ${
                   totalAllocatedPct > 100 
                     ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' 
@@ -744,8 +766,9 @@ export default function SplitTab({
               </div>
 
               {totalAllocatedPct > 100 && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[10px] text-rose-700 dark:text-rose-400 font-bold leading-relaxed">
-                  ⚠️ แจ้งเตือน: สัดส่วนเปอร์เซ็นต์รวมของเป้าหมายการเงินทั้งหมดของคุณเกิน 100% (รวม {totalAllocatedPct}%) กรุณาลดเปอร์เซ็นต์บางเป้าหมายลงเพื่อป้องกันเงินเก็บเกินยอดกำไรสุทธิ!
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[10px] text-rose-700 dark:text-rose-400 font-bold leading-relaxed flex items-start gap-1.5">
+                  <IconWarning className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>แจ้งเตือน: สัดส่วนเปอร์เซ็นต์รวมของเป้าหมายการเงินทั้งหมดของคุณเกิน 100% (รวม {totalAllocatedPct}%) กรุณาลดเปอร์เซ็นต์บางเป้าหมายลงเพื่อป้องกันเงินเก็บเกินยอดกำไรสุทธิ!</span>
                 </div>
               )}
 
@@ -785,7 +808,7 @@ export default function SplitTab({
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
             <h4 className="text-sm font-black tracking-widest text-brand-text dark:text-white uppercase">
-              เครื่องมือจัดสรรกำไรสุทธิแบบยืดหยุ่น ⚡
+              เครื่องมือจัดสรรกำไรสุทธิแบบยืดหยุ่น
             </h4>
           </div>
           <p className="text-[10px] text-brand-muted mt-1 leading-relaxed">
@@ -836,8 +859,8 @@ export default function SplitTab({
                     {formatCurrency(remainingNetProfit)}
                   </span>
                   {remainingNetProfit === 0 && (
-                    <span className="text-[9px] font-extrabold bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase">
-                      ครบ ✓
+                    <span className="text-[9px] font-extrabold bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase inline-flex items-center gap-0.5">
+                      ครบ <IconCheck className="w-2.5 h-2.5" />
                     </span>
                   )}
                 </div>
@@ -859,23 +882,23 @@ export default function SplitTab({
 
               <button
                 onClick={handleApplyPresetSplit}
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
               >
-                🎯 ตั้งสไลเดอร์ตามสัดส่วน
+                <IconTarget className="w-3 h-3" /> ตั้งสไลเดอร์ตามสัดส่วน
               </button>
-              
+
               <button
                 onClick={handleApplyEqualSplit}
-                className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/25 text-purple-700 dark:text-purple-400 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/25 text-purple-700 dark:text-purple-400 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
               >
-                ⚖️ เฉลี่ยเท่ากันทุกเป้าหมาย
+                <IconScale className="w-3 h-3" /> เฉลี่ยเท่ากันทุกเป้าหมาย
               </button>
-              
+
               <button
                 onClick={handleResetAllocations}
-                className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-stone-700 dark:text-stone-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-stone-700 dark:text-stone-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
               >
-                🧹 ล้างสไลเดอร์ทั้งหมด
+                <IconClear className="w-3 h-3" /> ล้างสไลเดอร์ทั้งหมด
               </button>
             </div>
 
@@ -1030,13 +1053,14 @@ export default function SplitTab({
                 disabled={totalCustomAllocated <= 0}
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 dark:disabled:text-stone-600 disabled:shadow-none cursor-pointer"
               >
-                <span>ยืนยันบันทึกจัดสรรกำไร & ตัดยอดเงิน ({formatCurrency(totalCustomAllocated)}) 🚀</span>
+                <span>ยืนยันบันทึกจัดสรรกำไร & ตัดยอดเงิน ({formatCurrency(totalCustomAllocated)})</span>
+                <IconRocket className="w-4 h-4" />
               </motion.button>
             </div>
           </div>
         ) : (
           <div className="p-6 bg-amber-500/5 border border-dashed border-amber-500/20 rounded-2xl text-center space-y-2">
-            <p className="text-xl">⚠️</p>
+            <IconWarning className="w-6 h-6 mx-auto text-amber-600 dark:text-amber-400" />
             <h5 className="text-xs font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
               เนื่องจากรอบเดือนนี้ไม่มีกำไรสุทธิคงเหลือให้สไลด์จัดสรร
             </h5>
@@ -1053,7 +1077,7 @@ export default function SplitTab({
           <div className="flex items-center gap-2">
             <PiggyBank className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             <h3 className="text-sm font-black text-brand-text dark:text-white uppercase tracking-wider">
-              เป้าหมายเงินออมสะสม 🎯
+              เป้าหมายเงินออมสะสม
             </h3>
           </div>
           <button
@@ -1140,8 +1164,8 @@ export default function SplitTab({
 
       {/* Section 4: Revenue target assessment card & Break-even analysis */}
       <div className="bg-brand-white border border-brand-border rounded-[var(--radius-xl)] p-5 space-y-4">
-        <h4 className="text-xs font-bold tracking-widest text-brand-muted uppercase">
-          วิเคราะห์จุดคุ้มทุน & แผนทำเงิน 💰
+        <h4 className="text-xs font-bold tracking-widest text-brand-muted uppercase inline-flex items-center gap-1">
+          วิเคราะห์จุดคุ้มทุน & แผนทำเงิน <IconCoin className="w-3 h-3" />
         </h4>
 
         <div className="grid grid-cols-2 gap-4">
@@ -1312,7 +1336,7 @@ export default function SplitTab({
 
                 {/* Emoji presets selection & Free input */}
                 <div className="space-y-2">
-                  <label className="text-brand-muted uppercase tracking-wider block">เลือกหรือกำหนดสัญลักษณ์เป้าหมาย 🎨</label>
+                  <label className="text-brand-muted uppercase tracking-wider flex items-center gap-1">เลือกหรือกำหนดสัญลักษณ์เป้าหมาย <IconPalette className="w-3 h-3" /></label>
                   
                   {/* Preset list */}
                   <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
@@ -1418,7 +1442,7 @@ export default function SplitTab({
                         style={{ backgroundColor: preset.acc }}
                         title={preset.name}
                       >
-                        {formBg === preset.bg && <span className="text-[10px] text-white">✓</span>}
+                        {formBg === preset.bg && <IconCheck className="w-2.5 h-2.5 text-white" />}
                       </button>
                     ))}
                   </div>
@@ -1426,9 +1450,9 @@ export default function SplitTab({
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none"
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
                 >
-                  บันทึกเป้าหมายการสะสม ✨
+                  บันทึกเป้าหมายการสะสม <IconSpark className="w-3.5 h-3.5" />
                 </button>
               </form>
             </motion.div>
@@ -1460,7 +1484,7 @@ export default function SplitTab({
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-base font-black text-brand-text dark:text-white flex items-center gap-1.5">
-                    แก้ไขข้อมูลเป้าหมาย ✏️
+                    แก้ไขข้อมูลเป้าหมาย <IconPencil className="w-3.5 h-3.5" />
                   </h3>
                   <p className="text-[10px] text-brand-muted mt-0.5">
                     แก้ไขเป้าหมายของคุณเพื่อสอดรับกับสภาวะการสะสมและดีลเสบียงรายเดือน
@@ -1580,7 +1604,7 @@ export default function SplitTab({
 
                 {/* Emoji presets selection & Free input */}
                 <div className="space-y-2">
-                  <label className="text-brand-muted uppercase tracking-wider block">เลือกหรือกำหนดสัญลักษณ์เป้าหมาย 🎨</label>
+                  <label className="text-brand-muted uppercase tracking-wider flex items-center gap-1">เลือกหรือกำหนดสัญลักษณ์เป้าหมาย <IconPalette className="w-3 h-3" /></label>
                   
                   {/* Preset list */}
                   <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
@@ -1686,7 +1710,7 @@ export default function SplitTab({
                         style={{ backgroundColor: preset.acc }}
                         title={preset.name}
                       >
-                        {formBg === preset.bg && <span className="text-[10px] text-white">✓</span>}
+                        {formBg === preset.bg && <IconCheck className="w-2.5 h-2.5 text-white" />}
                       </button>
                     ))}
                   </div>
@@ -1694,9 +1718,9 @@ export default function SplitTab({
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none"
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
                 >
-                  บันทึกการแก้ไขข้อมูลเป้าหมาย ✨
+                  บันทึกการแก้ไขข้อมูลเป้าหมาย <IconSpark className="w-3.5 h-3.5" />
                 </button>
               </form>
             </motion.div>
@@ -1820,7 +1844,7 @@ export default function SplitTab({
                     const otherGoalsTotalPct = totalAllocatedPct - (selectedGoal.allocatedPercentage || 0);
                     const maxPctForThisGoal = Math.max(0, 100 - otherGoalsTotalPct);
                     triggerPrompt(
-                      'แก้ไขสัดส่วนเปอร์เซ็นต์สะสม 🎯',
+                      'แก้ไขสัดส่วนเปอร์เซ็นต์สะสม',
                       `ระบุเปอร์เซ็นต์ของกำไรสุทธิที่จะถูกจัดสรรเข้าเป้าหมาย "${selectedGoal.name}" นี้ในแต่ละเดือน (0 - ${maxPctForThisGoal} เนื่องจากเป้าหมายอื่นถูกตั้งไว้รวมแล้ว ${otherGoalsTotalPct}% เพื่อไม่ให้รวมกันเกิน 100%):`,
                       String(selectedGoal.allocatedPercentage ?? 0),
                       'พิมพ์ตัวเลขเปอร์เซ็นต์ (เช่น 25)',
@@ -1829,13 +1853,13 @@ export default function SplitTab({
                         const pct = Math.min(maxPctForThisGoal, Math.max(0, parseFloat(val) || 0));
                         onUpdateGoal(selectedGoal.id, { allocatedPercentage: pct });
                         setSelectedGoal(prev => prev ? { ...prev, allocatedPercentage: pct } : null);
-                        triggerAlert('อัปเดตสัดส่วนสำเร็จ! ✨', `เปลี่ยนสัดส่วนจัดสรรของเป้าหมาย "${selectedGoal.name}" เป็น ${pct}% เรียบร้อยแล้ว`);
+                        triggerAlert('อัปเดตสัดส่วนสำเร็จ!', `เปลี่ยนสัดส่วนจัดสรรของเป้าหมาย "${selectedGoal.name}" เป็น ${pct}% เรียบร้อยแล้ว`);
                       }
                     );
                   }}
                   className="w-full py-1.5 bg-white dark:bg-stone-800 hover:bg-neutral-100 dark:hover:bg-stone-700 border border-brand-border text-brand-text dark:text-neutral-200 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  🎯 ปรับแต่งเปอร์เซ็นต์เป้าหมายนี้
+                  <IconTarget className="w-3 h-3" /> ปรับแต่งเปอร์เซ็นต์เป้าหมายนี้
                 </button>
               </div>
 
@@ -1847,7 +1871,7 @@ export default function SplitTab({
                     onClick={() => openTxModal(selectedGoal, 'deposit')}
                     className="flex items-center justify-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 p-3 rounded-xl font-bold transition-all cursor-pointer border-none shadow-sm"
                   >
-                    💰 ฝากเงินเพิ่ม
+                    <IconCoin className="w-4 h-4" /> ฝากเงินเพิ่ม
                   </button>
 
                   <button
@@ -1855,7 +1879,7 @@ export default function SplitTab({
                     onClick={() => openTxModal(selectedGoal, 'withdraw')}
                     className="flex items-center justify-center gap-1.5 bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-900/10 dark:text-rose-400 dark:border-rose-900/30 hover:bg-rose-100 p-3 rounded-xl font-bold transition-all cursor-pointer shadow-xs"
                   >
-                    💸 ดึงเงินออก
+                    <IconCoinOut className="w-4 h-4" /> ดึงเงินออก
                   </button>
                 </div>
 
@@ -1865,7 +1889,7 @@ export default function SplitTab({
                     onClick={() => openTransferModal(selectedGoal)}
                     className="w-full flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/30 p-3 rounded-xl font-bold transition-all cursor-pointer"
                   >
-                    🔄 โอนย้ายเงินไปเป้าหมายอื่น
+                    <IconLoop className="w-4 h-4" /> โอนย้ายเงินไปเป้าหมายอื่น
                   </button>
                 )}
 
@@ -1874,7 +1898,7 @@ export default function SplitTab({
                   onClick={() => openEditGoalForm(selectedGoal)}
                   className="w-full flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 p-3 rounded-xl font-bold transition-all cursor-pointer"
                 >
-                  ✏️ แก้ไขข้อมูลเป้าหมาย
+                  <IconPencil className="w-3.5 h-3.5" /> แก้ไขข้อมูลเป้าหมาย
                 </button>
               </div>
 
@@ -1925,14 +1949,14 @@ export default function SplitTab({
                       onClick={() => setHistoryFilter('deposit')}
                       className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${historyFilter === 'deposit' ? 'bg-emerald-600 text-white shadow-xs font-black' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
                     >
-                      🟢 โอนเข้า ({selectedGoal.history?.filter(h => h.type === 'deposit').length || 0})
+                      <IconDot className="w-2 h-2 text-emerald-500 inline-block" /> โอนเข้า ({selectedGoal.history?.filter(h => h.type === 'deposit').length || 0})
                     </button>
                     <button
                       type="button"
                       onClick={() => setHistoryFilter('withdraw')}
                       className={`flex-1 py-1 rounded-lg transition-all cursor-pointer text-center ${historyFilter === 'withdraw' ? 'bg-rose-600 text-white shadow-xs font-black' : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20'}`}
                     >
-                      🔴 ดึงออก ({selectedGoal.history?.filter(h => h.type === 'withdraw').length || 0})
+                      <IconDot className="w-2 h-2 text-rose-500 inline-block" /> ดึงออก ({selectedGoal.history?.filter(h => h.type === 'withdraw').length || 0})
                     </button>
                   </div>
                 </div>
@@ -2012,7 +2036,7 @@ export default function SplitTab({
                                 type="button"
                                 onClick={() => {
                                   triggerConfirm(
-                                    'ลบรายการประวัติตัวนี้ 🗑️',
+                                    'ลบรายการประวัติตัวนี้',
                                     `คุณต้องการลบรายการ "${tx.reason}" (ยอด ${formatCurrency(tx.amount)}) ใช่หรือไม่?\n\nกดยืนยันเพื่อลบประวัติและปรับปรุงยอดเงินสะสมคงเหลืออัตโนมัติ`,
                                     () => {
                                       onDeleteGoalTransaction(selectedGoal.id, tx.id, true);
@@ -2039,7 +2063,7 @@ export default function SplitTab({
                   type="button"
                   onClick={() => {
                     triggerConfirm(
-                      'ยืนยันการลบเป้าหมาย 🗑️',
+                      'ยืนยันการลบเป้าหมาย',
                       `คุณแน่ใจหรือไม่ว่าต้องการลบเป้าหมาย "${selectedGoal.name}"? ข้อมูลทั้งหมดที่ออมมาในเป้าหมายนี้จะหายไปถาวร`,
                       () => {
                         onDeleteGoal(selectedGoal.id);
@@ -2085,7 +2109,7 @@ export default function SplitTab({
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                    {txType === 'deposit' ? '💰 ฝากเงินออมเพิ่ม' : '💸 ดึงเงินออก / ถอนเงิน'}
+                    {txType === 'deposit' ? 'ฝากเงินออมเพิ่ม' : 'ดึงเงินออก / ถอนเงิน'}
                   </h3>
                   <p className="text-xs text-brand-muted">
                     เป้าหมาย: <span className="font-bold text-brand-text dark:text-white">{txGoal.emoji} {txGoal.name}</span>
@@ -2170,16 +2194,27 @@ export default function SplitTab({
                   {/* Reason Quick Chips */}
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {(txType === 'deposit'
-                      ? ['ฝากประจำเดือน 💰', 'รายได้สปอนเซอร์ 🎁', 'เงินโบนัส/ทิป 🌟', 'จัดสรรกำไรสุทธิ ⚡']
-                      : ['หักค่าอุปกรณ์ 📷', 'หักค่าซ่อมบำรุง 🛠️', 'ดึงใช้ฉุกเฉิน 🚨', 'หักค่าเทอม/ศึกษา 🎓', 'โอนย้ายบัญชี 🔄']
-                    ).map(preset => (
+                      ? [
+                          { icon: IconCoin, label: 'ฝากประจำเดือน' },
+                          { icon: IconGift, label: 'รายได้สปอนเซอร์' },
+                          { icon: IconSpark, label: 'เงินโบนัส/ทิป' },
+                          { icon: IconBolt, label: 'จัดสรรกำไรสุทธิ' },
+                        ]
+                      : [
+                          { icon: IconCamera, label: 'หักค่าอุปกรณ์' },
+                          { icon: IconTool, label: 'หักค่าซ่อมบำรุง' },
+                          { icon: IconAlertDot, label: 'ดึงใช้ฉุกเฉิน' },
+                          { icon: IconGraduation, label: 'หักค่าเทอม/ศึกษา' },
+                          { icon: IconLoop, label: 'โอนย้ายบัญชี' },
+                        ]
+                    ).map(({ icon: PresetIcon, label }) => (
                       <button
-                        key={preset}
+                        key={label}
                         type="button"
-                        onClick={() => setTxReason(preset)}
-                        className="px-2.5 py-1 bg-brand-faint hover:bg-brand-border/30 dark:bg-stone-800 text-[10px] font-bold text-brand-text dark:text-neutral-200 rounded-lg border border-brand-border/40 transition-all cursor-pointer"
+                        onClick={() => setTxReason(label)}
+                        className="px-2.5 py-1 bg-brand-faint hover:bg-brand-border/30 dark:bg-stone-800 text-[10px] font-bold text-brand-text dark:text-neutral-200 rounded-lg border border-brand-border/40 transition-all cursor-pointer flex items-center gap-1"
                       >
-                        + {preset}
+                        <PresetIcon className="w-3 h-3" /> {label}
                       </button>
                     ))}
                   </div>
@@ -2195,11 +2230,12 @@ export default function SplitTab({
                   </button>
                   <button
                     type="submit"
-                    className={`flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer ${
+                    className={`flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       txType === 'deposit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                     }`}
                   >
-                    {txType === 'deposit' ? '💰 ยืนยันฝากเงินเข้า' : '💸 ยืนยันดึงเงินออก'}
+                    {txType === 'deposit' ? <IconCoin className="w-3.5 h-3.5" /> : <IconCoinOut className="w-3.5 h-3.5" />}
+                    {txType === 'deposit' ? 'ยืนยันฝากเงินเข้า' : 'ยืนยันดึงเงินออก'}
                   </button>
                 </div>
               </form>
@@ -2232,7 +2268,7 @@ export default function SplitTab({
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                    🔄 โอนย้ายเงินระหว่างเป้าหมาย
+                    โอนย้ายเงินระหว่างเป้าหมาย
                   </h3>
                   <p className="text-xs text-brand-muted">
                     ต้นทาง: <span className="font-bold text-brand-text dark:text-white">{transferFromGoal.emoji} {transferFromGoal.name}</span>
@@ -2322,9 +2358,9 @@ export default function SplitTab({
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer bg-indigo-600 hover:bg-indigo-700"
+                    className="flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-1.5"
                   >
-                    🔄 ยืนยันโอนย้ายเงิน
+                    <IconLoop className="w-3.5 h-3.5" /> ยืนยันโอนย้ายเงิน
                   </button>
                 </div>
               </form>

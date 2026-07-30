@@ -12,6 +12,7 @@ import {
   ChevronRight 
 } from 'lucide-react';
 import { Mascot } from './Mascot';
+import { IconSpark, IconCoin, IconWarning, IconCheck } from './icons';
 
 interface TimelineTabProps {
   jobs: Job[];
@@ -52,7 +53,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
           amount: j.received,
           isConfirmed: true,
           dateStr: j.payDate || j.postDate,
-          daysRemainingText: 'ได้รับแล้ว ✅',
+          daysRemainingText: 'ได้รับแล้ว',
           isOverdue: false,
         });
       }
@@ -85,7 +86,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
           const rel = getRelativeDaysText(j.postDate);
           monthlyEvents.push({
             id: `${j.id}-milestone`,
-            title: `🎬 WIP: ${j.name} (เป้าหมายออนแอร์/ส่งงาน)`,
+            title: `WIP: ${j.name} (เป้าหมายออนแอร์/ส่งงาน)`,
             client: j.client,
             amount: 0,
             isConfirmed: false,
@@ -121,8 +122,8 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
-            กระแสเงินสดรายวัน/รายเดือน ✨
+          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
+            กระแสเงินสดรายวัน/รายเดือน <IconSpark className="w-3 h-3" />
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
             ไทม์ไลน์รับเงิน
@@ -166,20 +167,21 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
             {/* Month Header and Total expected income - HIGHLY VISIBLE */}
             <div className="bg-brand-white border border-brand-border rounded-xl p-4 flex items-center justify-between shadow-xs">
               <div>
-                <span className="text-[10px] text-brand-muted uppercase font-extrabold tracking-wider block">
-                  💰 ยอดเงินเข้ารวมเดือนนี้
+                <span className="text-[10px] text-brand-muted uppercase font-extrabold tracking-wider flex items-center gap-1">
+                  <IconCoin className="w-2.5 h-2.5" /> ยอดเงินเข้ารวมเดือนนี้
                 </span>
                 <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatCurrency(m.totalIncome)}
                 </div>
               </div>
               <div className="text-right">
-                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider inline-block ${
-                  m.isShortfall 
-                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-100 dark:border-rose-500/10' 
+                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1 ${
+                  m.isShortfall
+                    ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-100 dark:border-rose-500/10'
                     : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-100/10'
                 }`}>
-                  {m.isShortfall ? '⚠️ ขาดแคลน' : '✅ ปลอดภัย'}
+                  {m.isShortfall ? <IconWarning className="w-2.5 h-2.5" /> : <IconCheck className="w-2.5 h-2.5" />}
+                  {m.isShortfall ? 'ขาดแคลน' : 'ปลอดภัย'}
                 </span>
                 <span className="text-[10px] text-brand-muted mt-1.5 block">
                   เกณฑ์จ่าย: {formatCurrency(settings.monthlyExpense)}
@@ -192,7 +194,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
               {m.events.length === 0 ? (
                 <div className="bg-brand-white border border-brand-border/60 rounded-xl p-5 text-center text-brand-muted text-xs flex flex-col items-center justify-center gap-2">
                   <Mascot mood="sleepy" size={56} className="mx-auto" />
-                  <span>ยังไม่มีแผนการเงินที่รับรู้รายได้ในเดือนนี้ 😴</span>
+                  <span>ยังไม่มีแผนการเงินที่รับรู้รายได้ในเดือนนี้</span>
                 </div>
               ) : (
                 m.events.map((evt, evtIdx) => {
@@ -267,13 +269,13 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
                         }`}>
                           <span className="flex items-center gap-1">
                             <Clock className={`w-3.5 h-3.5 shrink-0 ${evt.isOverdue ? 'text-rose-500' : isWipMilestone ? 'text-indigo-500' : isWipPending ? 'text-violet-500' : 'text-amber-500'}`} />
-                            {isWipMilestone 
-                              ? '🎬 กำหนดออนแอร์/ส่งงานที่เหลือ:' 
-                              : isWipPending 
-                              ? '⏳ คาดการณ์รับเงินที่เหลือ:' 
-                              : evt.isOverdue 
-                              ? '🚨 เลยกำหนดชำระเงิน:' 
-                              : '📅 กำหนดชำระเงินที่เหลือ:'}
+                            {isWipMilestone
+                              ? 'กำหนดออนแอร์/ส่งงานที่เหลือ:'
+                              : isWipPending
+                              ? 'คาดการณ์รับเงินที่เหลือ:'
+                              : evt.isOverdue
+                              ? 'เลยกำหนดชำระเงิน:'
+                              : 'กำหนดชำระเงินที่เหลือ:'}
                           </span>
                           <span className="font-black text-[12px] font-mono shrink-0">
                             {evt.daysRemainingText.replace('รอออนแอร์: ', '').replace('เหลือเวลาผลิต: ', '')}

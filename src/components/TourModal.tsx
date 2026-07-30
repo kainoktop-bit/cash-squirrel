@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from './Mascot';
+import { IconClose } from './icons';
 import { ChevronLeft, ChevronRight, X, Play, Milestone } from 'lucide-react';
 
 export interface TourStep {
@@ -63,10 +64,10 @@ export const TourModal: React.FC<TourModalProps> = ({
             {!isLast && (
               <button
                 onClick={onSkip}
-                className="text-[10px] font-bold text-brand-muted hover:text-rose-500 hover:underline transition-all cursor-pointer"
+                className="text-[10px] font-bold text-brand-muted hover:text-rose-500 hover:underline transition-all cursor-pointer inline-flex items-center gap-0.5"
                 title="ข้ามขั้นตอนแนะนำ"
               >
-                ข้ามทัวร์ ✕
+                ข้ามทัวร์ <IconClose className="w-2.5 h-2.5" />
               </button>
             )}
           </div>

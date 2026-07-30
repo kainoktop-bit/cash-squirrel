@@ -3,6 +3,7 @@ import { Job, Goal, AppSettings, StatusOption, NotifSettings } from '../types';
 import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../utils';
 import { motion } from 'motion/react';
 import { Mascot } from './Mascot';
+import { IconArrowUpRight, IconBolt, IconCoin } from './icons';
 import { VineDivider } from './VineDivider';
 import {
   TrendingUp,
@@ -178,7 +179,7 @@ export default function DashboardTab({
     const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
 
     triggerConfirm(
-      'แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง ✉️🔔',
+      'แจ้งเตือนเงินค้างชำระเข้าเมลตัวเอง',
       `คุณต้องการส่งร่างอีเมลแจ้งเตือนถึงตัวเอง เพื่อติดตามงาน "${job.name}" ที่${alertStatusText} หรือไม่? ระบบจะส่งอีเมลหาตัวคุณเองที่ ${recipient}`,
       () => {
         if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
@@ -200,10 +201,10 @@ export default function DashboardTab({
           .then(res => {
             setIsSendingSimulated(false);
             if (res.ok) {
-              triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ! ✉️🎉', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
+              triggerAlert('ส่งอีเมลแจ้งเตือนสำเร็จ!', `ระบบส่งอีเมลตรวจสอบรายการค้างชำระไปที่ ${recipient} เรียบร้อยแล้ว`);
             } else {
               res.text().then(errText => {
-                triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
+                triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `EmailJS แจ้งข้อผิดพลาด: ${errText}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
                   window.location.href = mailtoUrl;
                 });
               });
@@ -211,7 +212,7 @@ export default function DashboardTab({
           })
           .catch(err => {
             setIsSendingSimulated(false);
-            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ ❌', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
+            triggerAlert('ส่งอัตโนมัติไม่สำเร็จ', `เชื่อมต่อ EmailJS ผิดพลาด: ${err.message}\n\nระบบจะเปิดหน้าเมลสำรอง (Mailto) เพื่อให้คุณส่งแมนนวลแทนครับ`, () => {
               window.location.href = mailtoUrl;
             });
           });
@@ -275,14 +276,14 @@ export default function DashboardTab({
     const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
 
     triggerConfirm(
-      'ส่งอีเมลรายงานสรุปยอดค้างจ่าย ✉️📊',
+      'ส่งอีเมลรายงานสรุปยอดค้างจ่าย',
       `ระบบจะทำการสร้างร่างรายงานสรุปยอดค้างจ่ายทั้งหมดจำนวน ${formatCurrency(creditTermReport.totalPendingValue)} และเปิดช่องทางจัดส่งไปที่เมล ${recipient} ของคุณ เพื่อช่วยเก็บประวัติ`,
       () => {
         if (notifSettings.serviceType === 'emailjs' && notifSettings.emailjsServiceId && notifSettings.emailjsPublicKey) {
           setIsSendingSimulated(true);
           
           // Show quick simulation flow
-          triggerAlert('กำลังส่งรายงานผ่าน EmailJS... ⏳', 'กรุณารอระบบประมวลผลสักครู่เดียวครับ');
+          triggerAlert('กำลังส่งรายงานผ่าน EmailJS...', 'กรุณารอระบบประมวลผลสักครู่เดียวครับ');
           
           fetch('https://api.emailjs.com/api/v1.0/email/send', {
             method: 'POST',
@@ -302,13 +303,13 @@ export default function DashboardTab({
             setIsSendingSimulated(false);
             if (res.ok) {
               triggerAlert(
-                'ส่งอีเมลรายงานสำเร็จ! ✉️🎉',
+                'ส่งอีเมลรายงานสำเร็จ!',
                 `ระบบได้ส่งรายงานวิเคราะห์ยอดค้างรับไปยังอีเมล ${recipient} เรียบร้อยแล้วครับ`
               );
             } else {
               res.text().then(errText => {
                 triggerAlert(
-                  'ส่งผ่าน EmailJS ไม่สำเร็จ ❌',
+                  'ส่งผ่าน EmailJS ไม่สำเร็จ',
                   `ตรวจพบข้อผิดพลาด: ${errText}\n\nระบบจะสลับไปทำงานผ่านระบบเมลสำรอง (Mailto Link) แทนเพื่อเปิดแอปพลิเคชันอีเมลของคุณ`,
                   () => {
                     window.location.href = mailtoUrl;
@@ -320,7 +321,7 @@ export default function DashboardTab({
           .catch(err => {
             setIsSendingSimulated(false);
             triggerAlert(
-              'เกิดข้อผิดพลาดในการเชื่อมต่อ ❌',
+              'เกิดข้อผิดพลาดในการเชื่อมต่อ',
               `ไม่สามารถเชื่อมต่ออีเมลเซิร์ฟเวอร์ได้: ${err.message}\n\nระบบจะเปลี่ยนไปส่งผ่านเมลสำรองของคุณแทนครับ`,
               () => {
                 window.location.href = mailtoUrl;
@@ -336,7 +337,7 @@ export default function DashboardTab({
             
             setTimeout(() => {
               triggerAlert(
-                'เปิดระบบเมลสำเร็จ! ✉️🚀',
+                'เปิดระบบเมลสำเร็จ!',
                 `รายงานจะถูกร่างและเปิดขึ้นบนระบบของคุณเรียบร้อยแล้ว ปลายทางคือ ${recipient}`
               );
             }, 1000);
@@ -1027,7 +1028,7 @@ export default function DashboardTab({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
           <div>
             <h4 className="text-base font-extrabold font-display text-brand-text flex items-center gap-1.5">
-              บันทึกรับเงินด่วน ⚡
+              บันทึกรับเงินด่วน <IconBolt className="w-3.5 h-3.5" />
             </h4>
             <p className="text-[11px] text-brand-muted">
               ค้นหาดีลงานค้างชำระจากทุกช่วงเวลา แล้วกดปุ่มรับเงินได้ทันทีโดยไม่ต้องเลื่อนหา!
@@ -1074,7 +1075,7 @@ export default function DashboardTab({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-brand-text group-hover:underline">
-                ตรวจพบดีลค้างชำระ! มีแบรนด์ส่งมอบช้ากว่าดีลเครดิตเทอม (คลิกเพื่อเปิดแดชบอร์ดติดตามทวงถามเครดิตเทอม ↗️)
+                ตรวจพบดีลค้างชำระ! มีแบรนด์ส่งมอบช้ากว่าดีลเครดิตเทอม (คลิกเพื่อเปิดแดชบอร์ดติดตามทวงถามเครดิตเทอม <IconArrowUpRight className="w-3 h-3 inline-block align-middle" />)
               </p>
             </div>
           </div>
@@ -1134,7 +1135,7 @@ export default function DashboardTab({
                       const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                       
                       triggerConfirm(
-                        'บันทึกรับเงินครบถ้วน 🐿️💰',
+                        'บันทึกรับเงินครบถ้วน',
                         `คุณได้รับเงินจำนวน ${formatCurrency(j.pending)} จากดีลงาน "${j.name}" เรียบร้อยแล้วใช่ไหม?`,
                         () => {
                           if (onEditJob) {
@@ -1160,8 +1161,9 @@ export default function DashboardTab({
           })}
 
           {filteredUnpaidJobs.length === 0 && (
-            <div className="text-center py-10 bg-brand-white/40 border border-dashed border-brand-border rounded-2xl text-xs text-brand-muted font-medium">
-              🎉 ยินดีด้วยค้าบ! ไม่มีดีลงานค้างเก็บเงินเหลืออยู่เลย ทุกแบรนด์จ่ายครบหมดแล้ว! 🐿️💰
+            <div className="text-center py-10 bg-brand-white/40 border border-dashed border-brand-border rounded-2xl text-xs text-brand-muted font-medium flex flex-col items-center gap-1.5">
+              <IconCoin className="w-5 h-5" />
+              <span>ยินดีด้วยค้าบ! ไม่มีดีลงานค้างเก็บเงินเหลืออยู่เลย ทุกแบรนด์จ่ายครบหมดแล้ว!</span>
             </div>
           )}
         </div>

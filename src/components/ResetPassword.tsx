@@ -47,7 +47,7 @@ export default function ResetPassword({ darkMode, setDarkMode, onComplete }: Res
 
       if (updateError) throw updateError;
 
-      setSuccess('เปลี่ยนรหัสผ่านใหม่สำเร็จแล้ว! 🎉 กำลังนำคุณเข้าสู่ระบบ...');
+      setSuccess('เปลี่ยนรหัสผ่านใหม่สำเร็จแล้ว! กำลังนำคุณเข้าสู่ระบบ...');
       setPassword('');
       setConfirmPassword('');
       

@@ -1887,7 +1887,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                           const file = e.target.files?.[0];
                           if (file) {
                             if (file.size > 2 * 1024 * 1024) {
-                              triggerAlert('ไฟล์มีขนาดใหญ่เกินไป ❌', 'กรุณาอัปโหลดภาพที่มีขนาดไม่เกิน 2MB เพื่อประสิทธิภาพที่รวดเร็ว');
+                              triggerAlert('ไฟล์มีขนาดใหญ่เกินไป', 'กรุณาอัปโหลดภาพที่มีขนาดไม่เกิน 2MB เพื่อประสิทธิภาพที่รวดเร็ว');
                               return;
                             }
                             const reader = new FileReader();

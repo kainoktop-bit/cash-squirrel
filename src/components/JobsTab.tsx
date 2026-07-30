@@ -3,6 +3,7 @@ import { Job, StatusOption } from '../types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
+import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight, IconSpark } from './icons';
 import { 
   Briefcase, 
   Search, 
@@ -180,14 +181,14 @@ export default function JobsTab({
     if (editFormStep < 3) {
       if (editFormStep === 1) {
         if (!editName.trim()) {
-          triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
           return;
         }
       }
       if (editFormStep === 2) {
         const val = parseFloat(editValue);
         if (!editValue.trim() || isNaN(val) || val < 0) {
-          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
           return;
         }
       }
@@ -206,7 +207,7 @@ export default function JobsTab({
     if (editType === '__custom__') {
       const trimmed = editCustomTypeInput.trim();
       if (!trimmed) {
-        triggerAlert('กรุณากรอกประเภทงาน ⚠️', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        triggerAlert('กรุณากรอกประเภทงาน', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
         return;
       }
       finalType = trimmed;
@@ -220,7 +221,7 @@ export default function JobsTab({
     if (editStatus === '__custom__') {
       const labelTrimmed = editCustomStatusLabelInput.trim();
       if (!labelTrimmed) {
-        triggerAlert('กรุณากรอกชื่อสถานะ ⚠️', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        triggerAlert('กรุณากรอกชื่อสถานะ', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
         return;
       }
       finalStatus = `status-${Date.now()}`;
@@ -271,7 +272,7 @@ export default function JobsTab({
       excludeHolidays: editExcludeHolidays
     });
 
-    triggerAlert('แก้ไขสำเร็จ! ✨', 'ปรับปรุงข้อมูลดีลงานชิ้นนี้เรียบร้อยแล้ว');
+    triggerAlert('แก้ไขสำเร็จ!', 'ปรับปรุงข้อมูลดีลงานชิ้นนี้เรียบร้อยแล้ว');
     setEditingJob(null);
   };
 
@@ -282,14 +283,14 @@ export default function JobsTab({
     if (formStep < 3) {
       if (formStep === 1) {
         if (!formName.trim()) {
-          triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
           return;
         }
       }
       if (formStep === 2) {
         const val = parseFloat(formValue);
         if (!formValue.trim() || isNaN(val) || val < 0) {
-          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
           return;
         }
       }
@@ -303,7 +304,7 @@ export default function JobsTab({
     }
 
     if (!formName.trim()) {
-      triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณ');
+      triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณ');
       return;
     }
 
@@ -311,7 +312,7 @@ export default function JobsTab({
     if (formType === '__custom__') {
       const trimmed = customTypeInput.trim();
       if (!trimmed) {
-        triggerAlert('กรุณากรอกประเภทงาน ⚠️', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        triggerAlert('กรุณากรอกประเภทงาน', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
         return;
       }
       finalType = trimmed;
@@ -325,7 +326,7 @@ export default function JobsTab({
     if (formStatus === '__custom__') {
       const labelTrimmed = customStatusLabelInput.trim();
       if (!labelTrimmed) {
-        triggerAlert('กรุณากรอกชื่อสถานะ ⚠️', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        triggerAlert('กรุณากรอกชื่อสถานะ', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
         return;
       }
       finalStatus = `status-${Date.now()}`;
@@ -942,7 +943,7 @@ export default function JobsTab({
                           : 'bg-brand-faint dark:bg-stone-850 border border-brand-border/60 text-brand-muted'
                       }`}
                     >
-                      {formStep > s.step ? '✓' : s.step}
+                      {formStep > s.step ? <IconCheck className="w-3 h-3" /> : s.step}
                     </div>
                     <span
                       className={`text-[10px] font-black transition-all ${
@@ -1337,14 +1338,14 @@ export default function JobsTab({
                             {/* วันเริ่มดีลงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs">
                               <div className="flex items-center justify-between">
-                                <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">📅 วันเริ่มดีลงาน / ได้รับสัญญา</label>
+                                <label className="text-amber-900 dark:text-amber-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันเริ่มดีลงาน / ได้รับสัญญา</label>
                                 {formStartDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setFormStartDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    ❌ ล้างวันที่
+                                    <IconClose className="w-2.5 h-2.5" /> ล้างวันที่
                                   </button>
                                 )}
                               </div>
@@ -1368,7 +1369,7 @@ export default function JobsTab({
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">📝 บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
                               <textarea
                                 placeholder="เช่น มัดจำก่อนถ่าย 50%, สัญญาหลักเก็บไว้ในโน้ตไลน์กลุ่ม แบรนด์ขอตรวจดราฟท์แรกวันที่..."
                                 rows={3}
@@ -1390,8 +1391,8 @@ export default function JobsTab({
                             {/* Credit Term Selection */}
                             <div className="space-y-2.5 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
                               <div className="flex items-center justify-between">
-                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold block text-[11px] uppercase tracking-wider">
-                                  ⏳ ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider">
+                                  <IconHourglass className="w-3 h-3" /> ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
                                 </label>
                                 <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold">
                                   (คำนวณอัตโนมัติ)
@@ -1446,14 +1447,14 @@ export default function JobsTab({
                             {/* วันส่งมอบงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
                               <div className="flex items-center justify-between">
-                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold block text-[11px] uppercase tracking-wider">📅 วันส่งมอบงาน หรือวันออนแอร์จริง</label>
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันส่งมอบงาน หรือวันออนแอร์จริง</label>
                                 {formPostDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setFormPostDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    ❌ ล้างวันที่
+                                    <IconClose className="w-2.5 h-2.5" /> ล้างวันที่
                                   </button>
                                 )}
                               </div>
@@ -1475,7 +1476,7 @@ export default function JobsTab({
                               {formPostDate && formCreditTerm > 0 && (
                                 <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
                                   <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold">📅 วันกำหนดชำระเงิน (Due Date):</span>
+                                    <span className="font-bold inline-flex items-center gap-1"><IconCalendar className="w-3 h-3" /> วันกำหนดชำระเงิน (Due Date):</span>
                                     <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
                                       {safeFormatThaiDate(calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays))}
                                     </span>
@@ -1504,7 +1505,7 @@ export default function JobsTab({
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">📝 บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
                               <textarea
                                 placeholder="เช่น ส่งมอบไฟล์ผ่าน Google Drive แล้ว, ดำเนินการวางบิลรอบสิ้นเดือนนี้..."
                                 rows={3}
@@ -1526,9 +1527,9 @@ export default function JobsTab({
                     <button
                       type="button"
                       onClick={() => setFormStep(prev => prev - 1)}
-                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer text-center"
+                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
                     >
-                      ← ย้อนกลับ
+                      <IconArrowLeft className="w-3 h-3" /> ย้อนกลับ
                     </button>
                   )}
                   
@@ -1539,22 +1540,22 @@ export default function JobsTab({
                       onClick={() => {
                         if (formStep === 1) {
                           if (!formName.trim()) {
-                            triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
                             return;
                           }
                         }
                         if (formStep === 2) {
                           const val = parseFloat(formValue);
                           if (!formValue.trim() || isNaN(val) || val < 0) {
-                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
                             return;
                           }
                         }
                         setFormStep(prev => prev + 1);
                       }}
-                      className="flex-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer text-center shadow-xs"
+                      className="flex-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                     >
-                      ขั้นตอนถัดไป →
+                      ขั้นตอนถัดไป <IconArrowRight className="w-3 h-3" />
                     </button>
                   ) : (
                     <button
@@ -1567,7 +1568,7 @@ export default function JobsTab({
                           : 'bg-emerald-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      บันทึกข้อมูลดีลงาน ✨
+                      <span className="inline-flex items-center gap-1">บันทึกข้อมูลดีลงาน <IconSpark className="w-3 h-3" /></span>
                     </button>
                   )}
                 </div>
@@ -1635,7 +1636,7 @@ export default function JobsTab({
                           : 'bg-brand-faint dark:bg-stone-850 border border-brand-border/60 text-brand-muted'
                       }`}
                     >
-                      {editFormStep > s.step ? '✓' : s.step}
+                      {editFormStep > s.step ? <IconCheck className="w-3 h-3" /> : s.step}
                     </div>
                     <span
                       className={`text-[10px] font-black transition-all ${
@@ -2195,9 +2196,9 @@ export default function JobsTab({
                     <button
                       type="button"
                       onClick={() => setEditFormStep(prev => prev - 1)}
-                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer text-center"
+                      className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
                     >
-                      ← ย้อนกลับ
+                      <IconArrowLeft className="w-3 h-3" /> ย้อนกลับ
                     </button>
                   )}
                   
@@ -2208,22 +2209,22 @@ export default function JobsTab({
                       onClick={() => {
                         if (editFormStep === 1) {
                           if (!editName.trim()) {
-                            triggerAlert('กรุณากรอกชื่องาน ⚠️', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
                             return;
                           }
                         }
                         if (editFormStep === 2) {
                           const val = parseFloat(editValue);
                           if (!editValue.trim() || isNaN(val) || val < 0) {
-                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง ⚠️', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
                             return;
                           }
                         }
                         setEditFormStep(prev => prev + 1);
                       }}
-                      className="flex-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer text-center shadow-xs"
+                      className="flex-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                     >
-                      ขั้นตอนถัดไป →
+                      ขั้นตอนถัดไป <IconArrowRight className="w-3 h-3" />
                     </button>
                   ) : (
                     <button
@@ -2236,7 +2237,7 @@ export default function JobsTab({
                           : 'bg-indigo-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      บันทึกการแก้ไขดีลงาน ✨
+                      <span className="inline-flex items-center gap-1">บันทึกการแก้ไขดีลงาน <IconSpark className="w-3 h-3" /></span>
                     </button>
                   )}
                 </div>

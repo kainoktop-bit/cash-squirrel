@@ -20,6 +20,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { Mascot } from './Mascot';
+import { IconCrown } from './icons';
 
 interface SettingsTabProps {
   settings: AppSettings;
@@ -89,7 +90,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Export to CSV for Google Sheets
   const handleExportCSV = () => {
     if (!jobs || jobs.length === 0) {
-      triggerAlert('ไม่พบข้อมูล 📂', 'คุณยังไม่มีข้อมูลโปรเจกต์งานที่จะส่งออกครับ ลองเพิ่มโปรเจกต์งานก่อนนะครับ');
+      triggerAlert('ไม่พบข้อมูล', 'คุณยังไม่มีข้อมูลโปรเจกต์งานที่จะส่งออกครับ ลองเพิ่มโปรเจกต์งานก่อนนะครับ');
       return;
     }
 
@@ -165,8 +166,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     document.body.removeChild(link);
 
     triggerAlert(
-      'ส่งออก CSV สำเร็จ 🎉', 
-      'ระบบดาวน์โหลดไฟล์ CSV สำหรับนำไปใส่ Google Sheets เรียบร้อยแล้ว!\n\n💡 วิธีนำเข้า Google Sheets:\n1. เปิด Google Sheets\n2. ไปที่เมนู "ไฟล์" (File) > "นำเข้า" (Import)\n3. เลือกแท็บ "อัปโหลด" (Upload) แล้วเลือกไฟล์ที่เพิ่งดาวน์โหลดไปนี้ครับ'
+      'ส่งออก CSV สำเร็จ',
+      'ระบบดาวน์โหลดไฟล์ CSV สำหรับนำไปใส่ Google Sheets เรียบร้อยแล้ว!\n\nวิธีนำเข้า Google Sheets:\n1. เปิด Google Sheets\n2. ไปที่เมนู "ไฟล์" (File) > "นำเข้า" (Import)\n3. เลือกแท็บ "อัปโหลด" (Upload) แล้วเลือกไฟล์ที่เพิ่งดาวน์โหลดไปนี้ครับ'
     );
   };
 
@@ -524,7 +525,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {session && !session.isGuest && (
                 <div className="p-4 bg-gradient-to-br from-[#FDF3EC] to-brand-faint/40 dark:from-[#2A1810] dark:to-neutral-800/40 rounded-2xl space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-brand-text dark:text-white">แพ็กเกจโปร 👑</span>
+                    <span className="text-xs font-black text-brand-text dark:text-white inline-flex items-center gap-1">แพ็กเกจโปร <IconCrown className="w-3 h-3" /></span>
                     {isPaidActive && (
                       <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
                     )}

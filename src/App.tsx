@@ -23,6 +23,7 @@ import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { PremiumUpsell } from './components/PremiumUpsell';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
+import { IconCrown, IconSpark, IconPalette } from './components/icons';
 
 import { 
   Home, 
@@ -583,7 +584,7 @@ export default function App() {
       const daysRemaining = Math.ceil((periodEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
       if (daysRemaining > RENEWAL_GRACE_DAYS) {
         triggerAlert(
-          'ยังไม่ต้องต่ออายุตอนนี้ครับ 👑',
+          'ยังไม่ต้องต่ออายุตอนนี้ครับ',
           `แพ็กเกจ Pro ของคุณยังใช้งานได้ถึงวันที่ ${periodEnd.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (เหลืออีก ${daysRemaining} วัน) เนื่องจากระบบต่ออายุแบบจ่ายเองรายเดือน การจ่ายซ้ำตอนนี้จะทำให้วันที่เหลืออยู่หายไปฟรีๆ ระบบจะเปิดให้ต่ออายุอีกครั้งเมื่อใกล้ครบกำหนด (ประมาณ ${RENEWAL_GRACE_DAYS} วันก่อนหมดอายุ) หรือหลังจากหมดอายุแล้วครับ`
         );
         return;
@@ -603,7 +604,7 @@ export default function App() {
     if (checkoutResult && session?.user?.id) {
       if (checkoutResult === 'success') {
         loadSubscriptionData(session.user.id);
-        triggerAlert('สมัครสมาชิกสำเร็จ! 🎉', 'เริ่มทดลองใช้ฟรี 30 วันได้เลยครับ ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+        triggerAlert('สมัครสมาชิกสำเร็จ!', 'เริ่มทดลองใช้ฟรี 30 วันได้เลยครับ ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
       }
       window.history.replaceState({}, '', window.location.pathname + window.location.hash);
     }
@@ -1030,7 +1031,7 @@ export default function App() {
           
           setTimeout(() => {
             triggerConfirm(
-              '🔔 ตรวจพบดีลค้างชำระเลยกำหนด! 🚨',
+              'ตรวจพบดีลค้างชำระเลยกำหนด!',
               `ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน ${newCount} รายการ)\n\nคุณต้องการไปที่ "แดชบอร์ดติดตามทวงถามเครดิตเทอม" เพื่อตรวจสอบคิวทวงหนี้และกดส่งอีเมลทวงถามเลยไหมครับ?`,
               () => {
                 setActiveTab('report');
@@ -1051,7 +1052,7 @@ export default function App() {
     setJobs(prev => [jobWithId, ...prev]);
     fireMascot({
       mood: 'celebrate',
-      message: `เพิ่มงาน "${newJob.name}" ชิ้นใหม่เรียบร้อยแล้วค้าบ! สู้ๆ น้าเจ้ากระรอก! 🐿️✨`
+      message: `เพิ่มงาน "${newJob.name}" ชิ้นใหม่เรียบร้อยแล้วค้าบ! สู้ๆ น้าเจ้ากระรอก!`
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
@@ -1068,7 +1069,7 @@ export default function App() {
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
-        message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ! 🐿️💰✨`
+        message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
     } else {
@@ -1081,7 +1082,7 @@ export default function App() {
 
   const handleDeleteJob = (id: string) => {
     triggerConfirm(
-      'ยืนยันการลบงานดีล 🗑️',
+      'ยืนยันการลบงานดีล',
       'คุณแน่ใจหรือไม่ว่าต้องการลบดีลงานชิ้นนี้? ข้อมูลรายรับที่เกี่ยวข้องจะหายไปด้วย',
       () => {
         setJobs(prev => prev.filter(j => j.id !== id));
@@ -1126,7 +1127,7 @@ export default function App() {
           // Goal completed! Massive leaf party!
           fireMascot({
             mood: 'celebrate',
-            message: `ว้าววว! คุณทำเป้าหมายออมเงิน "${g.name}" สำเร็จครบ 100% แล้ว! ยอดเยี่ยมที่สุดเลยค้าบเจ้ากระรอก! 🐿️🎉🥳`
+            message: `ว้าววว! คุณทำเป้าหมายออมเงิน "${g.name}" สำเร็จครบ 100% แล้ว! ยอดเยี่ยมที่สุดเลยค้าบเจ้ากระรอก!`
           });
           leafBus.trigger({ count: 32, type: 'mixed', durationMs: 6500 });
         } else if (amount > 0) {
@@ -1186,7 +1187,7 @@ export default function App() {
           type: 'withdraw' as const,
           amount: transferAmount,
           date: todayStr,
-          reason: finalReason || `โอนย้ายไปเป้าหมาย "${toGoal.name}" 🔄`,
+          reason: finalReason || `โอนย้ายไปเป้าหมาย "${toGoal.name}"`,
           relatedGoalId: toGoalId,
           relatedGoalName: toGoal.name,
           createdAt
@@ -1203,7 +1204,7 @@ export default function App() {
           type: 'deposit' as const,
           amount: transferAmount,
           date: todayStr,
-          reason: finalReason || `โอนย้ายมาจากเป้าหมาย "${fromGoal.name}" 🔄`,
+          reason: finalReason || `โอนย้ายมาจากเป้าหมาย "${fromGoal.name}"`,
           relatedGoalId: fromGoalId,
           relatedGoalName: fromGoal.name,
           createdAt
@@ -1219,7 +1220,7 @@ export default function App() {
 
     leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
     triggerAlert(
-      'โอนย้ายเงินสำเร็จ! 🔄',
+      'โอนย้ายเงินสำเร็จ!',
       `โอนย้ายเงินจำนวน ${transferAmount.toLocaleString()} ฿ จากเป้าหมาย "${fromGoal.name}" ไปยัง "${toGoal.name}" เรียบร้อยแล้ว`
     );
   };
@@ -1246,7 +1247,7 @@ export default function App() {
           type: 'deposit' as const,
           amount,
           date: todayStr,
-          reason: reason || 'จัดสรรกำไรสุทธิประจำเดือน ⚡',
+          reason: reason || 'จัดสรรกำไรสุทธิประจำเดือน',
           createdAt: new Date().toISOString()
         };
         return {
@@ -1259,8 +1260,8 @@ export default function App() {
     }));
     if (goalName) {
       triggerAlert(
-        'ฝากเงินสำเร็จ! 🎉',
-        `โอนเงิน ${amount.toLocaleString()} ฿ เข้าสู่เป้าหมาย "${goalName}" เรียบร้อยแล้ว 🐷`
+        'ฝากเงินสำเร็จ!',
+        `โอนเงิน ${amount.toLocaleString()} ฿ เข้าสู่เป้าหมาย "${goalName}" เรียบร้อยแล้ว`
       );
     }
   };
@@ -1276,7 +1277,7 @@ export default function App() {
           type: 'deposit' as const,
           amount,
           date: todayStr,
-          reason: 'จัดสรรกำไรสุทธิประจำเดือน ⚡',
+          reason: 'จัดสรรกำไรสุทธิประจำเดือน',
           createdAt: new Date().toISOString()
         };
         return {
@@ -1328,7 +1329,7 @@ export default function App() {
     URL.revokeObjectURL(url);
     fireMascot({
       mood: 'celebrate',
-      message: 'ส่งออกข้อมูลเสบียงเรียบร้อยแล้วค้าบ! เก็บไฟล์นี้ไว้อย่างดีน้า 🐿️💾'
+      message: 'ส่งออกข้อมูลเสบียงเรียบร้อยแล้วค้าบ! เก็บไฟล์นี้ไว้อย่างดีน้า'
     });
   };
 
@@ -1347,12 +1348,12 @@ export default function App() {
       
       fireMascot({
         mood: 'celebrate',
-        message: 'นำเข้าข้อมูลและคืนชีพคลังเสบียงกระรอกเรียบร้อยแล้วค้าบ! 🎉🐿️'
+        message: 'นำเข้าข้อมูลและคืนชีพคลังเสบียงกระรอกเรียบร้อยแล้วค้าบ!'
       });
     } catch (err) {
       fireMascot({
         mood: 'alert',
-        message: 'นำเข้าข้อมูลไม่สำเร็จค้าบ ⚠️ ไฟล์อาจเสียหายหรือรูปแบบผิดพลาด!'
+        message: 'นำเข้าข้อมูลไม่สำเร็จค้าบ ไฟล์อาจเสียหายหรือรูปแบบผิดพลาด!'
       });
     }
   };
@@ -1483,7 +1484,7 @@ export default function App() {
               {isPaidActive ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-display font-black">PRO 👑</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO <IconCrown className="w-2.5 h-2.5" /></span>
                   {subscription?.currentPeriodEnd && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
                       ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1493,7 +1494,7 @@ export default function App() {
               ) : isInFreeTrial ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี <IconSpark className="w-2.5 h-2.5" /></span>
                   {trialEndsAt && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
                       ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1503,7 +1504,7 @@ export default function App() {
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-[#E65F2B] shrink-0" />
-                  <span className="text-brand-muted">FREE 🐿️</span>
+                  <span className="text-brand-muted">FREE</span>
                 </>
               )}
             </div>
@@ -1538,7 +1539,7 @@ export default function App() {
           </button>
 
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-brand-muted font-bold">โหมดธีมสว่าง/มืด 🎨</span>
+            <span className="text-[10px] text-brand-muted font-bold inline-flex items-center gap-1">โหมดธีมสว่าง/มืด <IconPalette className="w-2.5 h-2.5" /></span>
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/20 cursor-pointer"
@@ -1645,7 +1646,7 @@ export default function App() {
                       {isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black">PRO 👑</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO <IconCrown className="w-2.5 h-2.5" /></span>
                           {subscription?.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1655,7 +1656,7 @@ export default function App() {
                       ) : isInFreeTrial ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black">ทดลองใช้ฟรี ✨</span>
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี <IconSpark className="w-2.5 h-2.5" /></span>
                           {trialEndsAt && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1665,7 +1666,7 @@ export default function App() {
                       ) : (
                         <>
                           <span className="w-2 h-2 rounded-full bg-[#E65F2B] shrink-0" />
-                          <span className="text-brand-muted">FREE 🐿️</span>
+                          <span className="text-brand-muted">FREE</span>
                         </>
                       )}
                     </div>
@@ -1702,7 +1703,7 @@ export default function App() {
                 {/* Theme Controls on Mobile */}
                 <div className="pt-2 border-t border-brand-border/20">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] text-brand-muted font-bold">ธีมสว่าง/มืด 🎨</span>
+                    <span className="text-[9px] text-brand-muted font-bold inline-flex items-center gap-1">ธีมสว่าง/มืด <IconPalette className="w-2.5 h-2.5" /></span>
                     <button
                       onClick={() => setDarkMode(!darkMode)}
                       className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/20 cursor-pointer text-xs font-bold w-full"
@@ -1795,7 +1796,7 @@ export default function App() {
                 </div>
                 <div>
                   <h4 className="text-xs font-black text-brand-text dark:text-white tracking-wide">
-                    สำรวจฤดูกาลเก็บเกี่ยว 🌰
+                    สำรวจฤดูกาลเก็บเกี่ยว
                   </h4>
                   <p className="text-[10px] text-brand-muted mt-0.5 leading-relaxed">
                     เลือกเดือนอ้างอิงเพื่อตรวจสอบภาพรวม, สรุปรายรับ, บันทึกเงินออม และคำนวณภาษีในรอบเวลาที่ต้องการ

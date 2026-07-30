@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Target, Check } from 'lucide-react';
 import { Mascot } from './Mascot';
+import { IconCamera, IconLaptop, IconGraduation, IconBag, IconPencil } from './icons';
 import { AppSettings, Goal } from '../types';
 import { defaultSettings } from '../sampleData';
 import { formatNumberWithCommas, stripNumberInput } from '../utils';
@@ -17,11 +18,11 @@ interface ProfileSetupWizardProps {
 }
 
 const JOB_TYPE_OPTIONS = [
-  { id: 'sponsor', label: 'รับงานสปอนเซอร์ / รีวิวคอนเทนต์', emoji: '🎥' },
-  { id: 'freelance', label: 'รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)', emoji: '💻' },
-  { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', emoji: '🎓' },
-  { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', emoji: '🛍️' },
-  { id: 'other', label: 'อื่นๆ', emoji: '✏️' },
+  { id: 'sponsor', label: 'รับงานสปอนเซอร์ / รีวิวคอนเทนต์', icon: IconCamera },
+  { id: 'freelance', label: 'รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)', icon: IconLaptop },
+  { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', icon: IconGraduation },
+  { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', icon: IconBag },
+  { id: 'other', label: 'อื่นๆ', icon: IconPencil },
 ];
 
 const STEP_TITLES = [
@@ -177,7 +178,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                         <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 transition-colors ${
                           selected ? 'bg-white dark:bg-stone-900' : 'bg-brand-faint dark:bg-neutral-800'
                         }`}>
-                          {opt.emoji}
+                          <opt.icon className="w-4 h-4" />
                         </span>
                         <span className="flex-1">{opt.label}</span>
                         <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${

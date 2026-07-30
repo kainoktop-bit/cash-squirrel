@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { fireMascot } from '../mascotBus';
 import { Mascot } from './Mascot';
+import { IconCheck, IconArrowUp, IconArrowRight } from './icons';
 
 interface SummaryTabProps {
   jobs: Job[];
@@ -1043,9 +1044,12 @@ export default function SummaryTab({
                 </div>
 
                 <div className="mt-3 flex justify-between items-center text-[10px] font-bold text-brand-muted dark:text-neutral-400 pt-2 border-t border-brand-border/30 dark:border-stone-800/40">
-                  <span>{isSelected ? '👉 กำลังเลือกแสดงรายละเอียดรายงานของเดือนนี้ด้านบน' : '👆 คลิกเพื่อดึงยอดและดูสรุปโดยละเอียดของรอบเดือนนี้'}</span>
+                  <span className="inline-flex items-center gap-1">
+                    {isSelected ? <IconCheck className="w-2.5 h-2.5" /> : <IconArrowUp className="w-2.5 h-2.5" />}
+                    {isSelected ? 'กำลังเลือกแสดงรายละเอียดรายงานของเดือนนี้ด้านบน' : 'คลิกเพื่อดึงยอดและดูสรุปโดยละเอียดของรอบเดือนนี้'}
+                  </span>
                   <span className="text-indigo-600 dark:text-indigo-400 font-extrabold flex items-center gap-0.5">
-                    {isSelected ? 'เลือกอยู่' : 'สลับข้อมูลเดือนนี้ →'}
+                    {isSelected ? 'เลือกอยู่' : <>สลับข้อมูลเดือนนี้ <IconArrowRight className="w-2.5 h-2.5" /></>}
                   </span>
                 </div>
               </motion.div>
