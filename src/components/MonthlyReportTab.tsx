@@ -123,7 +123,7 @@ export default function MonthlyReportTab({
     bodyText += `กำหนดชำระเดิม: ${rem.dueDate || 'ไม่ระบุ'}\n\n`;
     bodyText += `ทางเราขอเรียนสอบถามความคืบหน้าของเอกสารและการโอนชำระยอดดังกล่าว หากโอนชำระเรียบร้อยแล้ว หรือต้องการให้ประสานงานเอกสารใบเสร็จ/ใบกำกับภาษีเพิ่มเติมประการใด สามารถแจ้งกลับได้ทันทีครับ\n\n`;
     bodyText += `ขอแสดงความนับถือ\n`;
-    bodyText += `ส่งผ่านโปรแกรมติดตามเครดิตเทอม Cashflow Tracker\n`;
+    bodyText += `ส่งผ่านโปรแกรมติดตามเครดิตเทอม กระรอกตุนเงิน\n`;
     bodyText += `อีเมลผู้ใช้: ${userEmail}`;
 
     const subject = `[ติดตามสถานะการชำระเงิน] ชื่องาน: ${rem.jobName} - ลูกค้า: ${rem.client}`;
@@ -486,9 +486,9 @@ export default function MonthlyReportTab({
     });
 
     const recipient = notifSettings.alertEmail || userEmail;
-    const subjectText = `[Cashflow Tracker] รายงานสรุปเงินครบกำหนดดีลเครดิตเทอม - ประจำวันที่ ${todayThaiStr}`;
+    const subjectText = `[กระรอกตุนเงิน] รายงานสรุปเงินครบกำหนดดีลเครดิตเทอม - ประจำวันที่ ${todayThaiStr}`;
 
-    let bodyText = `สวัสดีครับคุณผู้ใช้ Cashflow Tracker\n`;
+    let bodyText = `สวัสดีครับคุณผู้ใช้ กระรอกตุนเงิน\n`;
     bodyText += `นี่คือรายงานสรุปยอดดีลงานที่ครบกำหนดชำระเครดิตเทอม ประจำวันที่ ${todayThaiStr}\n`;
     bodyText += `ส่งตรงถึงคุณที่อีเมล: ${recipient}\n\n`;
     bodyText += `=========================================\n`;
@@ -532,7 +532,7 @@ export default function MonthlyReportTab({
 
     bodyText += `-----------------------------------------\n`;
     bodyText += `ติดตามและบันทึกกระแสเงินสดของคุณอย่างสม่ำเสมอเพื่อสุขภาพทางการเงินที่ดี!\n`;
-    bodyText += `จัดทำโดยระบบ Cashflow Tracker (Supabase Client Secured)`;
+    bodyText += `จัดทำโดยระบบ กระรอกตุนเงิน (Supabase Client Secured)`;
 
     const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
 
@@ -629,7 +629,7 @@ export default function MonthlyReportTab({
     bodyText += `1. ตรวจสอบแอปพลิเคชันธนาคาร/รายการเดินบัญชี เพื่อยืนยันว่าไม่มีเงินโอนเข้าจากคุณ "${job.client || 'ลูกค้า'}" จริงๆ\n`;
     bodyText += `2. หากยังไม่ได้รับเงิน ให้จัดทำและส่งใบเตือนยอดหนี้ค้างชำระ หรือโทร/ทักแชตไปสอบถามสถานะกับทางฝั่งลูกค้าทันที\n`;
     bodyText += `3. หากได้รับเงินครบถ้วนแล้ว อย่าลืมกดแก้ไขงานนี้ในหน้า "ดีลงานทั้งหมด" หรือ "ไทม์ไลน์" และเปลี่ยนสถานะเป็น "จ่ายเงินครบแล้ว" เพื่อลบการแจ้งเตือนนี้ออก\n\n`;
-    bodyText += `ส่งจากระบบรายงานและติดตามเครดิตเทอม Cashflow Tracker\n`;
+    bodyText += `ส่งจากระบบรายงานและติดตามเครดิตเทอม กระรอกตุนเงิน\n`;
     bodyText += `ผู้ใช้: ${userEmail}`;
 
     const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;

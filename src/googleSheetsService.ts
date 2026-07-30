@@ -2,7 +2,7 @@ import { Job } from './types';
 
 // Search for existing spreadsheet in Google Drive
 async function findSpreadsheet(accessToken: string): Promise<string | null> {
-  const query = encodeURIComponent("name = 'Remix Cashflow Tracker' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
+  const query = encodeURIComponent("name = 'กระรอกตุนเงิน' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
   const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`;
 
   const response = await fetch(url, {
@@ -33,7 +33,7 @@ async function createSpreadsheet(accessToken: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      name: 'Remix Cashflow Tracker',
+      name: 'กระรอกตุนเงิน',
       mimeType: 'application/vnd.google-apps.spreadsheet',
     }),
   });

@@ -260,7 +260,7 @@ function sendMonthlyCashFlowReport() {
           </div>
           
           <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; text-align: center; font-size: 11px; color: #9ca3af;">
-            <p style="margin: 0;">รายงานนี้สร้างขึ้นอัตโนมัติจากระบบ Cashflow Tracker ฟรีแลนซ์ ดีลลาร์</p>
+            <p style="margin: 0;">รายงานนี้สร้างขึ้นอัตโนมัติจากระบบ กระรอกตุนเงิน สำหรับฟรีแลนซ์และครีเอเตอร์</p>
             <p style="margin: 4px 0 0 0;">พอร์ตเทลและสิทธิ์เข้าใช้งานได้รับการตรวจสอบความถูกต้องเรียบร้อยแล้ว</p>
           </div>
         </div>
@@ -477,13 +477,13 @@ function sendOverduePaymentAlerts() {
             <ol style="margin: 0; padding-left: 20px; color: #4b5563;">
               <li>เปิดแอปธนาคารหรือเช็คสเตทเมนต์ของคุณ เพื่อยืนยันว่าไม่มีเงินยอดดังกล่าวโอนเข้าจริง</li>
               <li>หากตรวจสอบแล้วพบว่ายังไม่ได้รับเงิน ให้ทักไลน์ อีเมล หรือโทรติดต่อผู้ดูแลดีลของเอเจนซี่เพื่อทวงถามความคืบหน้าทันที</li>
-              <li>เมื่อได้รับยอดเงินเข้ามาในบัญชีจริงแล้ว ให้เปิดแอป <strong>Cashflow Tracker</strong> กดแก้ไขรายการดีล แล้วปรับยอดคงค้างให้เป็น 0 เพื่อบันทึกเสร็จสมบูรณ์</li>
+              <li>เมื่อได้รับยอดเงินเข้ามาในบัญชีจริงแล้ว ให้เปิดแอป <strong>กระรอกตุนเงิน</strong> กดแก้ไขรายการดีล แล้วปรับยอดคงค้างให้เป็น 0 เพื่อบันทึกเสร็จสมบูรณ์</li>
             </ol>
           </div>
           
           <div style="margin-top: 20px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 11px; color: #9ca3af;">
             <p style="margin: 0;">ระบบติดตามเครดิตเทอมและทวงเงินค้างชำระอัตโนมัติ (Daily Debt Tracker & Alert)</p>
-            <p style="margin: 4px 0 0 0;">จัดทำและซิงค์ข้อมูลเรียบร้อยผ่าน Cashflow Tracker</p>
+            <p style="margin: 4px 0 0 0;">จัดทำและซิงค์ข้อมูลเรียบร้อยผ่าน กระรอกตุนเงิน</p>
           </div>
         </div>
       `;
