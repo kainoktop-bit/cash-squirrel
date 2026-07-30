@@ -1146,6 +1146,64 @@ export default function App() {
     }));
   };
 
+  const handleTransferBetweenGoals = (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => {
+    if (fromGoalId === toGoalId || amount <= 0) return;
+    const fromGoal = goals.find(g => g.id === fromGoalId);
+    const toGoal = goals.find(g => g.id === toGoalId);
+    if (!fromGoal || !toGoal) return;
+
+    const transferAmount = Math.min(amount, fromGoal.current);
+    if (transferAmount <= 0) return;
+
+    const todayStr = date || new Date().toISOString().split('T')[0];
+    const createdAt = new Date().toISOString();
+    const finalReason = reason?.trim();
+
+    setGoals(prev => prev.map(g => {
+      if (g.id === fromGoalId) {
+        const newTx = {
+          id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          type: 'withdraw' as const,
+          amount: transferAmount,
+          date: todayStr,
+          reason: finalReason || `โอนย้ายไปเป้าหมาย "${toGoal.name}" 🔄`,
+          relatedGoalId: toGoalId,
+          relatedGoalName: toGoal.name,
+          createdAt
+        };
+        return {
+          ...g,
+          current: Math.max(0, g.current - transferAmount),
+          history: [newTx, ...(g.history || [])]
+        };
+      }
+      if (g.id === toGoalId) {
+        const newTx = {
+          id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+          type: 'deposit' as const,
+          amount: transferAmount,
+          date: todayStr,
+          reason: finalReason || `โอนย้ายมาจากเป้าหมาย "${fromGoal.name}" 🔄`,
+          relatedGoalId: fromGoalId,
+          relatedGoalName: fromGoal.name,
+          createdAt
+        };
+        return {
+          ...g,
+          current: Math.min(g.target, g.current + transferAmount),
+          history: [newTx, ...(g.history || [])]
+        };
+      }
+      return g;
+    }));
+
+    leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
+    triggerAlert(
+      'โอนย้ายเงินสำเร็จ! 🔄',
+      `โอนย้ายเงินจำนวน ${transferAmount.toLocaleString()} ฿ จากเป้าหมาย "${fromGoal.name}" ไปยัง "${toGoal.name}" เรียบร้อยแล้ว`
+    );
+  };
+
   const handleUpdateGoal = (id: string, updatedFields: Partial<Goal>) => {
     setGoals(prev => prev.map(g => {
       if (g.id === id) {
@@ -1840,6 +1898,7 @@ export default function App() {
                   onDeleteGoal={handleDeleteGoal}
                   onUpdateGoalProgress={handleUpdateGoalProgress}
                   onDeleteGoalTransaction={handleDeleteGoalTransaction}
+                  onTransferBetweenGoals={handleTransferBetweenGoals}
                   onUpdateGoal={handleUpdateGoal}
                   onAllocateSavingsToGoal={handleAllocateSavingsToGoal}
                   onAllocateMultipleSavings={handleAllocateMultipleSavings}

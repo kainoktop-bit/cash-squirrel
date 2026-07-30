@@ -42,6 +42,7 @@ interface SplitTabProps {
   onDeleteGoal: (id: string) => void;
   onUpdateGoalProgress: (id: string, amount: number, reason?: string, date?: string) => void;
   onDeleteGoalTransaction?: (goalId: string, txId: string, revertBalance?: boolean) => void;
+  onTransferBetweenGoals: (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => void;
   onUpdateGoal: (id: string, updatedFields: Partial<Goal>) => void;
   onAllocateSavingsToGoal: (goalId: string, amount: number) => void;
   onAllocateMultipleSavings: (allocations: Record<string, number>, settingsUpdate?: Partial<AppSettings>) => void;
@@ -74,6 +75,7 @@ export default function SplitTab({
   onDeleteGoal,
   onUpdateGoalProgress,
   onDeleteGoalTransaction,
+  onTransferBetweenGoals,
   onUpdateGoal,
   onAllocateSavingsToGoal,
   onAllocateMultipleSavings,
@@ -378,6 +380,14 @@ export default function SplitTab({
   // History list filter state inside goal detail modal
   const [historyFilter, setHistoryFilter] = useState<'all' | 'deposit' | 'withdraw'>('all');
 
+  // Transfer-between-goals modal state
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferFromGoal, setTransferFromGoal] = useState<Goal | null>(null);
+  const [transferToGoalId, setTransferToGoalId] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
+  const [transferReason, setTransferReason] = useState('');
+
   // Keep selectedGoal in sync with goals state updates
   useEffect(() => {
     if (selectedGoal) {
@@ -417,6 +427,46 @@ export default function SplitTab({
       'บันทึกประวัติสำเร็จ! 🎉',
       `บันทึกรายการ${txType === 'deposit' ? 'โอนเงินเข้า' : 'ดึงเงินออก'} จำนวน ${formatCurrency(amount)} (${finalReason}) เรียบร้อยแล้ว`
     );
+  };
+
+  const openTransferModal = (goal: Goal) => {
+    const firstOtherGoal = goals.find(g => g.id !== goal.id);
+    setTransferFromGoal(goal);
+    setTransferToGoalId(firstOtherGoal?.id || '');
+    setTransferAmount('');
+    setTransferDate(new Date().toISOString().split('T')[0]);
+    setTransferReason('');
+    setIsTransferModalOpen(true);
+  };
+
+  const handleTransferSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferFromGoal) return;
+
+    if (!transferToGoalId) {
+      triggerAlert('กรุณาเลือกเป้าหมายปลายทาง', 'กรุณาเลือกเป้าหมายที่ต้องการโอนเงินเข้าไป');
+      return;
+    }
+
+    const toGoal = goals.find(g => g.id === transferToGoalId);
+    if (!toGoal) return;
+
+    const amount = parseFloat(transferAmount) || 0;
+    if (amount <= 0) {
+      triggerAlert('กรุณาระบุจำนวนเงิน', 'จำนวนเงินต้องมากกว่า 0 บาทครับ');
+      return;
+    }
+
+    if (amount > transferFromGoal.current) {
+      triggerAlert(
+        'ยอดเงินคงเหลือไม่พอ ⚠️',
+        `เป้าหมาย "${transferFromGoal.name}" มียอดคงเหลือ ${formatCurrency(transferFromGoal.current)} เท่านั้น ไม่สามารถโอนย้าย ${formatCurrency(amount)} ได้`
+      );
+      return;
+    }
+
+    onTransferBetweenGoals(transferFromGoal.id, toGoal.id, amount, transferReason.trim() || undefined, transferDate);
+    setIsTransferModalOpen(false);
   };
 
   useEffect(() => {
@@ -1809,6 +1859,16 @@ export default function SplitTab({
                   </button>
                 </div>
 
+                {goals.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => openTransferModal(selectedGoal)}
+                    className="w-full flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/30 p-3 rounded-xl font-bold transition-all cursor-pointer"
+                  >
+                    🔄 โอนย้ายเงินไปเป้าหมายอื่น
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => openEditGoalForm(selectedGoal)}
@@ -1927,9 +1987,15 @@ export default function SplitTab({
                               <p className="font-extrabold text-brand-text dark:text-white truncate leading-tight">
                                 {tx.reason || (isDeposit ? 'ฝากเงินเข้า' : 'ดึงเงินออก')}
                               </p>
-                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-brand-muted">
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-brand-muted flex-wrap">
                                 <span className="font-medium">{formattedDate}</span>
                                 {tx.note && <span className="truncate">({tx.note})</span>}
+                                {tx.relatedGoalId && (
+                                  <span className="flex items-center gap-0.5 font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-1.5 py-0.2 rounded-md">
+                                    <RefreshCcw className="w-2.5 h-2.5" />
+                                    {isDeposit ? 'มาจาก' : 'ไปยัง'} {tx.relatedGoalName || '—'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2134,6 +2200,131 @@ export default function SplitTab({
                     }`}
                   >
                     {txType === 'deposit' ? '💰 ยืนยันฝากเงินเข้า' : '💸 ยืนยันดึงเงินออก'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Transfer Modal (Move money from one goal to another) */}
+      <AnimatePresence>
+        {isTransferModalOpen && transferFromGoal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative"
+            >
+              <button
+                type="button"
+                onClick={() => setIsTransferModalOpen(false)}
+                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
+                  <RefreshCcw className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
+                    🔄 โอนย้ายเงินระหว่างเป้าหมาย
+                  </h3>
+                  <p className="text-xs text-brand-muted">
+                    ต้นทาง: <span className="font-bold text-brand-text dark:text-white">{transferFromGoal.emoji} {transferFromGoal.name}</span>
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleTransferSubmit} className="space-y-4 pt-1">
+                {/* Destination goal select */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
+                    โอนไปยังเป้าหมาย <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={transferToGoalId}
+                    onChange={(e) => setTransferToGoalId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {goals.filter(g => g.id !== transferFromGoal.id).map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.emoji} {g.name} (มี {formatCurrency(g.current)} / เป้า {formatCurrency(g.target)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount input */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
+                    จำนวนเงิน (บาท) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      max={transferFromGoal.current}
+                      required
+                      value={transferAmount}
+                      onChange={(e) => setTransferAmount(e.target.value)}
+                      placeholder="เช่น 2000"
+                      className="w-full pl-9 pr-4 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-sm font-mono font-extrabold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="absolute left-3 top-2.5 text-brand-muted font-bold text-xs">฿</span>
+                  </div>
+                  <p className="text-[10px] text-brand-muted">
+                    ยอดคงเหลือในเป้าหมายต้นทาง: {formatCurrency(transferFromGoal.current)}
+                  </p>
+                </div>
+
+                {/* Date input */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
+                    วันที่ทำรายการ
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={transferDate}
+                    onChange={(e) => setTransferDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Reason / Details input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
+                    สาเหตุ / หมายเหตุ (ไม่บังคับ)
+                  </label>
+                  <input
+                    type="text"
+                    value={transferReason}
+                    onChange={(e) => setTransferReason(e.target.value)}
+                    placeholder="เช่น ย้ายเงินจากกองทุนลงทุนมาเก็บออม"
+                    className="w-full px-3.5 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-xs font-bold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsTransferModalOpen(false)}
+                    className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-brand-text dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 font-extrabold text-xs text-white rounded-xl shadow-sm transition-all cursor-pointer bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    🔄 ยืนยันโอนย้ายเงิน
                   </button>
                 </div>
               </form>

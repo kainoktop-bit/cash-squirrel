@@ -61,6 +61,8 @@ export interface GoalTransaction {
   reason: string; // สาเหตุ / หักค่าอะไร / หมายเหตุ
   note?: string; // หมายเหตุเพิ่มเติม
   createdAt?: string; // ISO string
+  relatedGoalId?: string; // if this transaction is one leg of a transfer between goals, the other goal's id
+  relatedGoalName?: string; // snapshot of the other goal's name at the time of transfer (for display even if that goal is later renamed/deleted)
 }
 
 export interface Goal {
