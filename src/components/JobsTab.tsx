@@ -69,6 +69,7 @@ export default function JobsTab({
   const [formClient, setFormClient] = useState('');
   const [formValue, setFormValue] = useState('');
   const [formReceived, setFormReceived] = useState('');
+  const [formHoursSpent, setFormHoursSpent] = useState('');
   const [formStatus, setFormStatus] = useState<string>('pending');
   const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
   const [formPostDate, setFormPostDate] = useState('');
@@ -121,6 +122,7 @@ export default function JobsTab({
   const [editClient, setEditClient] = useState('');
   const [editValue, setEditValue] = useState('');
   const [editReceived, setEditReceived] = useState('');
+  const [editHoursSpent, setEditHoursSpent] = useState('');
   const [editStatus, setEditStatus] = useState('');
   const [editCreditTerm, setEditCreditTerm] = useState<number>(0);
   const [editPostDate, setEditPostDate] = useState('');
@@ -146,6 +148,7 @@ export default function JobsTab({
       setEditClient(editingJob.client || '');
       setEditValue(String(editingJob.value));
       setEditReceived(String(editingJob.received));
+      setEditHoursSpent(editingJob.hoursSpent ? String(editingJob.hoursSpent) : '');
       setEditStatus(editingJob.status);
       setEditCreditTerm(editingJob.creditTerm);
       setEditPostDate(editingJob.postDate || '');
@@ -267,6 +270,7 @@ export default function JobsTab({
       isPosted: editIsPosted,
       payDate: calculatedPay,
       note: editNote,
+      hoursSpent: editHoursSpent.trim() ? parseFloat(editHoursSpent) : undefined,
       whtRate: editWhtRate,
       whtAmount: whtAmountNum,
       excludeHolidays: editExcludeHolidays
@@ -371,6 +375,7 @@ export default function JobsTab({
       isPosted: formIsPosted,
       payDate: payDateCalculated,
       note: formNote,
+      hoursSpent: formHoursSpent.trim() ? parseFloat(formHoursSpent) : undefined,
       whtRate: formWhtRate,
       whtAmount: whtAmountNum,
       excludeHolidays: formExcludeHolidays
@@ -381,6 +386,7 @@ export default function JobsTab({
     setFormClient('');
     setFormValue('');
     setFormReceived('');
+    setFormHoursSpent('');
     setFormStatus('pending');
     setFormType('ยังไม่ระบุ');
     setCustomTypeInput('');
@@ -1110,6 +1116,20 @@ export default function JobsTab({
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                           />
                         </div>
+
+                        {/* Hours spent (optional, for ฿/hour insight) */}
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชั่วโมงที่ใช้ทำงาน (ไม่บังคับ)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            placeholder="เช่น 5"
+                            value={formHoursSpent}
+                            onChange={(e) => setFormHoursSpent(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
+                          />
+                        </div>
                       </div>
 
                       {/* Withholding Tax visual selector cards */}
@@ -1800,6 +1820,20 @@ export default function JobsTab({
                             placeholder="เช่น 30000"
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
+                            className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+
+                        {/* Hours spent (optional, for ฿/hour insight) */}
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชั่วโมงที่ใช้ทำงาน (ไม่บังคับ)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            placeholder="เช่น 5"
+                            value={editHoursSpent}
+                            onChange={(e) => setEditHoursSpent(e.target.value)}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
                           />
                         </div>

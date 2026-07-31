@@ -21,6 +21,7 @@ export interface Job {
   dueDate?: string | null; // ISO date string (same as payDate for backward compatibility)
   paymentStatus?: 'paid' | 'partial' | 'unpaid' | string; // payment status flag (same as status behavior)
   note: string;
+  hoursSpent?: number; // จำนวนชั่วโมงที่ใช้ทำงานชิ้นนี้ (สำหรับคำนวณ ฿/ชม.)
   whtRate?: number; // หัก ณ ที่จ่าย (%)
   whtAmount?: number; // หัก ณ ที่จ่าย (บาท)
   whtDocId?: string; // Reference to a withholding tax document in settings.whtDocuments

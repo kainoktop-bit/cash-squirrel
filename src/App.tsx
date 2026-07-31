@@ -2006,7 +2006,7 @@ export default function App() {
 
               {activeTab === 'insight' && (
                 isPro ? (
-                  <InsightTab jobs={jobs} />
+                  <InsightTab jobs={jobs} onSwitchTab={setActiveTab} />
                 ) : (
                   <PremiumUpsell
                     feature="วิเคราะห์รายได้เชิงลึก"
