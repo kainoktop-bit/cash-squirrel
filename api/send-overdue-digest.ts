@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './_supabaseAdmin';
+import { supabaseAdmin } from './_supabaseAdmin.js';
 
 const FREE_TRIAL_DAYS = 30;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'กระรอกตุนเงิน <onboarding@resend.dev>';

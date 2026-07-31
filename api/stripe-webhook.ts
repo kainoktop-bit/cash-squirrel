@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type Stripe from 'stripe';
-import { stripe } from './_stripe';
-import { supabaseAdmin } from './_supabaseAdmin';
+import { stripe } from './_stripe.js';
+import { supabaseAdmin } from './_supabaseAdmin.js';
 
 export const config = {
   api: {
