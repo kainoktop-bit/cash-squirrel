@@ -157,6 +157,7 @@ function isPro(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers['authorization'];
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
