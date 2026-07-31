@@ -819,12 +819,13 @@ export default function JobsTab({
                               onClick={() => {
                                 const today = new Date();
                                 const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                onEditJob(j.id, { 
-                                  status: 'done', 
-                                  received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)), 
+                                onEditJob(j.id, {
+                                  status: 'done',
+                                  received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
                                   pending: 0,
                                   paymentStatus: 'paid',
-                                  payDate: localDateStr
+                                  payDate: localDateStr,
+                                  isPosted: true
                                 });
                               }}
                               className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-emerald-100/20 dark:border-emerald-500/10 cursor-pointer"
