@@ -16,6 +16,7 @@ import TaxTab from './components/TaxTab';
 import { SettingsTab } from './components/SettingsTab';
 import { InvoiceTab } from './components/InvoiceTab';
 import { InsightTab } from './components/InsightTab';
+import { PlansTab } from './components/PlansTab';
 import { supabase } from './supabaseClient';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
@@ -58,7 +59,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight' | 'plans';
 
 // Core items stay visible at all times; "more" items are grouped under a
 // collapsible section so first-time users see a simpler menu by default.
@@ -72,6 +73,7 @@ const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ class
   { key: 'insight', label: 'วิเคราะห์รายได้', icon: BarChart3, group: 'more' },
   { key: 'tax', label: 'ผู้ช่วยจัดการภาษี', icon: Calculator, group: 'more' },
   { key: 'invoice', label: 'ออกบิล & ใบเสร็จ', icon: FileText, group: 'more' },
+  { key: 'plans', label: 'แพ็กเกจ & อัปเกรด', icon: IconCrown, group: 'bottom' },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, group: 'bottom' },
 ];
 
@@ -1483,7 +1485,11 @@ export default function App() {
           </div>
 
           {session && !session.isGuest && (
-            <div className="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40">
+            <button
+              type="button"
+              onClick={() => setActiveTab('plans')}
+              className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
+            >
               {isPaidActive ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -1510,7 +1516,7 @@ export default function App() {
                   <span className="text-brand-muted">FREE</span>
                 </>
               )}
-            </div>
+            </button>
           )}
           <button
             onClick={() => {
@@ -1645,7 +1651,11 @@ export default function App() {
                   </div>
 
                   {session && !session.isGuest && (
-                    <div className="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40">
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('plans'); setIsMobileMenuOpen(false); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5 bg-brand-bg border border-brand-border/40 hover:border-brand-border transition-colors cursor-pointer"
+                    >
                       {isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -1672,7 +1682,7 @@ export default function App() {
                           <span className="text-brand-muted">FREE</span>
                         </>
                       )}
-                    </div>
+                    </button>
                   )}
                   <button
                     onClick={() => {
@@ -1769,6 +1779,7 @@ export default function App() {
                 {activeTab === 'split' && "จัดสรรเงิน & เป้าหมายออม"}
                 {activeTab === 'report' && "รายงานวิเคราะห์ & เครดิตเทอม"}
                 {activeTab === 'insight' && "วิเคราะห์รายได้เชิงลึก"}
+                {activeTab === 'plans' && "แพ็กเกจ & อัปเกรดเป็นสมาชิก"}
               </span>
             )}
           </div>
@@ -2002,6 +2013,17 @@ export default function App() {
                     onUpgrade={handleUpgrade}
                   />
                 )
+              )}
+
+              {activeTab === 'plans' && (
+                <PlansTab
+                  isPro={isPro}
+                  isPaidActive={isPaidActive}
+                  isInFreeTrial={isInFreeTrial}
+                  trialEndsAt={trialEndsAt}
+                  subscription={subscription}
+                  onUpgrade={handleUpgrade}
+                />
               )}
 
               {activeTab === 'settings' && (
