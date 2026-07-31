@@ -569,10 +569,13 @@ export default function DashboardTab({
   }, 0);
 
   const totalPending = selectedMonthJobs.reduce((sum, j) => {
-    const isPaid = j.status === 'done' || 
-                    j.paymentStatus === 'paid' || 
+    const isPaid = j.status === 'done' ||
+                    j.paymentStatus === 'paid' ||
                     statuses.find(s => s.id === j.status)?.behavior === 'done';
-    return sum + (isPaid ? 0 : j.pending);
+    // WIP jobs (not yet posted/delivered) aren't expected income yet, so they don't count
+    // toward the pending-receivable total shown on the dashboard.
+    if (isPaid || j.isPosted === false) return sum;
+    return sum + j.pending;
   }, 0);
 
   const totalContractVal = selectedMonthJobs.reduce((sum, j) => {
