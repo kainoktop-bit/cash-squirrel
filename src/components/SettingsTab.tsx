@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppSettings, FixedExpenseItem, NotifSettings } from '../types';
+import { AppSettings, FixedExpenseItem } from '../types';
 import { formatCurrency, sumFixedExpenseItems } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -14,8 +14,6 @@ import {
   Lock,
   Database,
   Plus,
-  Mail,
-  Sparkles,
   ArrowRight
 } from 'lucide-react';
 import { Mascot } from './Mascot';
@@ -54,9 +52,6 @@ interface SettingsTabProps {
   isPaidActive?: boolean;
   isInFreeTrial?: boolean;
   trialEndsAt?: Date | null;
-  isPro?: boolean;
-  notifSettings?: NotifSettings;
-  onUpdateNotifSettings?: (notifSettings: NotifSettings) => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -80,10 +75,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   subscription,
   isPaidActive,
   isInFreeTrial,
-  trialEndsAt,
-  isPro,
-  notifSettings,
-  onUpdateNotifSettings
+  trialEndsAt
 }) => {
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -460,54 +452,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   >
                     ดูรายละเอียดแพ็กเกจทั้งหมด <ArrowRight className="w-3 h-3" />
                   </button>
-
-                  {notifSettings && onUpdateNotifSettings && (
-                    <div className="pt-2.5 border-t border-brand-border/30 dark:border-neutral-800/50">
-                      <button
-                        type="button"
-                        disabled={!isPro}
-                        onClick={() => {
-                          if (!isPro) {
-                            onSwitchTab('plans');
-                            return;
-                          }
-                          onUpdateNotifSettings({
-                            ...notifSettings,
-                            dailyDigestEnabled: !notifSettings.dailyDigestEnabled
-                          });
-                        }}
-                        className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                          notifSettings.dailyDigestEnabled && isPro
-                            ? 'bg-emerald-500/10 border-emerald-500/30'
-                            : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
-                        }`}
-                      >
-                        <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                            สรุปงานค้างชำระรายวันทางอีเมล
-                            {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
-                          </span>
-                          <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
-                            {isPro
-                              ? 'ระบบส่งอีเมลสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ไม่ต้องเปิดแอปเอง'
-                              : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
-                          </p>
-                        </div>
-                        <div
-                          className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                            notifSettings.dailyDigestEnabled && isPro ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
-                          }`}
-                        >
-                          <div
-                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                              notifSettings.dailyDigestEnabled && isPro ? 'translate-x-4' : 'translate-x-0.5'
-                            }`}
-                          />
-                        </div>
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 
