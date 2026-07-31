@@ -630,6 +630,16 @@ export default function DashboardTab({
     alertFullMessage = `เสบียงอุดมสมบูรณ์ในเดือน ${monthName}: มีลูกนัทกินเหลือเก็บสุทธิเพิ่มขึ้นจำนวน ${formatCurrency(profit)} สำหรับจัดสรรลงรังออม`;
   }
 
+  const fixedItemsBase = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
+    ? settings.fixedExpenseItems
+    : (settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: 'ค่าใช้จ่ายคงที่รวม', amount: settings.monthlyExpense }] : []);
+  let fixedItemsCumulative = 0;
+  const fixedItemsCoverage = fixedItemsBase.map(item => {
+    fixedItemsCumulative += item.amount;
+    return { ...item, covered: totalReceived >= fixedItemsCumulative };
+  });
+  const fixedItemsCoveredCount = fixedItemsCoverage.filter(i => i.covered).length;
+
   const playHapticAndSound = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -838,6 +848,34 @@ export default function DashboardTab({
             className="pt-2 border-t border-brand-border/40 text-[11px] leading-relaxed font-medium text-brand-muted"
           >
             {alertFullMessage}
+
+            {fixedItemsCoverage.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-1.5">
+                <p className="text-[10px] font-black text-brand-muted uppercase tracking-wide">
+                  ค่าใช้จ่ายคงที่ประจำเดือน ({formatCurrency(settings.monthlyExpense)})
+                </p>
+                {fixedItemsCoverage.map(item => (
+                  <div key={item.id} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {item.covered ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#125442] dark:text-[#4ade80] shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 text-brand-muted shrink-0" />
+                      )}
+                      <span className={`font-semibold truncate ${item.covered ? 'text-brand-text' : 'text-brand-muted'}`}>
+                        {item.name}
+                      </span>
+                    </div>
+                    <span className={`font-mono font-bold shrink-0 ${item.covered ? 'text-brand-text' : 'text-brand-muted'}`}>
+                      {formatCurrency(item.amount)}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-[9px] text-brand-muted/80 pt-1">
+                  รายได้ที่รับมาแล้วเดือนนี้ ({formatCurrency(totalReceived)}) ครอบคลุมได้ {fixedItemsCoveredCount}/{fixedItemsCoverage.length} รายการ
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
       </motion.div>
