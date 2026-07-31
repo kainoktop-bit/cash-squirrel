@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import * as XLSX from 'xlsx';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { formatMonthKey } from '../src/utils.js';
 
@@ -7,15 +8,28 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'กระรอก�
 
 interface JobRow {
   id: string;
+  name: string;
+  type?: string;
+  client?: string;
   value: number;
   received: number;
+  pending?: number;
+  status?: string;
+  creditTerm?: number;
+  startDate?: string;
   postDate?: string;
   payDate: string | null;
+  whtRate?: number;
+  whtAmount?: number;
+  note?: string;
 }
 
 interface ExpenseRow {
+  name?: string;
+  category?: string;
   amount: number;
   date: string;
+  note?: string;
 }
 
 interface GoalRow {
@@ -50,6 +64,14 @@ function targetMonthKey(): string {
 
 function dateKeyInMonth(dateStr: string | undefined | null, monthKey: string): boolean {
   return !!dateStr && dateStr.substring(0, 7) === monthKey;
+}
+
+function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
+  return jobs.filter((j) => dateKeyInMonth(j.payDate || j.postDate, monthKey));
+}
+
+function expensesInMonth(expenses: ExpenseRow[], monthKey: string): ExpenseRow[] {
+  return expenses.filter((e) => dateKeyInMonth(e.date, monthKey));
 }
 
 interface MonthlySummary {
@@ -134,11 +156,57 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
         <tr><td style="padding:4px 0;color:#7A5C43;">ยอดออมสะสมโดยประมาณ</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.actualSavings)}</td></tr>
       </table>
     </div>
-    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
+    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel รายละเอียดรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
   </div>`;
 }
 
-async function sendReportEmail(to: string, monthLabel: string, summary: MonthlySummary): Promise<boolean> {
+// Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
+// scoped to just the target month instead of a whole tax year.
+function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: JobRow[], expenses: ExpenseRow[]): string {
+  const summaryRows: (string | number)[][] = [
+    [`สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`, ''],
+    ['มูลค่ารวมสัญญาดีลทั้งหมด', s.income],
+    ['ยอดโอนรับแล้วจริง', s.received],
+    ['หัก ค่าใช้จ่ายคงที่รายเดือน', s.fixedExpenseCalculated],
+    ['ค่าใช้จ่ายผันแปร', s.variableExpense],
+    ['กระแสเงินสดสุทธิคงเหลือ', s.netFlow],
+    ['ยอดออมสะสมโดยประมาณ', s.actualSavings]
+  ];
+
+  const incomeHeaders = [
+    'ชื่อโปรเจกต์', 'ประเภทงาน', 'ลูกค้า', 'มูลค่ารวม (บาท)', 'หัก ณ ที่จ่าย (%)',
+    'จำนวนภาษีหัก ณ ที่จ่าย (บาท)', 'ยอดได้รับแล้ว (บาท)', 'ยอดค้างชำระ (บาท)',
+    'สถานะโครงการ', 'เครดิตเทอม (วัน)', 'วันเริ่มงาน', 'วันดีล/วันเผยแพร่', 'กำหนดชำระเงิน', 'หมายเหตุ'
+  ];
+  const incomeRows = jobs.map((j) => {
+    let statusText = j.status;
+    if (j.status === 'done') statusText = 'จ่ายแล้ว';
+    else if (j.status === 'partial') statusText = 'มัดจำ/จ่ายบางส่วน';
+    else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
+    return [
+      j.name, j.type || 'ทั่วไป', j.client || '-', j.value || 0, j.whtRate || 0,
+      j.whtAmount || 0, j.received || 0, j.pending || 0, statusText || '-',
+      j.creditTerm || 0, j.startDate || '-', j.postDate || '-', j.payDate || '-', j.note || ''
+    ];
+  });
+
+  const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];
+  const expenseRows = expenses.map((e) => [e.name || '-', e.category || '-', e.amount || 0, e.date || '-', e.note || '']);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'สรุปเดือน');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([incomeHeaders, ...incomeRows]), 'รายรับ');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([expenseHeaders, ...expenseRows]), 'รายจ่าย');
+
+  return XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+}
+
+async function sendReportEmail(
+  to: string,
+  monthLabel: string,
+  summary: MonthlySummary,
+  attachmentBase64: string
+): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('Missing RESEND_API_KEY environment variable');
 
@@ -153,6 +221,12 @@ async function sendReportEmail(to: string, monthLabel: string, summary: MonthlyS
       to: [to],
       subject: `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
       html: buildReportHtml(monthLabel, summary),
+      attachments: [
+        {
+          filename: `บัญชีเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.xlsx`,
+          content: attachmentBase64,
+        },
+      ],
     }),
   });
 
@@ -259,7 +333,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        const ok = await sendReportEmail(recipient, monthLabel, summary);
+        const attachmentBase64 = buildMonthlyExcelBase64(
+          monthLabel,
+          summary,
+          jobsInMonth(jobs, monthKey),
+          expensesInMonth(expenses, monthKey)
+        );
+
+        const ok = await sendReportEmail(recipient, monthLabel, summary, attachmentBase64);
         if (!ok) {
           skipped += 1;
           continue;
