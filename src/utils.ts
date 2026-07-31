@@ -173,12 +173,11 @@ export const getRelativeDaysText = (dateStr: string | null | undefined): { text:
   }
 };
 
-// Parse a date string to get month key (e.g. "2026-06")
+// Parse a date string to get month key (e.g. "2026-06"). Jobs/expenses with no date at all
+// return "" so they simply don't match any month filter, instead of silently attaching
+// themselves to whatever month happens to be "today" when the app is opened.
 export const getMonthKey = (dateStr: string | undefined | null): string => {
-  if (!dateStr) {
-    const d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
-  }
+  if (!dateStr) return '';
   return dateStr.substring(0, 7);
 };
 
