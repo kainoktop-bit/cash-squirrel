@@ -15,6 +15,7 @@ import MonthlyReportTab from './components/MonthlyReportTab';
 import TaxTab from './components/TaxTab';
 import { SettingsTab } from './components/SettingsTab';
 import { InvoiceTab } from './components/InvoiceTab';
+import { InsightTab } from './components/InsightTab';
 import { supabase } from './supabaseClient';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
@@ -52,11 +53,12 @@ import {
   FileText,
   Smartphone,
   ChevronDown,
-  Wrench
+  Wrench,
+  BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice';
+type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 'report' | 'settings' | 'invoice' | 'insight';
 
 // Core items stay visible at all times; "more" items are grouped under a
 // collapsible section so first-time users see a simpler menu by default.
@@ -67,6 +69,7 @@ const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ class
   { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'more' },
   { key: 'split', label: 'จัดสรรเงิน & เป้าหมายออม', icon: Percent, group: 'more' },
   { key: 'report', label: 'รายงาน & เครดิตเทอม', icon: TrendingUp, group: 'more' },
+  { key: 'insight', label: 'วิเคราะห์รายได้', icon: BarChart3, group: 'more' },
   { key: 'tax', label: 'ผู้ช่วยจัดการภาษี', icon: Calculator, group: 'more' },
   { key: 'invoice', label: 'ออกบิล & ใบเสร็จ', icon: FileText, group: 'more' },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, group: 'bottom' },
@@ -1765,6 +1768,7 @@ export default function App() {
                 {activeTab === 'timeline' && "ไทม์ไลน์งานดีลและวันรับเงิน"}
                 {activeTab === 'split' && "จัดสรรเงิน & เป้าหมายออม"}
                 {activeTab === 'report' && "รายงานวิเคราะห์ & เครดิตเทอม"}
+                {activeTab === 'insight' && "วิเคราะห์รายได้เชิงลึก"}
               </span>
             )}
           </div>
@@ -1986,6 +1990,18 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                 />
+              )}
+
+              {activeTab === 'insight' && (
+                isPro ? (
+                  <InsightTab jobs={jobs} />
+                ) : (
+                  <PremiumUpsell
+                    feature="วิเคราะห์รายได้เชิงลึก"
+                    description="ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด เปรียบเทียบย้อนหลังได้ทันที เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    onUpgrade={handleUpgrade}
+                  />
+                )
               )}
 
               {activeTab === 'settings' && (
