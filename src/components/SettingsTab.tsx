@@ -3,8 +3,6 @@ import { AppSettings, FixedExpenseItem } from '../types';
 import { formatCurrency, sumFixedExpenseItems } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Settings,
-  Cloud,
   Download,
   Upload,
   User,
@@ -13,7 +11,6 @@ import {
   AlertCircle,
   ShieldAlert,
   Check,
-  RefreshCcw,
   FileJson,
   Lock,
   Database,
@@ -167,7 +164,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        {/* Left Column: Proportions & Cloud Sync */}
+        {/* Left Column: Proportions */}
         <div className="space-y-6">
           {/* Card 1: Proportions & Financial Targets */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
@@ -267,73 +264,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          {/* Card 2: Cloud Sync Configuration */}
-          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
-              <Cloud className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
-                ระบบคลาวด์ซิงค์ข้ามอุปกรณ์
-              </h3>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-[11px] text-brand-muted dark:text-neutral-300 leading-relaxed">
-                ระบบเชื่อมต่อเก็บข้อมูลแบบ Realtime ผ่าน Supabase เพื่อให้คุณใช้งานข้อมูลเดียวกันได้เสมอตลอดเวลา ทั้งบนเครื่องคอมพิวเตอร์ แท็บเล็ต และสมาร์ทโฟน
-              </p>
-
-              {/* Connection Status Panel */}
-              <div className="p-4 rounded-2xl border border-brand-border/40 dark:border-neutral-800/60 bg-brand-faint/40 dark:bg-neutral-800/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold text-brand-muted">สถานะซิงค์คลาวด์ปัจจุบัน:</span>
-                  
-                  {cloudSyncStatus === 'synced' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>คลาวด์ซิงค์แล้ว</span>
-                    </span>
-                  )}
-                  {cloudSyncStatus === 'pending' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 shadow-xs">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                      <span>กำลังส่งประมวลผล...</span>
-                    </span>
-                  )}
-                  {cloudSyncStatus === 'failed' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 shadow-xs">
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span>ล้มเหลว / ออฟไลน์</span>
-                    </span>
-                  )}
-                  {cloudSyncStatus === 'not_setup' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 shadow-xs">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                      <span>ยังไม่ตั้งค่าตาราง</span>
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {cloudSyncStatus === 'failed' && (
-                    <button 
-                      onClick={() => session?.user?.email && loadCloudData(session.user.email)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer shadow-xs"
-                    >
-                      <RefreshCcw className="w-3.5 h-3.5 animate-spin-slow" />
-                      <span>ลองเชื่อมต่อใหม่</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={onOpenCloudModal}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 border border-indigo-100/30 dark:border-indigo-500/10 transition-all cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span>เกี่ยวกับ Cloud Sync</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Offline backup & Account zone */}

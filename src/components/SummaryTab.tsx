@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Job, Goal, AppSettings, Expense, StatusOption } from '../types';
 import { formatCurrency, getMonthKey, formatMonthKey, exportJobsToCSV } from '../utils';
 import { 
@@ -83,6 +83,7 @@ export default function SummaryTab({
   }, []);
   const [quickReceivedInput, setQuickReceivedInput] = useState<{ [id: string]: string }>({});
   const [showDangerZone, setShowDangerZone] = useState(false);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
 
   // Expense Form States
   const [expName, setExpName] = useState('');
@@ -121,6 +122,7 @@ export default function SummaryTab({
     setExpName('');
     setExpAmount('');
     setExpNote('');
+    setIsAddExpenseOpen(false);
     triggerAlert('บันทึกรายจ่ายสำเร็จ!', 'บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว');
   };
 
@@ -851,93 +853,19 @@ export default function SummaryTab({
               </div>
             </div>
 
-            <span className="text-[10px] font-black text-orange-700 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 px-2.5 py-1 rounded-md font-mono">
-              จ่ายเพิ่มรวม {formatCurrency(metrics.totalVariableExpense)}
-            </span>
-          </div>
-
-          {/* Quick Expense Form */}
-          <form onSubmit={handleExpenseSubmit} className="bg-brand-faint/30 dark:bg-stone-950/20 border border-brand-border/30 dark:border-neutral-800 p-4 rounded-2xl space-y-3">
-            <h4 className="text-[10px] font-bold text-brand-text dark:text-neutral-300 uppercase tracking-wide">
-              บันทึกค่าใช้จ่ายใหม่
-            </h4>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[9px] font-bold text-brand-muted block mb-1">ชื่อรายการรายจ่าย</label>
-                <input
-                  type="text"
-                  placeholder="เช่น ซื้อจอมอนิเตอร์, ค่าส่งของลูกค้า"
-                  value={expName}
-                  onChange={(e) => setExpName(e.target.value)}
-                  className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                />
-              </div>
-
-              <div>
-                <label className="text-[9px] font-bold text-brand-muted block mb-1">จำนวนเงิน (บาท)</label>
-                <input
-                  type="number"
-                  placeholder="เช่น 1500"
-                  value={expAmount}
-                  onChange={(e) => setExpAmount(e.target.value)}
-                  className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[9px] font-bold text-brand-muted block mb-1">หมวดหมู่</label>
-                <select
-                  value={expCategory}
-                  onChange={(e) => setExpCategory(e.target.value)}
-                  className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-semibold outline-none cursor-pointer"
-                >
-                  {expenseCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[9px] font-bold text-brand-muted block mb-1">วันที่ทำรายการ</label>
-                <input
-                  type="date"
-                  value={expDate}
-                  onChange={(e) => setExpDate(e.target.value)}
-                  onClick={(e) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch (err) {
-                      console.log(err);
-                    }
-                  }}
-                  className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-1 text-xs font-semibold outline-none cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <label className="text-[9px] font-bold text-brand-muted block mb-1">หมายเหตุ / โน้ตย่อ</label>
-                <input
-                  type="text"
-                  placeholder="เช่น ใบเสร็จอยู่ในเครื่อง..."
-                  value={expNote}
-                  onChange={(e) => setExpNote(e.target.value)}
-                  className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-orange-700 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 px-2.5 py-1 rounded-md font-mono">
+                จ่ายเพิ่มรวม {formatCurrency(metrics.totalVariableExpense)}
+              </span>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsAddExpenseOpen(true)}
+                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5" /> บันทึกจ่ายออกผันแปร
-              </button>
+                <Plus className="w-3.5 h-3.5" /> บันทึกรายจ่าย
+              </motion.button>
             </div>
-          </form>
+          </div>
 
           {/* Expenses List for current month */}
           <div className="space-y-2">
@@ -993,6 +921,121 @@ export default function SummaryTab({
         </div>
 
       </div>
+
+      {/* 4.6. Sliding Bottom Sheet Modal for Adding Variable Expense */}
+      <AnimatePresence>
+        {isAddExpenseOpen && (
+          <div className="fixed inset-0 z-200">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddExpenseOpen(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+            />
+
+            {/* Content sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
+            >
+              {/* Drag indicator */}
+              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
+
+              <div className="flex justify-between items-center shrink-0">
+                <h3 className="text-lg font-black text-brand-text dark:text-white font-display">
+                  บันทึกค่าใช้จ่ายใหม่
+                </h3>
+                <button
+                  onClick={() => setIsAddExpenseOpen(false)}
+                  className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleExpenseSubmit} className="space-y-3 text-xs font-semibold">
+                <div>
+                  <label className="text-[9px] font-bold text-brand-muted block mb-1">ชื่อรายการรายจ่าย</label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="เช่น ซื้อจอมอนิเตอร์, ค่าส่งของลูกค้า"
+                    value={expName}
+                    onChange={(e) => setExpName(e.target.value)}
+                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-brand-muted block mb-1">จำนวนเงิน (บาท)</label>
+                  <input
+                    type="number"
+                    placeholder="เช่น 1500"
+                    value={expAmount}
+                    onChange={(e) => setExpAmount(e.target.value)}
+                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[9px] font-bold text-brand-muted block mb-1">หมวดหมู่</label>
+                    <select
+                      value={expCategory}
+                      onChange={(e) => setExpCategory(e.target.value)}
+                      className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-2 text-xs font-semibold outline-none cursor-pointer"
+                    >
+                      {expenseCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-bold text-brand-muted block mb-1">วันที่ทำรายการ</label>
+                    <input
+                      type="date"
+                      value={expDate}
+                      onChange={(e) => setExpDate(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) {
+                          console.log(err);
+                        }
+                      }}
+                      className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-2 text-xs font-semibold outline-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-brand-muted block mb-1">หมายเหตุ / โน้ตย่อ</label>
+                  <input
+                    type="text"
+                    placeholder="เช่น ใบเสร็จอยู่ในเครื่อง..."
+                    value={expNote}
+                    onChange={(e) => setExpNote(e.target.value)}
+                    className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" /> บันทึกจ่ายออกผันแปร
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 5. Monthly Archives & Reports Summary (Moved from Dashboard for clean-up) */}
       <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xs space-y-4">
