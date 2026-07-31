@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as XLSX from 'xlsx';
 import { Job, AppSettings, Expense } from '../types';
 import { formatCurrency } from '../utils';
-import { 
-  Calculator, 
-  FileText, 
-  Trash2, 
-  Plus, 
-  X, 
+import {
+  Calculator,
+  FileText,
+  Trash2,
+  Plus,
+  X,
   Download,
   Info,
   Calendar,
@@ -21,7 +22,8 @@ import {
   ChevronRight,
   TrendingUp,
   DollarSign,
-  Briefcase
+  Briefcase,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 
@@ -361,6 +363,83 @@ export default function TaxTab({
     triggerAlert('ดาวน์โหลด CSV สำเร็จ', 'จัดส่งและดาวน์โหลดไฟล์รายงานสรุปเรียบร้อยแล้ว');
   };
 
+  const handleExportExcel = () => {
+    const bracketRows = (label: string, breakdown: { range: string; taxable: number; rate: number; tax: number }[]) => [
+      [`ขั้นบันไดภาษี — ${label}`, '', '', ''],
+      ['ช่วงเงินได้สุทธิ (บาท)', 'ฐานภาษีในช่วงนี้ (บาท)', 'อัตราภาษี (%)', 'ภาษีในช่วงนี้ (บาท)'],
+      ...breakdown.map((b) => [b.range, b.taxable, `${b.rate * 100}%`, b.tax]),
+      ['', '', '', '']
+    ];
+
+    const summaryRows: (string | number)[][] = [
+      ['สรุปการประเมินและวางแผนภาษี', 'ครึ่งปีแรก (ภ.ง.ด. 94)', 'ทั้งปี (ภ.ง.ด. 90)'],
+      ['ปีภาษี', taxYear, taxYear],
+      ['รายได้ดีลงานในระบบ', firstHalfJobsRevenue, firstHalfJobsRevenue + secondHalfJobsRevenue],
+      ['รายได้เสริมอื่นๆ', firstHalfOtherRevenue, firstHalfOtherRevenue + secondHalfOtherRevenue],
+      ['รายได้รวมทั้งหมด', h1Revenue, fullRevenue],
+      ['วิธีหักค่าใช้จ่าย', deductionMethod, deductionMethod],
+      ['หักค่าใช้จ่ายตามเกณฑ์', h1Expense, fullExpense],
+      ['หักลดหย่อนส่วนตัว', h1PersonalAllowance, fullPersonalAllowance],
+      ['หักลดหย่อนเพิ่มเติมอื่นๆ', h1OtherAllowances, fullOtherAllowances],
+      ['เงินได้สุทธิ', h1NetIncome, fullNetIncome],
+      ['อัตราภาษีสูงสุดที่เสีย (%)', `${h1MaxRate}%`, `${fullMaxRate}%`],
+      ['ประมาณการภาษีที่ต้องชำระ', h1TaxDetails.totalTax, fullTaxDetails.totalTax],
+      ['', '', ''],
+      ...bracketRows('ครึ่งปีแรก (ภ.ง.ด. 94)', h1TaxDetails.breakdown),
+      ...bracketRows('ทั้งปี (ภ.ง.ด. 90)', fullTaxDetails.breakdown)
+    ];
+
+    const incomeHeaders = [
+      'ชื่อโปรเจกต์',
+      'ประเภทงาน',
+      'ลูกค้า',
+      'มูลค่ารวม (บาท)',
+      'หัก ณ ที่จ่าย (%)',
+      'จำนวนภาษีหัก ณ ที่จ่าย (บาท)',
+      'ยอดได้รับแล้ว (บาท)',
+      'ยอดค้างชำระ (บาท)',
+      'สถานะโครงการ',
+      'เครดิตเทอม (วัน)',
+      'วันเริ่มงาน',
+      'วันดีล/วันเผยแพร่',
+      'กำหนดชำระเงิน',
+      'หมายเหตุ'
+    ];
+    const incomeRows = jobs.map((j) => {
+      let statusText = j.status;
+      if (j.status === 'done') statusText = 'จ่ายแล้ว';
+      else if (j.status === 'partial') statusText = 'มัดจำ/จ่ายบางส่วน';
+      else if (j.status === 'pending') statusText = 'ยังไม่จ่าย';
+      return [
+        j.name,
+        j.type || 'ทั่วไป',
+        j.client || '-',
+        j.value || 0,
+        j.whtRate || 0,
+        j.whtAmount || 0,
+        j.received || 0,
+        j.pending || 0,
+        statusText,
+        j.creditTerm || 0,
+        j.startDate || '-',
+        j.postDate || '-',
+        j.payDate || '-',
+        j.note || ''
+      ];
+    });
+
+    const expenseHeaders = ['ชื่อรายการ', 'หมวดหมู่', 'จำนวนเงิน (บาท)', 'วันที่', 'หมายเหตุ'];
+    const expenseRows = expenses.map((e) => [e.name, e.category, e.amount || 0, e.date || '-', e.note || '']);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'สรุปภาษี');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([incomeHeaders, ...incomeRows]), 'รายรับ');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([expenseHeaders, ...expenseRows]), 'รายจ่าย');
+
+    XLSX.writeFile(wb, `บัญชีภาษี_${taxYear}_กระรอกตุนเงิน.xlsx`);
+    triggerAlert('ดาวน์โหลด Excel สำเร็จ', 'ไฟล์บัญชีพร้อมยื่นภาษี (สรุปภาษี, รายรับ, รายจ่าย) ถูกดาวน์โหลดเรียบร้อยแล้ว ส่งให้นักบัญชีได้เลยครับ');
+  };
+
   return (
     <div className="space-y-6" id="tax-assistant-container">
       
@@ -411,6 +490,14 @@ export default function TaxTab({
             >
               <Download className="w-4 h-4" />
               <span>ดาวน์โหลด CSV</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-2xl text-xs font-extrabold transition-all cursor-pointer select-none active:scale-95 shadow-md shadow-orange-950/20"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>ดาวน์โหลด Excel (.xlsx)</span>
             </button>
           </div>
         </div>
