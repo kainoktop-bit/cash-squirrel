@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "crons": [
-    { "path": "/api/send-overdue-digest", "schedule": "0 1 * * *" }
+    { "path": "/api/send-overdue-digest", "schedule": "0 1 * * *" },
+    { "path": "/api/send-monthly-report", "schedule": "0 1 1 * *" }
   ]
 }

@@ -131,6 +131,8 @@ export interface NotifSettings {
   pendingQueue?: PendingReminder[];
   dailyDigestEnabled?: boolean; // Pro feature: opt-in to a daily email digest of overdue jobs, sent server-side by api/send-overdue-digest
   lastDigestSentDate?: string; // YYYY-MM-DD (Asia/Bangkok), dedupe guard so the digest cron never double-sends the same day
+  monthlyReportEnabled?: boolean; // Pro feature: opt-in to an automated monthly financial summary email, sent server-side by api/send-monthly-report
+  lastMonthlyReportSentMonth?: string; // YYYY-MM, dedupe guard so the monthly report cron never double-sends the same month
 }
 
 export interface CustomDialogState {

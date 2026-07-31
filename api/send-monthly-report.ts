@@ -1,0 +1,281 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { supabaseAdmin } from './_supabaseAdmin.js';
+import { formatMonthKey } from '../src/utils.js';
+
+const FREE_TRIAL_DAYS = 30;
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'กระรอกตุนเงิน <onboarding@resend.dev>';
+
+interface JobRow {
+  id: string;
+  value: number;
+  received: number;
+  postDate?: string;
+  payDate: string | null;
+}
+
+interface ExpenseRow {
+  amount: number;
+  date: string;
+}
+
+interface GoalRow {
+  allocatedPercentage?: number;
+}
+
+interface SettingsRow {
+  monthlyExpense?: number;
+  monthlyRevenueGoal?: number;
+  savingsPercentage?: number;
+}
+
+interface NotifSettingsRow {
+  alertEmail?: string;
+  monthlyReportEnabled?: boolean;
+  lastMonthlyReportSentMonth?: string;
+  [key: string]: unknown;
+}
+
+// Bangkok is UTC+7 with no DST; a fixed offset is enough to get "today" right locally.
+function nowInBangkok(): Date {
+  const now = new Date();
+  return new Date(now.getTime() + 7 * 60 * 60 * 1000);
+}
+
+// The month this cron should report on: the previous calendar month relative to Bangkok "today".
+function targetMonthKey(): string {
+  const bkk = nowInBangkok();
+  const d = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth() - 1, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function dateKeyInMonth(dateStr: string | undefined | null, monthKey: string): boolean {
+  return !!dateStr && dateStr.substring(0, 7) === monthKey;
+}
+
+interface MonthlySummary {
+  income: number;
+  received: number;
+  variableExpense: number;
+  fixedExpenseCalculated: number;
+  netFlow: number;
+  actualSavings: number;
+}
+
+// Mirrors MonthlyReportTab.tsx's monthlyData useMemo exactly, for one target month,
+// with includeFullYearFixed hardcoded to true (its default in the UI).
+function computeMonthlySummary(
+  jobs: JobRow[],
+  expenses: ExpenseRow[],
+  goals: GoalRow[],
+  settings: SettingsRow,
+  monthKey: string
+): MonthlySummary {
+  const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
+  const savingsPct = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
+
+  let income = 0;
+  let received = 0;
+  for (const j of jobs) {
+    const dateKey = j.payDate || j.postDate;
+    if (dateKeyInMonth(dateKey, monthKey)) {
+      income += j.value || 0;
+      received += j.received || 0;
+    }
+  }
+
+  let variableExpense = 0;
+  for (const e of expenses) {
+    if (dateKeyInMonth(e.date, monthKey)) {
+      variableExpense += e.amount || 0;
+    }
+  }
+
+  const fixedExpense = settings.monthlyExpense || 0;
+  const fixedExpenseCalculated = fixedExpense; // includeFullYearFixed = true (default)
+  const netFlow = received - fixedExpenseCalculated - variableExpense;
+  const actualSavings = Math.round(received * (savingsPct / 100));
+
+  return { income, received, variableExpense, fixedExpenseCalculated, netFlow, actualSavings };
+}
+
+function formatCurrency(n: number): string {
+  return `฿${Math.round(n).toLocaleString('th-TH')}`;
+}
+
+function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
+  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
+  return `
+  <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#3D2314;">
+    <span style="display:inline-block;background:#ECFDF5;color:#059669;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">MONTHLY FINANCIAL REPORT</span>
+    <h2 style="color:#059669;margin:12px 0 4px;">สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}</h2>
+    <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+      <tr>
+        <td style="width:50%;padding:16px;background:#ECFDF5;border-radius:12px 0 0 12px;text-align:center;">
+          <div style="font-size:11px;color:#059669;font-weight:bold;">รายรับจริง (RECEIVED)</div>
+          <div style="font-size:22px;color:#047857;font-weight:900;margin-top:4px;">${formatCurrency(s.received)}</div>
+        </td>
+        <td style="width:50%;padding:16px;background:#FEF2F2;border-radius:0 12px 12px 0;text-align:center;">
+          <div style="font-size:11px;color:#DC2626;font-weight:bold;">รายจ่ายจริง (EXPENSES)</div>
+          <div style="font-size:22px;color:#B91C1C;font-weight:900;margin-top:4px;">${formatCurrency(totalExpense)}</div>
+        </td>
+      </tr>
+    </table>
+    <div style="margin-top:12px;padding:16px;background:#EEF2FF;border-radius:12px;text-align:center;">
+      <div style="font-size:11px;color:#4338CA;font-weight:bold;">กระแสเงินสดสุทธิคงเหลือ (NET CASH FLOW)</div>
+      <div style="font-size:26px;color:#3730A3;font-weight:900;margin-top:4px;">${formatCurrency(s.netFlow)}</div>
+    </div>
+    <div style="margin-top:20px;padding:16px;background:#FDF6EC;border-radius:12px;">
+      <div style="font-size:12px;font-weight:bold;color:#3D2314;margin-bottom:8px;">รายละเอียดการเงินแยกตามส่วน</div>
+      <table style="width:100%;font-size:13px;">
+        <tr><td style="padding:4px 0;color:#7A5C43;">มูลค่ารวมสัญญาดีลทั้งหมด</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.income)}</td></tr>
+        <tr><td style="padding:4px 0;color:#7A5C43;">ยอดโอนรับแล้วจริง</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#059669;">${formatCurrency(s.received)}</td></tr>
+        <tr><td style="padding:4px 0;color:#7A5C43;">หัก ค่าใช้จ่ายคงที่รายเดือน</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#DC2626;">${formatCurrency(s.fixedExpenseCalculated)}</td></tr>
+        <tr><td style="padding:4px 0;color:#7A5C43;">ค่าใช้จ่ายผันแปร</td><td style="padding:4px 0;text-align:right;font-weight:bold;color:#DC2626;">${formatCurrency(s.variableExpense)}</td></tr>
+        <tr><td style="padding:4px 0;color:#7A5C43;">ยอดออมสะสมโดยประมาณ</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.actualSavings)}</td></tr>
+      </table>
+    </div>
+    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
+  </div>`;
+}
+
+async function sendReportEmail(to: string, monthLabel: string, summary: MonthlySummary): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('Missing RESEND_API_KEY environment variable');
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: RESEND_FROM_EMAIL,
+      to: [to],
+      subject: `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
+      html: buildReportHtml(monthLabel, summary),
+    }),
+  });
+
+  return res.ok;
+}
+
+async function listAllAuthUsers(): Promise<Map<string, string>> {
+  const createdAtByUserId = new Map<string, string>();
+  let page = 1;
+  const perPage = 200;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    for (const u of data.users) {
+      createdAtByUserId.set(u.id, u.created_at);
+    }
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+  return createdAtByUserId;
+}
+
+function isPro(
+  userId: string,
+  createdAtByUserId: Map<string, string>,
+  activeSubByUserId: Map<string, { current_period_end: string }>
+): boolean {
+  const createdAt = createdAtByUserId.get(userId);
+  const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 86400000 > Date.now();
+
+  const sub = activeSubByUserId.get(userId);
+  const isPaidActive = !!sub && new Date(sub.current_period_end).getTime() > Date.now();
+
+  return isInFreeTrial || isPaidActive;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers['authorization'];
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const monthKey = targetMonthKey();
+    const monthLabel = formatMonthKey(monthKey);
+
+    const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
+      supabaseAdmin.from('user_cashflow_data').select('user_id, email, jobs, goals, settings, expenses, notif_settings'),
+      supabaseAdmin.from('subscriptions').select('user_id, status, current_period_end').eq('status', 'active'),
+      listAllAuthUsers(),
+    ]);
+
+    if (rowsErr) throw rowsErr;
+    if (subsErr) throw subsErr;
+
+    const activeSubByUserId = new Map((subs || []).map((s) => [s.user_id, { current_period_end: s.current_period_end }]));
+
+    let processed = 0;
+    let sent = 0;
+    let skipped = 0;
+
+    for (const row of rows || []) {
+      processed += 1;
+      const notifSettings: NotifSettingsRow = row.notif_settings || {};
+
+      if (!isPro(row.user_id, createdAtByUserId, activeSubByUserId)) {
+        skipped += 1;
+        continue;
+      }
+      if (!notifSettings.monthlyReportEnabled) {
+        skipped += 1;
+        continue;
+      }
+      if (notifSettings.lastMonthlyReportSentMonth === monthKey) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        const jobs: JobRow[] = row.jobs || [];
+        const expenses: ExpenseRow[] = row.expenses || [];
+        const goals: GoalRow[] = row.goals || [];
+        const settings: SettingsRow = row.settings || {};
+
+        const summary = computeMonthlySummary(jobs, expenses, goals, settings, monthKey);
+
+        if (summary.received === 0 && summary.variableExpense === 0) {
+          skipped += 1;
+          continue;
+        }
+
+        const recipient = notifSettings.alertEmail || row.email;
+        if (!recipient) {
+          skipped += 1;
+          continue;
+        }
+
+        const ok = await sendReportEmail(recipient, monthLabel, summary);
+        if (!ok) {
+          skipped += 1;
+          continue;
+        }
+
+        await supabaseAdmin
+          .from('user_cashflow_data')
+          .update({
+            notif_settings: { ...notifSettings, lastMonthlyReportSentMonth: monthKey },
+          })
+          .eq('user_id', row.user_id);
+
+        sent += 1;
+      } catch (perUserErr: any) {
+        console.error(`send-monthly-report: failed for user ${row.user_id}:`, perUserErr);
+        skipped += 1;
+      }
+    }
+
+    res.status(200).json({ processed, sent, skipped, monthKey });
+  } catch (err: any) {
+    console.error('send-monthly-report handler error:', err);
+    res.status(500).json({ error: err.message || 'Monthly report job failed' });
+  }
+}

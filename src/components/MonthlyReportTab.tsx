@@ -717,6 +717,52 @@ export default function MonthlyReportTab({
             </button>
           </div>
         </div>
+
+        {notifSettings && onUpdateNotifSettings && (
+          <button
+            type="button"
+            disabled={!isPro}
+            onClick={() => {
+              if (!isPro) {
+                onSwitchTab('plans');
+                return;
+              }
+              onUpdateNotifSettings({
+                ...notifSettings,
+                monthlyReportEnabled: !notifSettings.monthlyReportEnabled
+              });
+            }}
+            className={`mt-4 w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+              notifSettings.monthlyReportEnabled && isPro
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
+            }`}
+          >
+            <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
+                สรุปงบการเงินรายเดือนอัตโนมัติทางอีเมล
+                {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
+              </span>
+              <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
+                {isPro
+                  ? 'ระบบส่งสรุปรายรับ-รายจ่ายของเดือนที่ผ่านมาให้อัตโนมัติทุกวันที่ 1'
+                  : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
+              </p>
+            </div>
+            <div
+              className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
+                notifSettings.monthlyReportEnabled && isPro ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                  notifSettings.monthlyReportEnabled && isPro ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </div>
+          </button>
+        )}
       </div>
 
       {/* Simulated Email Sending Popup Overlay */}
