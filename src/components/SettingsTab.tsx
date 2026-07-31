@@ -10,13 +10,13 @@ import {
   Trash2,
   AlertCircle,
   ShieldAlert,
-  Check,
   FileJson,
   Lock,
   Database,
   Plus,
   Mail,
-  Sparkles
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCrown, IconClose } from './icons';
@@ -51,7 +51,6 @@ interface SettingsTabProps {
     plan: string | null;
     currentPeriodEnd: string | null;
   } | null;
-  onUpgrade?: () => void;
   isPaidActive?: boolean;
   isInFreeTrial?: boolean;
   trialEndsAt?: Date | null;
@@ -79,7 +78,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onStartTour,
   onReplaySetupWizard,
   subscription,
-  onUpgrade,
   isPaidActive,
   isInFreeTrial,
   trialEndsAt,
@@ -455,31 +453,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       : 'แพ็กเกจโปร ฿39/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
                   </p>
 
-                  {!isPaidActive && (
-                    <ul className="space-y-1 pt-0.5">
-                      {[
-                        'ผู้ช่วยจัดการภาษีบุคคลธรรมดา คำนวณภาษี แนะนำรายการลดหย่อน และจัดการเอกสารหัก ณ ที่จ่าย',
-                        'ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงินพร้อมโลโก้ ดึงข้อมูลจากดีลงานได้ทันที เซฟเป็น PDF ส่งลูกค้าได้เลย',
-                        'วิเคราะห์รายได้เชิงลึก ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด',
-                        'สรุปงานค้างชำระรายวันทางอีเมล ไม่ต้องเปิดแอปเองก็รู้ว่าใครยังไม่จ่าย'
-                      ].map((benefit) => (
-                        <li key={benefit} className="flex items-start gap-1.5 text-[10px] text-brand-text dark:text-neutral-200 leading-relaxed">
-                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {onUpgrade && (
-                    <button
-                      type="button"
-                      onClick={onUpgrade}
-                      className="w-full py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-[10px] font-black rounded-xl transition-all cursor-pointer"
-                    >
-                      {isPaidActive ? 'ต่ออายุแพ็กเกจโปร ฿39/เดือน' : 'สมัครแพ็กเกจโปร ฿39/เดือน'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => onSwitchTab('plans')}
+                    className="w-full py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    ดูรายละเอียดแพ็กเกจทั้งหมด <ArrowRight className="w-3 h-3" />
+                  </button>
 
                   {notifSettings && onUpdateNotifSettings && (
                     <div className="pt-2.5 border-t border-brand-border/30 dark:border-neutral-800/50">
@@ -488,7 +468,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         disabled={!isPro}
                         onClick={() => {
                           if (!isPro) {
-                            onUpgrade?.();
+                            onSwitchTab('plans');
                             return;
                           }
                           onUpdateNotifSettings({

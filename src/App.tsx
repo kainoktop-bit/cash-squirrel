@@ -2051,7 +2051,6 @@ export default function App() {
                     setIsSetupWizardPreview(true);
                   }}
                   subscription={subscription}
-                  onUpgrade={handleUpgrade}
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
