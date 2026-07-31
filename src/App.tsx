@@ -2017,6 +2017,9 @@ export default function App() {
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
+                  isPro={isPro}
+                  notifSettings={notifSettings}
+                  onUpdateNotifSettings={setNotifSettings}
                 />
               )}
             </motion.div>

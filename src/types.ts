@@ -128,6 +128,8 @@ export interface NotifSettings {
   emailjsTemplateId: string;
   emailjsPublicKey: string;
   pendingQueue?: PendingReminder[];
+  dailyDigestEnabled?: boolean; // Pro feature: opt-in to a daily email digest of overdue jobs, sent server-side by api/send-overdue-digest
+  lastDigestSentDate?: string; // YYYY-MM-DD (Asia/Bangkok), dedupe guard so the digest cron never double-sends the same day
 }
 
 export interface CustomDialogState {
