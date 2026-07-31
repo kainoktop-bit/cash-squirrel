@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as XLSX from 'xlsx';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { formatMonthKey } from '../src/utils.js';
 
@@ -156,8 +158,30 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
         <tr><td style="padding:4px 0;color:#7A5C43;">ยอดออมสะสมโดยประมาณ</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.actualSavings)}</td></tr>
       </table>
     </div>
-    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel รายละเอียดรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
+    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel และ PDF สรุปรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
   </div>`;
+}
+
+// Renders the exact same HTML used for the email body through a real headless browser so Thai
+// combining vowels/tone marks shape correctly (pdfkit-style text libraries render them detached).
+async function buildReportPdfBase64(html: string): Promise<string> {
+  chromium.setGraphicsMode = false;
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(
+      `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:24px;">${html}</body></html>`,
+      { waitUntil: 'load' }
+    );
+    const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true });
+    return Buffer.from(pdfBuffer).toString('base64');
+  } finally {
+    await browser.close();
+  }
 }
 
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
@@ -205,10 +229,24 @@ async function sendReportEmail(
   to: string,
   monthLabel: string,
   summary: MonthlySummary,
-  attachmentBase64: string
+  excelBase64: string,
+  pdfBase64: string | null
 ): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('Missing RESEND_API_KEY environment variable');
+
+  const attachments: { filename: string; content: string }[] = [
+    {
+      filename: `บัญชีเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.xlsx`,
+      content: excelBase64,
+    },
+  ];
+  if (pdfBase64) {
+    attachments.push({
+      filename: `สรุปงบเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.pdf`,
+      content: pdfBase64,
+    });
+  }
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -221,12 +259,7 @@ async function sendReportEmail(
       to: [to],
       subject: `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
       html: buildReportHtml(monthLabel, summary),
-      attachments: [
-        {
-          filename: `บัญชีเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.xlsx`,
-          content: attachmentBase64,
-        },
-      ],
+      attachments,
     }),
   });
 
@@ -333,14 +366,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        const attachmentBase64 = buildMonthlyExcelBase64(
+        const excelBase64 = buildMonthlyExcelBase64(
           monthLabel,
           summary,
           jobsInMonth(jobs, monthKey),
           expensesInMonth(expenses, monthKey)
         );
 
-        const ok = await sendReportEmail(recipient, monthLabel, summary, attachmentBase64);
+        let pdfBase64: string | null = null;
+        try {
+          pdfBase64 = await buildReportPdfBase64(buildReportHtml(monthLabel, summary));
+        } catch (pdfErr: any) {
+          console.error(`send-monthly-report: PDF generation failed for user ${row.user_id}:`, pdfErr);
+        }
+
+        const ok = await sendReportEmail(recipient, monthLabel, summary, excelBase64, pdfBase64);
         if (!ok) {
           skipped += 1;
           continue;
