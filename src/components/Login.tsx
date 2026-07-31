@@ -547,6 +547,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         <p className="text-center mt-6 text-[10px] text-brand-muted leading-relaxed max-w-[280px] mx-auto">
           ข้อมูลถูกเข้ารหัสปลอดภัยด้วยบริการรับรองตัวตนสากลจาก Supabase
         </p>
+        <p className="text-center mt-2 text-[10px] text-brand-muted">
+          <a href="/privacy" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">นโยบายความเป็นส่วนตัว</a>
+          <span className="mx-1.5">&middot;</span>
+          <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">เงื่อนไขการใช้งาน</a>
+        </p>
       </div>
     </div>
   );
