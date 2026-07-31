@@ -1239,14 +1239,26 @@ export default function MonthlyReportTab({
                 กราฟแท่งแสดงรายรับที่ทำได้จริง เปรียบเทียบกับสัดส่วนเป้าหมายการจัดเก็บเงินออมสะสม
               </p>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-brand-muted">
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-[#125442] dark:bg-[#49CCA9]" />
-                <span>รายรับสุทธิ (Income)</span>
+            <div className="flex flex-col items-start sm:items-end gap-1.5">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-brand-muted">
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-[#125442] dark:bg-[#49CCA9]" />
+                  <span>รายรับสุทธิ (Income)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded bg-[#C96B5A] dark:bg-[#F4AE91]" />
+                  <span>ยอดออมสะสม (Savings)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-[#C96B5A] dark:bg-[#F4AE91]" />
-                <span>ยอดออมสะสม (Savings)</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-brand-muted/80">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#125442] dark:bg-[#49CCA9]" />
+                  <span>สีเข้ม = ถึงเป้าหมายแล้ว</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#557c72]" />
+                  <span>สีอ่อน = ยังไม่ถึงเป้าหมาย</span>
+                </div>
               </div>
             </div>
           </div>
