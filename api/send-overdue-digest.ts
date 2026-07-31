@@ -117,6 +117,11 @@ async function sendDigestEmail(to: string, jobs: JobRow[]): Promise<boolean> {
     }),
   });
 
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error(`send-overdue-digest: Resend API returned ${res.status}: ${errBody}`);
+  }
+
   return res.ok;
 }
 

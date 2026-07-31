@@ -156,6 +156,11 @@ async function sendReportEmail(to: string, monthLabel: string, summary: MonthlyS
     }),
   });
 
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error(`send-monthly-report: Resend API returned ${res.status}: ${errBody}`);
+  }
+
   return res.ok;
 }
 
