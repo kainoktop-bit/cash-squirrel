@@ -58,14 +58,18 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
         });
       }
 
-      // 2. Pending portion: lands on the payDate month (or postDate month if payDate is null)
+      // 2. Pending portion: lands on the payDate month (or postDate month if payDate is null).
+      // WIP jobs (not yet posted/delivered) are shown for visibility but excluded from the
+      // month's total — they're a forecast of work that hasn't happened yet, not expected income.
       if (j.pending > 0) {
         const expectedPayDate = j.payDate || j.postDate;
         if (getMonthKey(expectedPayDate) === monthKey) {
-          totalPending += j.pending;
-          const rel = getRelativeDaysText(expectedPayDate);
           const isWip = j.isPosted === false;
-          
+          if (!isWip) {
+            totalPending += j.pending;
+          }
+          const rel = getRelativeDaysText(expectedPayDate);
+
           monthlyEvents.push({
             id: `${j.id}-pend`,
             title: j.name + (isWip ? ' (WIP - คาดการณ์รับเงิน)' : j.creditTerm > 0 ? ` (+${j.creditTerm} วัน)` : ''),
