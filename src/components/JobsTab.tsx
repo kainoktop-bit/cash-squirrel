@@ -4,19 +4,20 @@ import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDa
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight, IconSpark } from './icons';
-import { 
-  Briefcase, 
-  Search, 
-  Filter, 
-  Trash2, 
-  CheckCircle, 
-  Calendar, 
-  ChevronDown, 
-  User, 
+import {
+  Briefcase,
+  Search,
+  Filter,
+  Trash2,
+  CheckCircle,
+  Calendar,
+  ChevronDown,
+  User,
   FileText,
   Clock,
   ExternalLink,
-  Edit2
+  Edit2,
+  Send
 } from 'lucide-react';
 
 interface JobsTabProps {
@@ -814,6 +815,21 @@ export default function JobsTab({
                       const isPending = statusInfo.behavior === 'pending';
                       return (
                         <>
+                          {j.isPosted === false && (
+                            <button
+                              onClick={() => {
+                                const today = new Date();
+                                const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                onEditJob(j.id, {
+                                  isPosted: true,
+                                  postDate: localDateStr
+                                });
+                              }}
+                              className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-indigo-100/20 dark:border-indigo-500/10 cursor-pointer"
+                            >
+                              <Send className="w-3.5 h-3.5" /> โพสต์แล้ว รอรับเงิน
+                            </button>
+                          )}
                           {!isDone && (
                             <button
                               onClick={() => {
