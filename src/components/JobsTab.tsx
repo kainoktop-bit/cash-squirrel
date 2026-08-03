@@ -979,10 +979,10 @@ export default function JobsTab({
                       <div className="space-y-2">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
 
-                        <div className="space-y-3 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[220px] overflow-y-auto no-scrollbar">
+                        <div className="space-y-2.5">
                           <div className="space-y-1.5">
                             <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                               {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
                                 const isSelected = formType === t;
                                 return (
@@ -996,7 +996,7 @@ export default function JobsTab({
                                     className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
                                       isSelected
                                         ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-                                        : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                        : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                                     }`}
                                   >
                                     {t}
@@ -1011,7 +1011,7 @@ export default function JobsTab({
                             return customTypes.length > 0 ? (
                               <div className="space-y-1.5">
                                 <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                                   {customTypes.map(t => {
                                     const isSelected = formType === t;
                                     return (
@@ -1020,7 +1020,7 @@ export default function JobsTab({
                                         className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
                                           isSelected
                                             ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 text-brand-text dark:text-neutral-300'
+                                            : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 text-brand-text dark:text-neutral-300'
                                         }`}
                                       >
                                         <button
@@ -1057,10 +1057,10 @@ export default function JobsTab({
                             onClick={() => {
                               setFormType('__custom__');
                             }}
-                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed w-fit ${
+                            className={`px-3 py-2.5 rounded-2xl text-[11px] font-black transition-all cursor-pointer border flex items-center justify-center gap-1 border-dashed w-full ${
                               formType === '__custom__'
                                 ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
                             + เขียนประเภทงานเอง...
@@ -1737,10 +1737,10 @@ export default function JobsTab({
                       <div className="space-y-2">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
 
-                        <div className="space-y-3 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[220px] overflow-y-auto no-scrollbar">
+                        <div className="space-y-2.5">
                           <div className="space-y-1.5">
                             <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                               {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
                                 const isSelected = editType === t;
                                 return (
@@ -1754,7 +1754,7 @@ export default function JobsTab({
                                     className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
                                       isSelected
                                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm hover:bg-indigo-700'
-                                        : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                        : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                                     }`}
                                   >
                                     {t}
@@ -1769,7 +1769,7 @@ export default function JobsTab({
                             return customTypes.length > 0 ? (
                               <div className="space-y-1.5">
                                 <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                                   {customTypes.map(t => {
                                     const isSelected = editType === t;
                                     return (
@@ -1778,7 +1778,7 @@ export default function JobsTab({
                                         className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
                                           isSelected
                                             ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 text-brand-text dark:text-neutral-300'
+                                            : 'bg-brand-faint dark:bg-stone-900 border-brand-border/50 text-brand-text dark:text-neutral-300'
                                         }`}
                                       >
                                         <button
@@ -1815,10 +1815,10 @@ export default function JobsTab({
                             onClick={() => {
                               setEditType('__custom__');
                             }}
-                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed w-fit ${
+                            className={`px-3 py-2.5 rounded-2xl text-[11px] font-black transition-all cursor-pointer border flex items-center justify-center gap-1 border-dashed w-full ${
                               editType === '__custom__'
                                 ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
                             + เขียนประเภทงานเอง...
