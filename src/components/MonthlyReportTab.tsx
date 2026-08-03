@@ -733,7 +733,7 @@ export default function MonthlyReportTab({
               });
             }}
             className={`mt-4 w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-              notifSettings.monthlyReportEnabled && isPro
+              notifSettings.monthlyReportEnabled
                 ? 'bg-emerald-500/10 border-emerald-500/30'
                 : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
             }`}
@@ -752,12 +752,12 @@ export default function MonthlyReportTab({
             </div>
             <div
               className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                notifSettings.monthlyReportEnabled && isPro ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
+                notifSettings.monthlyReportEnabled ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
               }`}
             >
               <div
                 className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                  notifSettings.monthlyReportEnabled && isPro ? 'translate-x-4' : 'translate-x-0.5'
+                  notifSettings.monthlyReportEnabled ? 'translate-x-4' : 'translate-x-0.5'
                 }`}
               />
             </div>
@@ -1096,7 +1096,7 @@ export default function MonthlyReportTab({
             });
           }}
           className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-            notifSettings.dailyDigestEnabled && isPro
+            notifSettings.dailyDigestEnabled
               ? 'bg-emerald-500/10 border-emerald-500/30'
               : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800 hover:border-brand-border'
           }`}
@@ -1115,12 +1115,12 @@ export default function MonthlyReportTab({
           </div>
           <div
             className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-              notifSettings.dailyDigestEnabled && isPro ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
+              notifSettings.dailyDigestEnabled ? 'bg-emerald-600' : 'bg-brand-border dark:bg-neutral-700'
             }`}
           >
             <div
               className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                notifSettings.dailyDigestEnabled && isPro ? 'translate-x-4' : 'translate-x-0.5'
+                notifSettings.dailyDigestEnabled ? 'translate-x-4' : 'translate-x-0.5'
               }`}
             />
           </div>
