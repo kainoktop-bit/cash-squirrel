@@ -28,10 +28,17 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
     onClose();
   };
 
+  // Titles like "ดาวน์โหลดสำเร็จ" are good news, not a caution — show a checkmark instead of
+  // the exclamation-mark icon so success actually reads as success. "ไม่สำเร็จ" (failed) stays
+  // on the regular alert icon.
+  const isSuccessAlert = dialog.title.includes('สำเร็จ') && !dialog.title.includes('ไม่สำเร็จ');
+
   const getIcon = () => {
     switch (dialog.type) {
       case 'alert':
-        return <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />;
+        return isSuccessAlert
+          ? <CheckCircle className="w-8 h-8 text-emerald-500 shrink-0" />
+          : <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />;
       case 'prompt':
         return <HelpCircle className="w-8 h-8 text-indigo-500 shrink-0" />;
       default:
