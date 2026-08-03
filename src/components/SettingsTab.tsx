@@ -160,10 +160,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        {/* Left Column: Proportions */}
-        <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto pb-12">
           {/* Card 1: Proportions & Financial Targets */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
@@ -262,11 +259,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-        </div>
-
-        {/* Right Column: Offline backup & Account zone */}
-        <div className="space-y-6">
-          {/* Card 3: Offline Backup / Restore */}
+          {/* Card 2: Offline Backup / Restore */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
               <FileJson className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
@@ -321,7 +314,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          {/* Card 4: Account Controls & Danger Zone */}
+          {/* Card 3: Account Controls & Danger Zone */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
               <User className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />
@@ -547,8 +540,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </AnimatePresence>
             </div>
           </div>
-        </div>
-      </div>
     </div>
   );
 };
