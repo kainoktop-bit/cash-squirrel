@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { Job, AppSettings, Expense } from '../types';
@@ -96,7 +96,7 @@ export default function TaxTab({
     });
   }, [jobs, taxYear]);
 
-  const handleAutoSync = () => {
+  const handleAutoSync = (silent = false) => {
     let firstHalfJobsSum = 0;
     let secondHalfJobsSum = 0;
 
@@ -106,7 +106,7 @@ export default function TaxTab({
       const date = new Date(dateStr);
       const month = date.getMonth();
       const isFirstHalf = month >= 0 && month <= 5;
-      
+
       const value = j.received || j.value || 0;
 
       if (isFirstHalf) {
@@ -141,11 +141,21 @@ export default function TaxTab({
     setFirstHalfActualExpense(firstHalfExpSum);
     setSecondHalfActualExpense(secondHalfExpSum);
 
-    triggerAlert(
-      'ซิงค์ข้อมูลสำเร็จ',
-      `ระบบทำการดึงข้อมูลรายรับและรายจ่ายปี ${taxYear} เฉพาะที่คุณบันทึกจริงเสร็จสิ้น ดึงยอดงานดีลครึ่งปีแรกได้ ${firstHalfJobsSum.toLocaleString()} บาท และครึ่งปีหลังได้ ${secondHalfJobsSum.toLocaleString()} บาท พร้อมทั้งดึงยอดรายจ่ายตามจริงเรียบร้อยแล้ว`
-    );
+    if (!silent) {
+      triggerAlert(
+        'ซิงค์ข้อมูลสำเร็จ',
+        `ระบบทำการดึงข้อมูลรายรับและรายจ่ายปี ${taxYear} เฉพาะที่คุณบันทึกจริงเสร็จสิ้น ดึงยอดงานดีลครึ่งปีแรกได้ ${firstHalfJobsSum.toLocaleString()} บาท และครึ่งปีหลังได้ ${secondHalfJobsSum.toLocaleString()} บาท พร้อมทั้งดึงยอดรายจ่ายตามจริงเรียบร้อยแล้ว`
+      );
+    }
   };
+
+  // Auto-pull real job/expense data whenever the tax year changes (including first load),
+  // so the summary report is never blank — the manual sync button above still lets the user
+  // re-pull after editing the numbers by hand without it being silently overwritten mid-session.
+  useEffect(() => {
+    handleAutoSync(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taxYear]);
 
   const handleAddAllowance = () => {
     if (!selectedAllowanceKey) return;
@@ -610,7 +620,7 @@ export default function TaxTab({
               </h3>
               
               <button
-                onClick={handleAutoSync}
+                onClick={() => handleAutoSync()}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-faint dark:bg-neutral-800 hover:bg-brand-border/40 dark:hover:bg-neutral-700 border border-brand-border/40 dark:border-neutral-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400 transition-all select-none cursor-pointer active:scale-95"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
