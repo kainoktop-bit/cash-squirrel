@@ -637,7 +637,7 @@ export default function JobsTab({
                 {/* Status badges — the one row that says what state this job is in */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {j.isPosted === false && (
-                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-brand-faint text-brand-muted">
                       กำลังเตรียมงาน / ถ่ายทำ
                     </span>
                   )}
@@ -666,7 +666,7 @@ export default function JobsTab({
                     <span className="opacity-40">|</span>
                     <span>เป้าออนแอร์ {j.postDate ? safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) : 'ยังไม่ระบุ'}</span>
                     <span className="opacity-40">|</span>
-                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                    <span className="font-bold">
                       เครดิต: {j.creditTerm === 0 ? 'รับทันที' : `+${j.creditTerm} วัน`}
                     </span>
                   </div>
@@ -678,7 +678,7 @@ export default function JobsTab({
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold">รับทันที (No Credit)</span>
                     ) : (
                       <>
-                        <span className="text-amber-600 dark:text-amber-400 font-bold">เครดิต +{j.creditTerm} วัน</span>
+                        <span className="font-bold">เครดิต +{j.creditTerm} วัน</span>
                         {j.payDate && (
                           <span>(ดิว {safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' })})</span>
                         )}
@@ -711,12 +711,12 @@ export default function JobsTab({
                 {/* Pay date countdown badge */}
                 {showPayCountdown && (
                   <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
-                    relText.isOverdue 
-                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10' 
+                    relText.isOverdue
+                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
                       : 'bg-amber-50/50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
                   }`}>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4 text-emerald-500 shrink-0" /> กำหนดชำระเงินที่เหลือ
+                      <Clock className={`w-4 h-4 shrink-0 ${relText.isOverdue ? 'text-rose-500' : 'text-amber-500'}`} /> กำหนดชำระเงินที่เหลือ
                     </span>
                     <span className="font-black">{relText.text}</span>
                   </div>
@@ -725,12 +725,12 @@ export default function JobsTab({
                 {/* WIP countdown badge */}
                 {j.isPosted === false && j.postDate && (
                   <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between font-semibold border ${
-                    getRelativeDaysText(j.postDate).isOverdue 
-                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10' 
-                      : 'bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-800 dark:text-indigo-300 border-indigo-100/40 dark:border-indigo-500/10'
+                    getRelativeDaysText(j.postDate).isOverdue
+                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
+                      : 'bg-brand-faint text-brand-text border-brand-border/40'
                   }`}>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4 text-indigo-500 shrink-0" /> ระยะเวลาผลิตที่เหลือ (เป้าหมายออนแอร์)
+                      <Clock className={`w-4 h-4 shrink-0 ${getRelativeDaysText(j.postDate).isOverdue ? 'text-rose-500' : 'text-brand-muted'}`} /> ระยะเวลาผลิตที่เหลือ (เป้าหมายออนแอร์)
                     </span>
                     <span className="font-black">{getRelativeDaysText(j.postDate).text}</span>
                   </div>
@@ -761,7 +761,7 @@ export default function JobsTab({
                                   postDate: localDateStr
                                 });
                               }}
-                              className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                              className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <Send className="w-3.5 h-3.5" /> โพสต์แล้ว รอรับเงิน
                             </button>
@@ -783,7 +783,7 @@ export default function JobsTab({
                               className={
                                 j.isPosted === false
                                   ? "text-xs font-bold text-brand-muted hover:text-emerald-600 dark:hover:text-emerald-300 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-brand-border cursor-pointer"
-                                  : "text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                                  : "text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                               }
                             >
                               <CheckCircle className="w-3.5 h-3.5" /> ได้เงินครบแล้ว
