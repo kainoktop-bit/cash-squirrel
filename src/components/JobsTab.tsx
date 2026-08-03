@@ -1313,7 +1313,7 @@ export default function JobsTab({
                             className="space-y-4"
                           >
                             {/* วันเริ่มดีลงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs">
+                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
                                 <label className="text-amber-900 dark:text-amber-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันเริ่มดีลงาน / ได้รับสัญญา</label>
                                 {formStartDate && (
@@ -1337,7 +1337,7 @@ export default function JobsTab({
                                     console.log(err);
                                   }
                                 }}
-                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
                               />
                               <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
                                 * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
@@ -1422,7 +1422,7 @@ export default function JobsTab({
                             </div>
 
                             {/* วันส่งมอบงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
+                            <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
                                 <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันส่งมอบงาน หรือวันออนแอร์จริง</label>
                                 {formPostDate && (
@@ -1446,7 +1446,7 @@ export default function JobsTab({
                                     console.log(err);
                                   }
                                 }}
-                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold cursor-pointer transition-all"
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold cursor-pointer transition-all"
                               />
 
                               {/* Live calculation of Due date and remaining days */}
@@ -1996,7 +1996,7 @@ export default function JobsTab({
                             className="space-y-4"
                           >
                             {/* วันเริ่มดีลงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs">
+                            <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
                                 <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">วันเริ่มดีลงาน / ได้รับสัญญา</label>
                                 {editStartDate && (
@@ -2020,7 +2020,7 @@ export default function JobsTab({
                                     console.log(err);
                                   }
                                 }}
-                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
                               />
                               <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
                                 * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
@@ -2105,7 +2105,7 @@ export default function JobsTab({
                             </div>
 
                             {/* วันส่งมอบงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs">
+                            <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
                                 <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">วันส่งมอบงาน หรือวันออนแอร์จริง</label>
                                 {editPostDate && (
@@ -2129,7 +2129,7 @@ export default function JobsTab({
                                     console.log(err);
                                   }
                                 }}
-                                className="w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
                               />
 
                               {/* Live calculation of Due date and remaining days */}

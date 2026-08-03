@@ -453,9 +453,9 @@ export default function TaxTab({
                 ระบบคำนวณและประเมินภาษีอัตโนมัติ
               </span>
             </div>
-            <h2 className="text-xl font-display font-black tracking-tight text-brand-text sm:text-2xl flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-display font-black tracking-tight text-brand-text flex items-center gap-2 leading-snug">
               <Mascot mood="wave" size={38} animated={true} className="shrink-0" />
-              ผู้ช่วยจัดการภาษีบุคคลธรรมดา
+              <span className="min-w-0">ผู้ช่วยจัดการภาษีบุคคลธรรมดา</span>
             </h2>
             <p className="text-xs text-brand-muted mt-1 max-w-2xl leading-relaxed">
               คำนวณเปรียบเทียบภาษีครึ่งปีแรก (ภ.ง.ด. 94) และภาษีสิ้นปี (ภ.ง.ด. 90) จากข้อมูลงานดีลและค่าใช้จ่ายจริงของคุณ เพื่อวางแผนอย่างเป็นระบบและแม่นยำ

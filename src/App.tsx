@@ -453,7 +453,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // User profile avatar image (stored as base64 data URL, scoped per account email)
+  // User profile avatar image (base64 data URL). Synced to the user_cashflow_data row in
+  // Supabase so it follows the account across devices; localStorage is kept only as a fast
+  // local cache for instant paint before the cloud fetch resolves.
   const [userAvatar, setUserAvatar] = useState<string>('');
 
   const handleUpdateUserAvatar = (newAvatar: string) => {
@@ -464,6 +466,16 @@ export default function App() {
       localStorage.setItem(`cashflow_user_avatar_${email}`, newAvatar);
     } else {
       localStorage.removeItem(`cashflow_user_avatar_${email}`);
+    }
+    const currentUser = session?.user;
+    if (currentUser && !session?.isGuest) {
+      supabase
+        .from('user_cashflow_data')
+        .update({ avatar_data_url: newAvatar || null })
+        .eq('user_id', currentUser.id)
+        .then(({ error }) => {
+          if (error) console.warn('Failed to sync avatar to cloud:', error);
+        });
     }
   };
 
@@ -650,6 +662,23 @@ export default function App() {
         if (data.settings) setSettings(data.settings);
         if (data.notif_settings) setNotifSettings(data.notif_settings);
         if (data.expenses) setExpenses(data.expenses);
+        if (data.avatar_data_url) {
+          setUserAvatar(data.avatar_data_url);
+        } else {
+          // One-time migration: an avatar saved locally before this device ever synced to
+          // the cloud gets pushed up so other devices/logins can see it too.
+          const localAvatar = localStorage.getItem(`cashflow_user_avatar_${email}`);
+          if (localAvatar) {
+            setUserAvatar(localAvatar);
+            supabase
+              .from('user_cashflow_data')
+              .update({ avatar_data_url: localAvatar })
+              .eq('user_id', currentUser.id)
+              .then(({ error: avatarErr }) => {
+                if (avatarErr) console.warn('Failed to migrate local avatar to cloud:', avatarErr);
+              });
+          }
+        }
         setCloudSyncStatus('synced');
         return true;
       } else {
