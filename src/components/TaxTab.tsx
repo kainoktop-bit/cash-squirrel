@@ -1106,7 +1106,7 @@ export default function TaxTab({
       {/* PRINT PREVIEW / DETAILED PDF MODAL OVERLAY */}
       <AnimatePresence>
         {isShowingPrintModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto no-scrollbar">
+          <div id="tax-report-print-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto no-scrollbar">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1265,11 +1265,23 @@ export default function TaxTab({
           #printable-tax-report-modal, #printable-tax-report-modal * {
             visibility: visible;
           }
+          /* The modal's backdrop is position:fixed with overflow-y-auto, which browsers
+             routinely fail to print (renders blank or clipped) — force it into normal
+             document flow so the printable card underneath actually paints on the page. */
+          #tax-report-print-overlay {
+            position: static !important;
+            display: block !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: none !important;
+            backdrop-filter: none !important;
+            height: auto !important;
+          }
           #printable-tax-report-modal {
-            position: absolute;
-            left: 0;
-            top: 0;
+            position: static !important;
             width: 100%;
+            max-width: 100% !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
