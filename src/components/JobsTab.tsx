@@ -10,7 +10,6 @@ import {
   Filter,
   Trash2,
   CheckCircle,
-  Calendar,
   ChevronDown,
   User,
   FileText,
@@ -611,155 +610,92 @@ export default function JobsTab({
                 {/* Visual Accent bar on the left */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${catColors.dot}`} />
 
-                {/* Job Info Header */}
+                {/* Job Info Header — name + amount are the two things that should read first */}
                 <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${catColors.bg} ${catColors.text}`}>
-                        {j.type}
-                      </span>
-                      {j.client && (
-                        <span className="text-xs text-brand-muted font-medium flex items-center gap-1">
-                          <User className="w-3 h-3" /> {j.client}
-                        </span>
-                      )}
-                      {j.isPosted === false && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 border border-indigo-100/50 dark:bg-indigo-950/40 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400">
-                          กำลังเตรียมงาน / ถ่ายทำ
-                        </span>
-                      )}
-                    </div>
-                    <h4 className="text-base font-bold text-brand-text leading-snug mt-1">
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="text-lg font-extrabold text-brand-text leading-snug truncate">
                       {j.name}
                     </h4>
+                    <div className="flex items-center gap-1.5 text-[11px] text-brand-muted font-medium flex-wrap">
+                      <span>{j.type}</span>
+                      {j.client && (
+                        <>
+                          <span className="opacity-40">•</span>
+                          <span className="flex items-center gap-1"><User className="w-3 h-3" />{j.client}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-xl font-extrabold font-mono text-brand-text">
+                  <div className="text-right shrink-0">
+                    <p className="text-2xl font-black font-mono text-brand-text">
                       {formatCurrency(j.value)}
                     </p>
-                    {(() => {
-                      const statusInfo = getStatusDisplay(j.status);
-                      const isDone = statusInfo.behavior === 'done';
-                      const isPartial = statusInfo.behavior === 'partial';
-                      return (
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-                          isDone 
-                            ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-100/40 dark:border-emerald-500/10' 
-                            : isPartial
-                            ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
-                            : 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-100/40 dark:border-rose-500/10'
-                        }`}>
-                          {statusInfo.label}
-                        </span>
-                      );
-                    })()}
                   </div>
                 </div>
 
-                {/* Dates & Credit Terms or WIP section */}
+                {/* Status badges — the one row that says what state this job is in */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {j.isPosted === false && (
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+                      กำลังเตรียมงาน / ถ่ายทำ
+                    </span>
+                  )}
+                  {(() => {
+                    const statusInfo = getStatusDisplay(j.status);
+                    const isDone = statusInfo.behavior === 'done';
+                    const isPartial = statusInfo.behavior === 'partial';
+                    return (
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${
+                        isDone
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                          : isPartial
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                      }`}>
+                        {statusInfo.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Dates & Credit Terms or WIP section — one quiet line, not a boxed grid */}
                 {j.isPosted === false ? (
-                  <div className="pt-3 border-t border-brand-faint dark:border-neutral-800 text-xs space-y-2.5">
-                    <div className="flex items-center gap-2 bg-indigo-50/40 dark:bg-indigo-500/5 border border-indigo-100/30 dark:border-indigo-500/10 p-2.5 rounded-xl">
-                      <div>
-                        <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">ขั้นตอนเตรียมงาน & ผลิต</p>
-                        <p className="text-[11px] font-bold text-brand-text dark:text-neutral-300 mt-0.5">กำลังเขียนสคริปต์ ถ่ายทำ หรือเตรียมคอนเทนต์ (ยังไม่ได้โพสต์จริง)</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">วันเริ่มดีลงาน</p>
-                        <p className="font-bold text-brand-text dark:text-neutral-200 mt-0.5 flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
-                          <span className="text-[11px] truncate">{safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' })}</span>
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">เป้าหมายออนแอร์</p>
-                        <p className="font-bold text-brand-text dark:text-neutral-300 mt-0.5 flex flex-col gap-0.5">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-brand-muted shrink-0" />
-                            <span className="text-[11px] truncate">{safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' })}</span>
-                          </span>
-                          {j.postDate && (
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm w-fit ${
-                              getRelativeDaysText(j.postDate).isOverdue
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                            }`}>
-                              {getRelativeDaysText(j.postDate).text}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">เครดิตเทอมดีล</p>
-                        <p className="font-bold text-brand-text dark:text-neutral-300 mt-0.5 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                          <span className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-400">
-                            {j.creditTerm === 0 ? 'รับทันที' : `+${j.creditTerm} วัน`}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
+                    <span>เริ่ม {safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' })}</span>
+                    <span className="opacity-40">|</span>
+                    <span>เป้าออนแอร์ {j.postDate ? safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) : 'ยังไม่ระบุ'}</span>
+                    <span className="opacity-40">|</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                      เครดิต: {j.creditTerm === 0 ? 'รับทันที' : `+${j.creditTerm} วัน`}
+                    </span>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-brand-faint text-xs">
-                    <div>
-                      <p className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">วันดีล / วันออนแอร์</p>
-                      <p className="font-bold text-brand-text mt-0.5 flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-brand-muted" /> 
-                        {safeFormatThaiDate(j.postDate)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-extrabold text-brand-muted uppercase tracking-wider">
-                        เครดิตเทอม / วันรับเงิน
-                      </p>
-                      <p className="font-bold text-brand-text mt-0.5">
-                        {j.creditTerm === 0 ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">รับทันที (No Credit)</span>
-                        ) : (
-                          <span className="flex flex-col">
-                            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-black">
-                              <Clock className="w-3.5 h-3.5" /> +{j.creditTerm} วัน
-                            </span>
-                            <span className="text-[10px] text-brand-muted font-bold">
-                              (ดิว {j.payDate ? safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' }) : ''})
-                            </span>
-                            {/* Remaining days calculation on the card itself */}
-                            {j.pending > 0 && j.payDate && (
-                              <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 mt-1 rounded-sm border w-fit ${
-                                relText.isOverdue
-                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                              }`}>
-                                <Clock className="w-2.5 h-2.5 shrink-0" /> {relText.text}
-                              </span>
-                            )}
-                          </span>
+                  <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
+                    <span>วันดีล/ออนแอร์ {safeFormatThaiDate(j.postDate)}</span>
+                    <span className="opacity-40">|</span>
+                    {j.creditTerm === 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">รับทันที (No Credit)</span>
+                    ) : (
+                      <>
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">เครดิต +{j.creditTerm} วัน</span>
+                        {j.payDate && (
+                          <span>(ดิว {safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' })})</span>
                         )}
-                      </p>
-                    </div>
+                      </>
+                    )}
                   </div>
                 )}
 
-                {/* Financial breakdown */}
-                <div className="bg-brand-faint p-3 rounded-2xl border border-brand-border/40 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div>
-                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">มูลค่าเต็ม</span>
-                    <span className="font-extrabold text-brand-text font-mono">{formatCurrency(j.value)}</span>
-                  </div>
-                  <div>
+                {/* Financial breakdown — full value is already shown up top, so only the two numbers that move */}
+                <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                  <div className="bg-brand-faint p-2.5 rounded-xl">
                     <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">รับแล้ว</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(j.received)}</span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono text-sm">{formatCurrency(j.received)}</span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">ค้างจ่าย</span>
-                    <span className={`font-extrabold font-mono ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-brand-muted'}`}>
+                  <div className={`p-2.5 rounded-xl ${j.pending > 0 ? 'bg-amber-500/10' : 'bg-brand-faint'}`}>
+                    <span className={`text-[9px] uppercase font-extrabold tracking-wider block ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400/80' : 'text-brand-muted'}`}>ค้างจ่าย</span>
+                    <span className={`font-extrabold font-mono text-sm ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-brand-muted'}`}>
                       {formatCurrency(j.pending)}
                     </span>
                   </div>
@@ -825,7 +761,7 @@ export default function JobsTab({
                                   postDate: localDateStr
                                 });
                               }}
-                              className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-indigo-100/20 dark:border-indigo-500/10 cursor-pointer"
+                              className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <Send className="w-3.5 h-3.5" /> โพสต์แล้ว รอรับเงิน
                             </button>
@@ -844,7 +780,11 @@ export default function JobsTab({
                                   isPosted: true
                                 });
                               }}
-                              className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-emerald-100/20 dark:border-emerald-500/10 cursor-pointer"
+                              className={
+                                j.isPosted === false
+                                  ? "text-xs font-bold text-brand-muted hover:text-emerald-600 dark:hover:text-emerald-300 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors border border-brand-border cursor-pointer"
+                                  : "text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                              }
                             >
                               <CheckCircle className="w-3.5 h-3.5" /> ได้เงินครบแล้ว
                             </button>
@@ -864,9 +804,9 @@ export default function JobsTab({
                                     if (amt > 0) {
                                       const today = new Date();
                                       const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                      onEditJob(j.id, { 
-                                        status: 'partial', 
-                                        received: amt, 
+                                      onEditJob(j.id, {
+                                        status: 'partial',
+                                        received: amt,
                                         pending: Math.max(0, (j.value - Math.round(j.value * ((j.whtRate || 0) / 100))) - amt),
                                         paymentStatus: 'partial',
                                         payDate: localDateStr
@@ -875,7 +815,7 @@ export default function JobsTab({
                                   }
                                 );
                               }}
-                              className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg transition-colors border border-amber-100/20 dark:border-amber-500/10 cursor-pointer"
+                              className="text-xs font-bold text-brand-muted hover:text-amber-600 dark:hover:text-amber-300 px-2.5 py-1.5 rounded-lg transition-colors border border-brand-border cursor-pointer"
                             >
                               ได้มัดจำ
                             </button>
