@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Job, StatusOption } from '../types';
-import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate } from '../utils';
+import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight, IconSpark } from './icons';
@@ -978,41 +978,92 @@ export default function JobsTab({
                       {/* Category Type as Pills */}
                       <div className="space-y-2">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
-                        
-                        <div className="flex flex-wrap gap-1.5 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[140px] overflow-y-auto no-scrollbar">
-                          {Array.from(new Set(['ยังไม่ระบุ', ...jobTypes])).filter(Boolean).map(t => {
-                            const isSelected = formType === t;
-                            return (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => {
-                                  setFormType(t);
-                                  setCustomTypeInput('');
-                                }}
-                                className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
-                                  isSelected
-                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            );
-                          })}
-                          
+
+                        <div className="space-y-3 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[220px] overflow-y-auto no-scrollbar">
+                          <div className="space-y-1.5">
+                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
+                                const isSelected = formType === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormType(t);
+                                      setCustomTypeInput('');
+                                    }}
+                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
+                                      isSelected
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                                        : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
+                            return customTypes.length > 0 ? (
+                              <div className="space-y-1.5">
+                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {customTypes.map(t => {
+                                    const isSelected = formType === t;
+                                    return (
+                                      <span
+                                        key={t}
+                                        className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
+                                          isSelected
+                                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 text-brand-text dark:text-neutral-300'
+                                        }`}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setFormType(t);
+                                            setCustomTypeInput('');
+                                          }}
+                                          className="cursor-pointer"
+                                        >
+                                          {t}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setJobTypes(prev => prev.filter(x => x !== t));
+                                            if (formType === t) setFormType('ยังไม่ระบุ');
+                                          }}
+                                          className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
+                                          title="ลบประเภทนี้"
+                                        >
+                                          <IconClose className="w-2.5 h-2.5" />
+                                        </button>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
                           <button
                             type="button"
                             onClick={() => {
                               setFormType('__custom__');
                             }}
-                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed ${
+                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed w-fit ${
                               formType === '__custom__'
                                 ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
                                 : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
-                            เขียนประเภทงานเอง...
+                            + เขียนประเภทงานเอง...
                           </button>
                         </div>
 
@@ -1685,41 +1736,92 @@ export default function JobsTab({
                       {/* Category Type as Pills */}
                       <div className="space-y-2">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
-                        
-                        <div className="flex flex-wrap gap-1.5 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[140px] overflow-y-auto no-scrollbar">
-                          {Array.from(new Set(['ยังไม่ระบุ', ...jobTypes])).filter(Boolean).map(t => {
-                            const isSelected = editType === t;
-                            return (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => {
-                                  setEditType(t);
-                                  setEditCustomTypeInput('');
-                                }}
-                                className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
-                                  isSelected
-                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm hover:bg-indigo-700'
-                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                }`}
-                              >
-                                {t}
-                              </button>
-                            );
-                          })}
-                          
+
+                        <div className="space-y-3 p-3 bg-brand-faint dark:bg-stone-850 border border-brand-border/30 rounded-2xl max-h-[220px] overflow-y-auto no-scrollbar">
+                          <div className="space-y-1.5">
+                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
+                                const isSelected = editType === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => {
+                                      setEditType(t);
+                                      setEditCustomTypeInput('');
+                                    }}
+                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border ${
+                                      isSelected
+                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm hover:bg-indigo-700'
+                                        : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
+                            return customTypes.length > 0 ? (
+                              <div className="space-y-1.5">
+                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {customTypes.map(t => {
+                                    const isSelected = editType === t;
+                                    return (
+                                      <span
+                                        key={t}
+                                        className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
+                                          isSelected
+                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 text-brand-text dark:text-neutral-300'
+                                        }`}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditType(t);
+                                            setEditCustomTypeInput('');
+                                          }}
+                                          className="cursor-pointer"
+                                        >
+                                          {t}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setJobTypes(prev => prev.filter(x => x !== t));
+                                            if (editType === t) setEditType('ยังไม่ระบุ');
+                                          }}
+                                          className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
+                                          title="ลบประเภทนี้"
+                                        >
+                                          <IconClose className="w-2.5 h-2.5" />
+                                        </button>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
                           <button
                             type="button"
                             onClick={() => {
                               setEditType('__custom__');
                             }}
-                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed ${
+                            className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all cursor-pointer border flex items-center gap-1 border-dashed w-fit ${
                               editType === '__custom__'
                                 ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
                                 : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
-                            เขียนประเภทงานเอง...
+                            + เขียนประเภทงานเอง...
                           </button>
                         </div>
 

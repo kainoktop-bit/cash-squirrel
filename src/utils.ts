@@ -1,5 +1,15 @@
 import { Job, FixedExpenseItem } from './types';
 
+// The built-in job type chips every account starts with. Anything a user adds via
+// "เขียนประเภทงานเอง..." is a custom type, kept separate in the picker so it can be removed.
+export const DEFAULT_JOB_TYPES = [
+  'Sponsored Post',
+  'Video Production',
+  'Digital Product',
+  'Consulting / Advisory',
+  'งานทั่วไปอื่นๆ'
+];
+
 // Sum an itemized fixed-expense list (rent, car, internet, etc.) into the single total
 // that the rest of the app's profit/cashflow math consumes.
 export const sumFixedExpenseItems = (items: FixedExpenseItem[]): number => {

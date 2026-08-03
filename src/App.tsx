@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense } from './types';
 import { defaultSettings, defaultJobs, defaultGoals } from './sampleData';
-import { getMonthKey, formatMonthKey } from './utils';
+import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
 
 import DashboardTab from './components/DashboardTab';
 import JobsTab from './components/JobsTab';
@@ -124,13 +124,7 @@ const cleanJobType = (t: any): string => {
 };
 
 const cleanJobTypes = (arr: any[]): string[] => {
-  if (!Array.isArray(arr)) return [
-    'Sponsored Post',
-    'Video Production',
-    'Digital Product',
-    'Consulting / Advisory',
-    'งานทั่วไปอื่นๆ'
-  ];
+  if (!Array.isArray(arr)) return DEFAULT_JOB_TYPES;
 
   return Array.from(new Set(arr.map(cleanJobType))).filter(Boolean);
 };
@@ -438,13 +432,7 @@ export default function App() {
         return cleanJobTypes(JSON.parse(saved));
       } catch (e) {}
     }
-    return [
-      'Sponsored Post',
-      'Video Production',
-      'Digital Product',
-      'Consulting / Advisory',
-      'งานทั่วไปอื่นๆ'
-    ];
+    return DEFAULT_JOB_TYPES;
   });
 
   // Dynamic list of expenses
@@ -807,13 +795,7 @@ export default function App() {
           setJobTypes([]);
         }
       } else {
-        setJobTypes([
-          'Sponsored Post',
-          'Video Production',
-          'Digital Product',
-          'Consulting / Advisory',
-          'งานทั่วไปอื่นๆ'
-        ]);
+        setJobTypes(DEFAULT_JOB_TYPES);
       }
 
       const savedAvatar = localStorage.getItem(`cashflow_user_avatar_${email}`);
@@ -835,13 +817,7 @@ export default function App() {
         { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' },
         { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' },
       ]);
-      setJobTypes([
-        'Sponsored Post',
-        'Video Production',
-        'Digital Product',
-        'Consulting / Advisory',
-        'งานทั่วไปอื่นๆ'
-      ]);
+      setJobTypes(DEFAULT_JOB_TYPES);
       setNotifSettings({
         enabled: true,
         alertEmail: '',
