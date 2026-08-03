@@ -11,17 +11,21 @@ interface ProfileSetupWizardProps {
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
+  onAddJobTypes: (types: string[]) => void;
   onComplete: () => void;
   /** True when reopened from Settings for a preview, rather than a real first-time signup. */
   isPreview?: boolean;
 }
 
+// jobTypeLabel is what actually gets added to the real "เลือกประเภทงาน" picker options —
+// answering this question needs to actually change what shows up there later, not just sit
+// unused as profile metadata.
 const JOB_TYPE_OPTIONS = [
-  { id: 'sponsor', label: 'รับงานสปอนเซอร์ / รีวิวคอนเทนต์', icon: IconCamera },
-  { id: 'freelance', label: 'รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)', icon: IconLaptop },
-  { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', icon: IconGraduation },
-  { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', icon: IconBag },
-  { id: 'other', label: 'อื่นๆ', icon: IconPencil },
+  { id: 'sponsor', label: 'รับงานสปอนเซอร์ / รีวิวคอนเทนต์', jobTypeLabel: 'Sponsored Post', icon: IconCamera },
+  { id: 'freelance', label: 'รับงานฟรีแลนซ์ทั่วไป (ออกแบบ/เขียน/ตัดต่อ ฯลฯ)', jobTypeLabel: 'งานฟรีแลนซ์ทั่วไป', icon: IconLaptop },
+  { id: 'consulting', label: 'รับงานที่ปรึกษา / สอนพิเศษ', jobTypeLabel: 'Consulting / Advisory', icon: IconGraduation },
+  { id: 'selling', label: 'ขายสินค้า / บริการส่วนตัว', jobTypeLabel: 'ขายสินค้า / บริการส่วนตัว', icon: IconBag },
+  { id: 'other', label: 'อื่นๆ', jobTypeLabel: null, icon: IconPencil },
 ];
 
 const STEP_TITLES = [
@@ -41,6 +45,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   settings,
   onUpdateSettings,
   onAddGoal,
+  onAddJobTypes,
   onComplete,
   isPreview = false,
 }) => {
@@ -93,6 +98,19 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
       profileJobTypeOther: jobTypeOther.trim() || undefined,
       profileSetupCompleted: true,
     });
+
+    // Actually wire the answer into the real "เลือกประเภทงาน" picker options — otherwise
+    // asking the question is pointless.
+    const newJobTypeLabels = jobTypes
+      .map(id => JOB_TYPE_OPTIONS.find(o => o.id === id)?.jobTypeLabel)
+      .filter((label): label is string => !!label);
+    const trimmedOther = jobTypeOther.trim();
+    if (jobTypes.includes('other') && trimmedOther) {
+      newJobTypeLabels.push(trimmedOther);
+    }
+    if (newJobTypeLabels.length > 0) {
+      onAddJobTypes(newJobTypeLabels);
+    }
 
     const targetValue = parseFloat(goalTarget);
     if (goalName.trim() && !isNaN(targetValue) && targetValue > 0) {

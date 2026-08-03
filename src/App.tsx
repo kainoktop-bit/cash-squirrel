@@ -2153,6 +2153,7 @@ export default function App() {
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
           onAddGoal={handleAddGoal}
+          onAddJobTypes={(types) => setJobTypes(prev => Array.from(new Set([...prev, ...types])))}
           isPreview={isSetupWizardPreview}
           onComplete={() => {
             setIsSetupWizardPreview(false);
