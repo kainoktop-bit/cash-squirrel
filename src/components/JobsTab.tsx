@@ -758,6 +758,12 @@ export default function JobsTab({
                           {j.isPosted === false && (
                             <button
                               onClick={() => {
+                                // Already told us the on-air date when this job was set up as
+                                // WIP — don't ask again or clobber it with today's date.
+                                if (j.postDate) {
+                                  onEditJob(j.id, { isPosted: true });
+                                  return;
+                                }
                                 const today = new Date();
                                 const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                                 const updated = { ...j, isPosted: true, postDate: localDateStr };
@@ -765,9 +771,9 @@ export default function JobsTab({
                                   isPosted: true,
                                   postDate: localDateStr
                                 });
-                                // Open straight to the credit term + on-air date fields so the
-                                // user confirms/corrects them right away instead of having to
-                                // dig back into edit mode separately.
+                                // No on-air date was ever set, so open straight to the credit
+                                // term + on-air date fields for the user to fill in, instead of
+                                // silently guessing "today" and leaving it wrong.
                                 editStartStepRef.current = 3;
                                 setEditingJob(updated);
                               }}
