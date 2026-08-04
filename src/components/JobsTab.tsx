@@ -115,6 +115,9 @@ export default function JobsTab({
 
   // Editing logic (optional but amazing!)
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  // Lets a caller (e.g. the "โพสต์แล้ว รอรับเงิน" quick action) open the edit modal straight on
+  // a specific step instead of always starting at step 1. Consumed once, then reset.
+  const editStartStepRef = React.useRef(1);
 
   // Edit form states
   const [editName, setEditName] = useState('');
@@ -160,7 +163,8 @@ export default function JobsTab({
       setEditCustomTypeInput('');
       setEditCustomStatusLabelInput('');
       setEditCustomStatusBehavior('pending');
-      setEditFormStep(1);
+      setEditFormStep(editStartStepRef.current);
+      editStartStepRef.current = 1;
       setEditCanSubmit(false);
     }
   }, [editingJob]);
@@ -756,10 +760,16 @@ export default function JobsTab({
                               onClick={() => {
                                 const today = new Date();
                                 const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                const updated = { ...j, isPosted: true, postDate: localDateStr };
                                 onEditJob(j.id, {
                                   isPosted: true,
                                   postDate: localDateStr
                                 });
+                                // Open straight to the credit term + on-air date fields so the
+                                // user confirms/corrects them right away instead of having to
+                                // dig back into edit mode separately.
+                                editStartStepRef.current = 3;
+                                setEditingJob(updated);
                               }}
                               className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
