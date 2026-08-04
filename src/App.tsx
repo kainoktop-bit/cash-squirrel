@@ -971,6 +971,37 @@ export default function App() {
     }
   }, [jobs, goals, statuses, jobTypes, settings, notifSettings, expenses, session, isLoadedForUser, cloudSyncStatus]);
 
+  // The debounce above has a real data-loss window: if the user closes the tab, backgrounds
+  // the app, or navigates away within that 1.5s, the pending setTimeout never fires and the
+  // edit (e.g. a newly-added job) never reaches Supabase — the next load then overwrites it
+  // with the stale cloud copy. Flush immediately (no debounce) the moment the page starts
+  // hiding, using both visibilitychange and pagehide since neither fires reliably alone across
+  // every browser (pagehide is the one that actually fires on iOS Safari tab close).
+  useEffect(() => {
+    if (!(session?.user?.email && isLoadedForUser === session.user.email && cloudSyncStatus === 'synced')) return;
+    const email = session.user.email;
+    const flush = () => {
+      saveCloudData(email, {
+        jobs,
+        goals,
+        statuses,
+        jobTypes,
+        settings,
+        notifSettings,
+        expenses
+      });
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [jobs, goals, statuses, jobTypes, settings, notifSettings, expenses, session, isLoadedForUser, cloudSyncStatus]);
+
   // Check for overdue credit terms on login/data load
   useEffect(() => {
     if (session?.user?.email && isLoadedForUser === session.user.email && jobs.length > 0) {
