@@ -1,7 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as XLSX from 'xlsx';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { formatMonthKey } from '../src/utils.js';
 
@@ -158,134 +156,8 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
         <tr><td style="padding:4px 0;color:#7A5C43;">ยอดออมสะสมโดยประมาณ</td><td style="padding:4px 0;text-align:right;font-weight:bold;">${formatCurrency(s.actualSavings)}</td></tr>
       </table>
     </div>
-    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel และ PDF สรุปรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
+    <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel สรุปรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
   </div>`;
-}
-
-function jobStatusLabel(status: string | undefined): string {
-  if (status === 'done') return 'จ่ายแล้ว';
-  if (status === 'partial') return 'มัดจำ/จ่ายบางส่วน';
-  if (status === 'pending') return 'ยังไม่จ่าย';
-  return status || '-';
-}
-
-// Itemized report for the PDF attachment: same job/expense line items as the Excel export's
-// "รายรับ"/"รายจ่าย" sheets, laid out as printable tables instead of a spreadsheet.
-function buildDetailedReportHtml(
-  monthLabel: string,
-  s: MonthlySummary,
-  jobs: JobRow[],
-  expenses: ExpenseRow[]
-): string {
-  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
-
-  const jobRows = jobs
-    .map(
-      (j) => `
-    <tr>
-      <td>${escapeHtml(j.name)}</td>
-      <td>${escapeHtml(j.client || '-')}</td>
-      <td>${escapeHtml(j.type || 'ทั่วไป')}</td>
-      <td class="num">${formatCurrency(j.value || 0)}</td>
-      <td class="num">${formatCurrency(j.received || 0)}</td>
-      <td class="num">${formatCurrency(j.pending || 0)}</td>
-      <td>${escapeHtml(jobStatusLabel(j.status))}</td>
-      <td>${escapeHtml(j.payDate || j.postDate || '-')}</td>
-    </tr>`
-    )
-    .join('');
-
-  const expenseRows = expenses
-    .map(
-      (e) => `
-    <tr>
-      <td>${escapeHtml(e.name || '-')}</td>
-      <td>${escapeHtml(e.category || '-')}</td>
-      <td class="num">${formatCurrency(e.amount || 0)}</td>
-      <td>${escapeHtml(e.date || '-')}</td>
-      <td>${escapeHtml(e.note || '-')}</td>
-    </tr>`
-    )
-    .join('');
-
-  return `
-  <div style="font-family:sans-serif;color:#3D2314;">
-    <style>
-      table { width:100%; border-collapse:collapse; font-size:11px; margin-top:8px; }
-      th { background:#E65F2B; color:#fff; text-align:left; padding:6px 8px; font-size:10px; }
-      td { padding:6px 8px; border-bottom:1px solid #E8DFD3; }
-      td.num, th.num { text-align:right; }
-      tr:nth-child(even) td { background:#FDF6EC; }
-      .section-title { font-size:14px; font-weight:bold; color:#A63F1B; margin:20px 0 4px; }
-    </style>
-
-    <span style="display:inline-block;background:#ECFDF5;color:#059669;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">MONTHLY FINANCIAL REPORT — DETAILED</span>
-    <h2 style="color:#059669;margin:12px 0 4px;">รายงานรายรับ-รายจ่ายละเอียดรอบเดือน ${monthLabel}</h2>
-
-    <table style="border-collapse:collapse;">
-      <tr>
-        <td style="width:33%;padding:12px;background:#ECFDF5;border-radius:10px 0 0 10px;text-align:center;border:none;">
-          <div style="font-size:10px;color:#059669;font-weight:bold;">รายรับจริง</div>
-          <div style="font-size:18px;color:#047857;font-weight:900;margin-top:2px;">${formatCurrency(s.received)}</div>
-        </td>
-        <td style="width:34%;padding:12px;background:#FEF2F2;text-align:center;border:none;">
-          <div style="font-size:10px;color:#DC2626;font-weight:bold;">รายจ่ายจริง</div>
-          <div style="font-size:18px;color:#B91C1C;font-weight:900;margin-top:2px;">${formatCurrency(totalExpense)}</div>
-        </td>
-        <td style="width:33%;padding:12px;background:#EEF2FF;border-radius:0 10px 10px 0;text-align:center;border:none;">
-          <div style="font-size:10px;color:#4338CA;font-weight:bold;">กระแสเงินสดสุทธิ</div>
-          <div style="font-size:18px;color:#3730A3;font-weight:900;margin-top:2px;">${formatCurrency(s.netFlow)}</div>
-        </td>
-      </tr>
-    </table>
-
-    <div class="section-title">รายละเอียดรายรับ (${jobs.length} รายการ)</div>
-    <table>
-      <thead>
-        <tr>
-          <th>ชื่องาน</th><th>ลูกค้า</th><th>ประเภทงาน</th><th class="num">มูลค่ารวม</th>
-          <th class="num">รับแล้ว</th><th class="num">ค้างรับ</th><th>สถานะ</th><th>วันที่ชำระ</th>
-        </tr>
-      </thead>
-      <tbody>${jobRows || '<tr><td colspan="8" style="text-align:center;color:#7A5C43;">ไม่มีรายการ</td></tr>'}</tbody>
-    </table>
-
-    <div class="section-title">รายละเอียดรายจ่าย (${expenses.length} รายการ)</div>
-    <table>
-      <thead>
-        <tr><th>รายการ</th><th>หมวดหมู่</th><th class="num">จำนวนเงิน</th><th>วันที่</th><th>หมายเหตุ</th></tr>
-      </thead>
-      <tbody>${expenseRows || '<tr><td colspan="5" style="text-align:center;color:#7A5C43;">ไม่มีรายการ</td></tr>'}</tbody>
-    </table>
-
-    <p style="color:#7A5C43;font-size:11px;margin-top:20px;">ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
-  </div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
-
-// Renders the exact same HTML used for the email body through a real headless browser so Thai
-// combining vowels/tone marks shape correctly (pdfkit-style text libraries render them detached).
-async function buildReportPdfBase64(html: string): Promise<string> {
-  chromium.setGraphicsMode = false;
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    executablePath: await chromium.executablePath(),
-    headless: true,
-  });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(
-      `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light"></head><body style="margin:0;padding:24px;background:#fff;">${html}</body></html>`,
-      { waitUntil: 'load' }
-    );
-    const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true });
-    return Buffer.from(pdfBuffer).toString('base64');
-  } finally {
-    await browser.close();
-  }
 }
 
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
@@ -333,8 +205,7 @@ async function sendReportEmail(
   to: string,
   monthLabel: string,
   summary: MonthlySummary,
-  excelBase64: string,
-  pdfBase64: string | null
+  excelBase64: string
 ): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('Missing RESEND_API_KEY environment variable');
@@ -345,12 +216,6 @@ async function sendReportEmail(
       content: excelBase64,
     },
   ];
-  if (pdfBase64) {
-    attachments.push({
-      filename: `สรุปงบเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.pdf`,
-      content: pdfBase64,
-    });
-  }
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -475,16 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const excelBase64 = buildMonthlyExcelBase64(monthLabel, summary, monthJobs, monthExpenses);
 
-        let pdfBase64: string | null = null;
-        try {
-          pdfBase64 = await buildReportPdfBase64(
-            buildDetailedReportHtml(monthLabel, summary, monthJobs, monthExpenses)
-          );
-        } catch (pdfErr: any) {
-          console.error(`send-monthly-report: PDF generation failed for user ${row.user_id}:`, pdfErr);
-        }
-
-        const ok = await sendReportEmail(recipient, monthLabel, summary, excelBase64, pdfBase64);
+        const ok = await sendReportEmail(recipient, monthLabel, summary, excelBase64);
         if (!ok) {
           skipped += 1;
           continue;
