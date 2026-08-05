@@ -37,60 +37,100 @@ function todayInBangkok(): string {
   return bangkok.toISOString().split('T')[0];
 }
 
-function findOverdueJobs(jobs: JobRow[], statuses: StatusOptionRow[]): JobRow[] {
+// How many days until (positive) or since (negative) the job's due date. 0 = due today.
+function diffDaysFromToday(targetDateStr: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  return jobs.filter((j) => {
-    const statusOpt = statuses.find((s) => s.id === j.status);
-    const behavior = statusOpt ? statusOpt.behavior : 'pending';
-    const isUnpaid = behavior !== 'done' && j.pending > 0 && j.paymentStatus !== 'paid';
-
-    const targetDateStr = j.dueDate || j.payDate;
-    if (!isUnpaid || !targetDateStr) return false;
-
-    const targetDate = new Date(targetDateStr + 'T00:00:00');
-    const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= -1;
-  });
-}
-
-function daysOverdue(job: JobRow): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const targetDateStr = job.dueDate || job.payDate!;
   const targetDate = new Date(targetDateStr + 'T00:00:00');
-  return Math.abs(Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  return Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function buildDigestHtml(jobs: JobRow[]): string {
-  const rows = jobs
+interface JobWithDiff extends JobRow {
+  diffDays: number;
+}
+
+// Overdue jobs, jobs due today, and jobs due within the next 2 days -- catching it a day or two
+// early is far more useful than only finding out once it's already overdue.
+function findJobsNeedingAttention(jobs: JobRow[], statuses: StatusOptionRow[]): JobWithDiff[] {
+  return jobs
+    .map((j) => {
+      const statusOpt = statuses.find((s) => s.id === j.status);
+      const behavior = statusOpt ? statusOpt.behavior : 'pending';
+      const isUnpaid = behavior !== 'done' && j.pending > 0 && j.paymentStatus !== 'paid';
+
+      const targetDateStr = j.dueDate || j.payDate;
+      if (!isUnpaid || !targetDateStr) return null;
+
+      const diffDays = diffDaysFromToday(targetDateStr);
+      if (diffDays > 2) return null;
+      return { ...j, diffDays };
+    })
+    .filter((j): j is JobWithDiff => j !== null);
+}
+
+function dueLabel(diffDays: number): string {
+  if (diffDays < 0) return `เลยกำหนดมาแล้ว ${Math.abs(diffDays)} วัน`;
+  if (diffDays === 0) return 'ครบกำหนดวันนี้';
+  return `อีก ${diffDays} วัน`;
+}
+
+function buildJobRows(jobs: JobWithDiff[], dateColor: string): string {
+  return jobs
     .map(
       (j) => `
     <tr>
       <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;">${escapeHtml(j.client || 'ไม่ระบุ')}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;">${escapeHtml(j.name)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;text-align:right;">฿${j.pending.toLocaleString('th-TH')}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;text-align:right;color:#A63F1B;">เลย ${daysOverdue(j)} วัน</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;text-align:right;color:${dateColor};font-weight:bold;">${dueLabel(j.diffDays)}</td>
     </tr>`
     )
     .join('');
+}
+
+function buildSection(title: string, badgeBg: string, badgeColor: string, jobs: JobWithDiff[], dateColor: string): string {
+  if (jobs.length === 0) return '';
+  return `
+    <div style="margin-top:20px;">
+      <span style="display:inline-block;background:${badgeBg};color:${badgeColor};font-size:12px;font-weight:bold;padding:4px 10px;border-radius:6px;">${title} (${jobs.length} รายการ)</span>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">
+        <thead>
+          <tr style="background:#FDF6EC;">
+            <th style="padding:8px 12px;text-align:left;">ลูกค้า</th>
+            <th style="padding:8px 12px;text-align:left;">งาน</th>
+            <th style="padding:8px 12px;text-align:right;">ยอดค้าง</th>
+            <th style="padding:8px 12px;text-align:right;">กำหนดชำระ</th>
+          </tr>
+        </thead>
+        <tbody>${buildJobRows(jobs, dateColor)}</tbody>
+      </table>
+    </div>`;
+}
+
+function buildDigestHtml(jobs: JobWithDiff[]): string {
+  const overdue = jobs.filter((j) => j.diffDays < 0);
+  const dueToday = jobs.filter((j) => j.diffDays === 0);
+  const dueSoon = jobs.filter((j) => j.diffDays > 0);
 
   return `
   <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#3D2314;">
-    <h2 style="color:#E65F2B;">สรุปงานค้างชำระเลยกำหนด (${jobs.length} รายการ)</h2>
-    <p>ระบบตรวจพบดีลงานที่เลยกำหนดเครดิตเทอมแล้วยังไม่ได้รับเงินครบ ลองติดต่อทวงถามลูกค้าได้เลยครับ</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-      <thead>
-        <tr style="background:#FDF6EC;">
-          <th style="padding:8px 12px;text-align:left;">ลูกค้า</th>
-          <th style="padding:8px 12px;text-align:left;">งาน</th>
-          <th style="padding:8px 12px;text-align:right;">ยอดค้าง</th>
-          <th style="padding:8px 12px;text-align:right;">สถานะ</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <span style="display:inline-block;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">OVERDUE CREDIT ALERT</span>
+    <h2 style="color:#E65F2B;margin:12px 0 4px;">🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม</h2>
+    <p style="margin-top:0;">ระบบตรวจพบดีลงานที่เลยกำหนด ครบกำหนดวันนี้ หรือใกล้ครบกำหนดใน 1-2 วัน ลองติดต่อทวงถามลูกค้าล่วงหน้าได้เลยครับ</p>
+
+    ${buildSection('⚠️ เกินกำหนดชำระเงินแล้ว', '#FEF2F2', '#DC2626', overdue, '#DC2626')}
+    ${buildSection('⏰ ครบกำหนดวันนี้', '#FEF9E7', '#B45309', dueToday, '#B45309')}
+    ${buildSection('📅 ใกล้ครบกำหนด (1-2 วัน)', '#EEF2FF', '#4338CA', dueSoon, '#4338CA')}
+
+    <div style="margin-top:24px;padding:16px;background:#FDF6EC;border-radius:12px;">
+      <p style="font-size:12px;font-weight:bold;color:#3D2314;margin:0 0 8px;">💡 คำแนะนำในการดำเนินการทวงถาม</p>
+      <ol style="font-size:12px;color:#7A5C43;margin:0;padding-left:18px;line-height:1.7;">
+        <li>เปิดแอปธนาคารหรือเช็คสเตทเมนต์ของคุณ เพื่อยืนยันว่าไม่มียอดดังกล่าวโอนเข้ามาจริง ๆ</li>
+        <li>ทักไปทวงถามลูกค้าอย่างสุภาพ พร้อมแนบใบแจ้งหนี้หรือหลักฐานงานที่ส่งไปแล้ว</li>
+        <li>บันทึกไว้ในแอปทันทีที่ได้รับเงิน เพื่อให้ระบบหยุดแจ้งเตือนรายการนั้น</li>
+      </ol>
+    </div>
+
     <p style="color:#7A5C43;font-size:12px;margin-top:24px;">อีเมลนี้ส่งอัตโนมัติจากกระรอกตุนเงิน ปิดการแจ้งเตือนได้ที่หน้าตั้งค่าระบบในแอป</p>
   </div>`;
 }
@@ -99,12 +139,12 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-async function sendDigestEmail(to: string, jobs: JobRow[]): Promise<boolean> {
-  return sendGmailEmail(
-    to,
-    `สรุปงานค้างชำระเลยกำหนด ${jobs.length} รายการ - กระรอกตุนเงิน`,
-    buildDigestHtml(jobs)
-  );
+async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<boolean> {
+  const overdueCount = jobs.filter((j) => j.diffDays < 0).length;
+  const subject = overdueCount > 0
+    ? `สรุปงานค้างชำระเลยกำหนด ${overdueCount} รายการ - กระรอกตุนเงิน`
+    : `สรุปดีลงานที่ใกล้ครบกำหนดชำระเงิน ${jobs.length} รายการ - กระรอกตุนเงิน`;
+  return sendGmailEmail(to, subject, buildDigestHtml(jobs));
 }
 
 async function listAllAuthUsers(): Promise<Map<string, string>> {
@@ -184,9 +224,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const jobs: JobRow[] = row.jobs || [];
         const statuses: StatusOptionRow[] = row.statuses || [];
-        const overdueJobs = findOverdueJobs(jobs, statuses);
+        const attentionJobs = findJobsNeedingAttention(jobs, statuses);
 
-        if (overdueJobs.length === 0) {
+        if (attentionJobs.length === 0) {
           skipped += 1;
           continue;
         }
@@ -197,14 +237,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        const ok = await sendDigestEmail(recipient, overdueJobs);
+        const ok = await sendDigestEmail(recipient, attentionJobs);
         if (!ok) {
           skipped += 1;
           continue;
         }
 
+        // Only count genuinely overdue items as a "follow-up" -- a heads-up for something due
+        // in 1-2 days isn't a follow-up attempt yet.
+        const overdueIds = new Set(attentionJobs.filter((j) => j.diffDays < 0).map((j) => j.id));
         const updatedJobs = jobs.map((j) =>
-          overdueJobs.some((o) => o.id === j.id)
+          overdueIds.has(j.id)
             ? { ...j, followUpCount: (j.followUpCount || 0) + 1, lastFollowUpDate: todayStr }
             : j
         );
