@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as XLSX from 'xlsx';
 import { supabaseAdmin } from './_supabaseAdmin.js';
+import { sendGmailEmail } from './_gmail.js';
 import { formatMonthKey } from '../src/utils.js';
 
 const FREE_TRIAL_DAYS = 30;
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'กระรอกตุนเงิน <onboarding@resend.dev>';
 
 interface JobRow {
   id: string;
@@ -207,37 +207,17 @@ async function sendReportEmail(
   summary: MonthlySummary,
   excelBase64: string
 ): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('Missing RESEND_API_KEY environment variable');
-
-  const attachments: { filename: string; content: string }[] = [
-    {
-      filename: `บัญชีเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.xlsx`,
-      content: excelBase64,
-    },
-  ];
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: RESEND_FROM_EMAIL,
-      to: [to],
-      subject: `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
-      html: buildReportHtml(monthLabel, summary),
-      attachments,
-    }),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    console.error(`send-monthly-report: Resend API returned ${res.status}: ${errBody}`);
-  }
-
-  return res.ok;
+  return sendGmailEmail(
+    to,
+    `[กระรอกตุนเงิน] สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
+    buildReportHtml(monthLabel, summary),
+    [
+      {
+        filename: `บัญชีเดือน_${monthLabel.replace(/\s+/g, '_')}_กระรอกตุนเงิน.xlsx`,
+        content: excelBase64,
+      },
+    ]
+  );
 }
 
 async function listAllAuthUsers(): Promise<Map<string, string>> {
