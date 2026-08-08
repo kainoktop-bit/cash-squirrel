@@ -1288,21 +1288,21 @@ export default function MonthlyReportTab({
             <div className="flex flex-col items-start sm:items-end gap-1.5">
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-brand-muted">
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded bg-[#125442] dark:bg-[#49CCA9]" />
+                  <span className="w-3 h-3 rounded bg-[var(--chart-income-met)]" />
                   <span>รายรับสุทธิ (Income)</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded bg-[#C96B5A] dark:bg-[#F4AE91]" />
+                  <span className="w-3 h-3 rounded bg-[var(--chart-savings-met)]" />
                   <span>ยอดออมสะสม (Savings)</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-brand-muted/80">
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#125442] dark:bg-[#49CCA9]" />
+                  <span className="w-2 h-2 rounded-full bg-[var(--chart-income-met)]" />
                   <span>สีเข้ม = ถึงเป้าหมายแล้ว</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#557c72]" />
+                  <span className="w-2 h-2 rounded-full bg-[var(--chart-income-unmet)]" />
                   <span>สีอ่อน = ยังไม่ถึงเป้าหมาย</span>
                 </div>
               </div>
@@ -1361,26 +1361,26 @@ export default function MonthlyReportTab({
                     return null;
                   }}
                 />
-                <Bar 
-                  dataKey="received" 
-                  name="รายรับจริง" 
-                  fill="var(--green-acc)" 
-                  radius={[6, 6, 0, 0]} 
+                <Bar
+                  dataKey="received"
+                  name="รายรับจริง"
+                  fill="var(--chart-income-met)"
+                  radius={[6, 6, 0, 0]}
                   maxBarSize={30}
                 >
                   {monthlyData.map((entry, index) => (
-                    <Cell key={`cell-income-${index}`} fill={entry.received >= entry.targetRevenue ? 'var(--green-acc)' : '#557c72'} />
+                    <Cell key={`cell-income-${index}`} fill={entry.received >= entry.targetRevenue ? 'var(--chart-income-met)' : 'var(--chart-income-unmet)'} />
                   ))}
                 </Bar>
-                <Bar 
-                  dataKey="actualSavings" 
-                  name="เงินออมจริง" 
-                  fill="#C96B5A" 
-                  radius={[6, 6, 0, 0]} 
+                <Bar
+                  dataKey="actualSavings"
+                  name="เงินออมจริง"
+                  fill="var(--chart-savings-met)"
+                  radius={[6, 6, 0, 0]}
                   maxBarSize={30}
                 >
                   {monthlyData.map((entry, index) => (
-                    <Cell key={`cell-savings-${index}`} fill={entry.actualSavings >= entry.targetSavings ? '#C96B5A' : '#e5a59a'} />
+                    <Cell key={`cell-savings-${index}`} fill={entry.actualSavings >= entry.targetSavings ? 'var(--chart-savings-met)' : 'var(--chart-savings-unmet)'} />
                   ))}
                 </Bar>
               </BarChart>
