@@ -82,9 +82,7 @@
      brown brand token everywhere else, not a real green, so it can't be reused for a chart
      that needs to visually read as green (income) vs red (savings). */
   --chart-income-met: #125442;
-  --chart-income-unmet: #557c72;
   --chart-savings-met: #C96B5A;
-  --chart-savings-unmet: #e5a59a;
 
   --radius-xl: 24px;
   --radius-lg: 16px;
@@ -115,9 +113,7 @@
   --purple-acc: #D2C0B0;
 
   --chart-income-met: #49CCA9;
-  --chart-income-unmet: #3E6359;
   --chart-savings-met: #F4AE91;
-  --chart-savings-unmet: #8A5A4C;
 }
 
 body {

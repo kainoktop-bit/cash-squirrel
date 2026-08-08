@@ -12,8 +12,7 @@ import {
   Tooltip, 
   Legend, 
   ResponsiveContainer,
-  ReferenceLine,
-  Cell
+  ReferenceLine
 } from 'recharts';
 import { 
   FileText, 
@@ -1296,16 +1295,6 @@ export default function MonthlyReportTab({
                   <span>ยอดออมสะสม (Savings)</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-brand-muted/80">
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[var(--chart-income-met)]" />
-                  <span>สีเข้ม = ถึงเป้าหมายแล้ว</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[var(--chart-income-unmet)]" />
-                  <span>สีอ่อน = ยังไม่ถึงเป้าหมาย</span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1367,22 +1356,14 @@ export default function MonthlyReportTab({
                   fill="var(--chart-income-met)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={30}
-                >
-                  {monthlyData.map((entry, index) => (
-                    <Cell key={`cell-income-${index}`} fill={entry.received >= entry.targetRevenue ? 'var(--chart-income-met)' : 'var(--chart-income-unmet)'} />
-                  ))}
-                </Bar>
+                />
                 <Bar
                   dataKey="actualSavings"
                   name="เงินออมจริง"
                   fill="var(--chart-savings-met)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={30}
-                >
-                  {monthlyData.map((entry, index) => (
-                    <Cell key={`cell-savings-${index}`} fill={entry.actualSavings >= entry.targetSavings ? 'var(--chart-savings-met)' : 'var(--chart-savings-unmet)'} />
-                  ))}
-                </Bar>
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
