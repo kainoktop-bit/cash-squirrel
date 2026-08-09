@@ -79,16 +79,27 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
           mimeType,
           priorFields: fieldsRef.current,
           priorQuestion: questionRef.current || undefined,
-          turn: turnRef.current,
         }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'แปลงเสียงไม่สำเร็จ');
 
-      const { followUpQuestion: nextQuestion, ...newFields } = json as VoiceParsedJobFields & { followUpQuestion?: string };
+      const newFields = json as VoiceParsedJobFields;
       // Merge: only overwrite a field when this turn actually returned something for it.
       fieldsRef.current = { ...fieldsRef.current, ...Object.fromEntries(Object.entries(newFields).filter(([, v]) => v !== '' && v !== undefined && v !== null)) };
+
+      // Decide deterministically whether to ask a follow-up -- asking the model to make this
+      // call itself turned out unreliable with real audio input, so it's plain JS here instead.
+      const hasValue = typeof fieldsRef.current.value === 'number' && fieldsRef.current.value > 0;
+      const hasPaymentStatus = !!fieldsRef.current.paymentStatus;
+
+      let nextQuestion = '';
+      if (!hasValue) {
+        nextQuestion = 'งานนี้มูลค่าเท่าไหร่ครับ พูดยอดเงินมาได้เลยครับ';
+      } else if (!hasPaymentStatus) {
+        nextQuestion = 'ตอนนี้ได้รับเงินหรือยังครับ จ่ายครบแล้ว มัดจำมาบางส่วน หรือยังไม่ได้จ่ายเลยครับ';
+      }
 
       if (nextQuestion && turnRef.current < MAX_TURNS) {
         questionRef.current = nextQuestion;
