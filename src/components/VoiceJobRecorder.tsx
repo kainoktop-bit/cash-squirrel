@@ -1,9 +1,24 @@
 import React, { useRef, useState } from 'react';
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { Mic, Square, Loader2, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabaseClient';
 import { IconSpark } from './icons';
 import { Mascot } from './Mascot';
+
+// Speaks a follow-up question out loud so the user doesn't have to read it -- best-effort only,
+// silently does nothing if the browser has no speechSynthesis support or no Thai voice.
+function speakThai(text: string) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'th-TH';
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // TTS is a nice-to-have here; the question text is still shown on screen regardless.
+  }
+}
 
 export interface VoiceParsedJobFields {
   name?: string;
@@ -105,6 +120,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
         questionRef.current = nextQuestion;
         setFollowUpQuestion(nextQuestion);
         setStatus('awaiting_followup');
+        speakThai(nextQuestion);
       } else {
         onParsed(fieldsRef.current);
         reset();
@@ -118,6 +134,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
   };
 
   const startRecording = async () => {
+    window.speechSynthesis?.cancel(); // don't let the question keep talking over the mic
     if (!isPro) {
       onSwitchTab('plans');
       return;
@@ -198,9 +215,17 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
         >
           <div className="flex items-start gap-2.5">
             <Mascot mood="happy" size={32} className="shrink-0" />
-            <p className="text-[11px] font-bold text-brand-text dark:text-neutral-200 leading-relaxed pt-1">
+            <p className="text-[11px] font-bold text-brand-text dark:text-neutral-200 leading-relaxed pt-1 flex-1">
               {followUpQuestion}
             </p>
+            <button
+              type="button"
+              onClick={() => speakThai(followUpQuestion)}
+              title="ฟังคำถามอีกครั้ง"
+              className="shrink-0 p-1.5 rounded-lg text-[#E65F2B] dark:text-[#FFA473] hover:bg-[#E65F2B]/10 transition-colors cursor-pointer"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
