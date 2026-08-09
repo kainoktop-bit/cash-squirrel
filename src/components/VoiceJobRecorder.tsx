@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Mic, Square, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabaseClient';
 import { IconSpark } from './icons';
+import { Mascot } from './Mascot';
 
 export interface VoiceParsedJobFields {
   name?: string;
@@ -10,6 +12,8 @@ export interface VoiceParsedJobFields {
   value?: number;
   creditTerm?: number;
   note?: string;
+  paymentStatus?: string; // 'paid' | 'partial' | 'pending'
+  receivedAmount?: number;
 }
 
 interface VoiceJobRecorderProps {
@@ -19,7 +23,9 @@ interface VoiceJobRecorderProps {
   onParsed: (fields: VoiceParsedJobFields) => void;
 }
 
-type Status = 'idle' | 'recording' | 'processing';
+type Status = 'idle' | 'recording' | 'processing' | 'awaiting_followup';
+
+const MAX_TURNS = 3;
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -36,10 +42,22 @@ function blobToBase64(blob: Blob): Promise<string> {
 export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }: VoiceJobRecorderProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [seconds, setSeconds] = useState(0);
+  const [followUpQuestion, setFollowUpQuestion] = useState('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fieldsRef = useRef<VoiceParsedJobFields>({});
+  const turnRef = useRef(0);
+  const questionRef = useRef<string>('');
+
+  const reset = () => {
+    fieldsRef.current = {};
+    turnRef.current = 0;
+    questionRef.current = '';
+    setFollowUpQuestion('');
+    setStatus('idle');
+  };
 
   const handleStop = async (mimeType: string) => {
     try {
@@ -51,20 +69,40 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       const token = sessionData.session?.access_token;
       if (!token) throw new Error('ไม่พบเซสชันผู้ใช้ กรุณาล็อกอินใหม่');
 
+      turnRef.current += 1;
+
       const res = await fetch('/api/parse-voice-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ audioBase64: base64, mimeType }),
+        body: JSON.stringify({
+          audioBase64: base64,
+          mimeType,
+          priorFields: fieldsRef.current,
+          priorQuestion: questionRef.current || undefined,
+          turn: turnRef.current,
+        }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'แปลงเสียงไม่สำเร็จ');
 
-      onParsed(json);
+      const { followUpQuestion: nextQuestion, ...newFields } = json as VoiceParsedJobFields & { followUpQuestion?: string };
+      // Merge: only overwrite a field when this turn actually returned something for it.
+      fieldsRef.current = { ...fieldsRef.current, ...Object.fromEntries(Object.entries(newFields).filter(([, v]) => v !== '' && v !== undefined && v !== null)) };
+
+      if (nextQuestion && turnRef.current < MAX_TURNS) {
+        questionRef.current = nextQuestion;
+        setFollowUpQuestion(nextQuestion);
+        setStatus('awaiting_followup');
+      } else {
+        onParsed(fieldsRef.current);
+        reset();
+      }
     } catch (err: any) {
       triggerAlert('แปลงเสียงไม่สำเร็จ', err.message || 'ลองพูดใหม่อีกครั้ง หรือกรอกฟอร์มด้วยตัวเองแทนได้เลยครับ');
-    } finally {
-      setStatus('idle');
+      // Keep whatever we already gathered rather than throwing it away on a mid-conversation error.
+      if (Object.keys(fieldsRef.current).length > 0) onParsed(fieldsRef.current);
+      reset();
     }
   };
 
@@ -100,6 +138,11 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     setStatus('processing');
   };
 
+  const skipRemaining = () => {
+    if (Object.keys(fieldsRef.current).length > 0) onParsed(fieldsRef.current);
+    reset();
+  };
+
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
   const ss = String(seconds % 60).padStart(2, '0');
 
@@ -131,6 +174,42 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
         กำลังแปลงเสียงเป็นข้อมูล...
       </button>
+    );
+  }
+
+  if (status === 'awaiting_followup') {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-2.5 p-3.5 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20"
+        >
+          <div className="flex items-start gap-2.5">
+            <Mascot mood="happy" size={32} className="shrink-0" />
+            <p className="text-[11px] font-bold text-brand-text dark:text-neutral-200 leading-relaxed pt-1">
+              {followUpQuestion}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={startRecording}
+              className="flex-1 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white transition-all cursor-pointer"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              ตอบด้วยเสียง
+            </button>
+            <button
+              type="button"
+              onClick={skipRemaining}
+              className="py-2.5 px-3.5 rounded-xl text-xs font-black text-brand-muted hover:text-brand-text border border-brand-border transition-all cursor-pointer"
+            >
+              ข้าม กรอกเอง
+            </button>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     );
   }
 

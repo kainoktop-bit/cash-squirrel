@@ -101,6 +101,12 @@ export default function JobsTab({
     if (typeof fields.value === 'number' && fields.value > 0) setFormValue(String(fields.value));
     if (typeof fields.creditTerm === 'number' && fields.creditTerm >= 0) setFormCreditTerm(fields.creditTerm);
     if (fields.note) setFormNote(fields.note);
+    if (fields.paymentStatus === 'paid' || fields.paymentStatus === 'partial' || fields.paymentStatus === 'pending') {
+      setFormStatus(fields.paymentStatus === 'paid' ? 'done' : fields.paymentStatus);
+    }
+    if (typeof fields.receivedAmount === 'number' && fields.receivedAmount > 0) {
+      setFormReceived(String(fields.receivedAmount));
+    }
   };
 
   // 🌰 Wizard/Step form state
