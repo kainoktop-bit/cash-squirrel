@@ -1928,6 +1928,8 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                   triggerPrompt={triggerPrompt}
+                  isPro={isPro}
+                  onSwitchTab={setActiveTab}
                 />
               )}
 
