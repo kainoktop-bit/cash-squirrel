@@ -66,8 +66,8 @@ type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 
 const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', label: 'ภาพรวมกระแสเงินสด', icon: Home, group: 'core' },
   { key: 'jobs', label: 'งานดีล & บันทึกรับเงิน', icon: Briefcase, group: 'core' },
-  { key: 'summary', label: 'สรุปยอดรายรับ & ออม', icon: Wallet, group: 'core' },
-  { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'more' },
+  { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'core' },
+  { key: 'summary', label: 'สรุปยอดรายรับ & ออม', icon: Wallet, group: 'more' },
   { key: 'split', label: 'จัดสรรเงิน & เป้าหมายออม', icon: Percent, group: 'more' },
   { key: 'report', label: 'รายงาน & เครดิตเทอม', icon: TrendingUp, group: 'more' },
   { key: 'insight', label: 'วิเคราะห์รายได้', icon: BarChart3, group: 'more' },
