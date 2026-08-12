@@ -867,6 +867,7 @@ export default function App() {
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
+  const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
 
   // Custom Dialog state for elegant, non-blocking prompts/alerts
   const [dialog, setDialog] = useState<CustomDialogState>({
@@ -1930,6 +1931,8 @@ export default function App() {
                   triggerPrompt={triggerPrompt}
                   isPro={isPro}
                   onSwitchTab={setActiveTab}
+                  openJobId={jobIdToOpen}
+                  onOpenJobHandled={() => setJobIdToOpen(null)}
                 />
               )}
 
@@ -1960,6 +1963,10 @@ export default function App() {
                   jobs={jobs}
                   settings={settings}
                   statuses={statuses}
+                  onOpenJob={(jobId) => {
+                    setJobIdToOpen(jobId);
+                    setActiveTab('jobs');
+                  }}
                 />
               )}
 

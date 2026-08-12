@@ -44,6 +44,8 @@ interface JobsTabProps {
   ) => void;
   isPro: boolean;
   onSwitchTab: (tabId: string) => void;
+  openJobId?: string | null;
+  onOpenJobHandled?: () => void;
 }
 
 export default function JobsTab({
@@ -62,6 +64,8 @@ export default function JobsTab({
   triggerPrompt,
   isPro,
   onSwitchTab,
+  openJobId,
+  onOpenJobHandled,
 }: JobsTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -148,6 +152,14 @@ export default function JobsTab({
   // Lets a caller (e.g. the "โพสต์แล้ว รอรับเงิน" quick action) open the edit modal straight on
   // a specific step instead of always starting at step 1. Consumed once, then reset.
   const editStartStepRef = React.useRef(1);
+
+  // Lets another tab (e.g. Timeline) deep-link into a specific job's detail/edit modal by id.
+  React.useEffect(() => {
+    if (!openJobId) return;
+    const target = jobs.find((j) => j.id === openJobId);
+    if (target) setEditingJob(target);
+    onOpenJobHandled?.();
+  }, [openJobId, jobs, onOpenJobHandled]);
 
   // Edit form states
   const [editName, setEditName] = useState('');

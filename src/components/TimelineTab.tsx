@@ -18,15 +18,17 @@ interface TimelineTabProps {
   jobs: Job[];
   settings: AppSettings;
   statuses: StatusOption[];
+  onOpenJob?: (jobId: string) => void;
 }
 
-export default function TimelineTab({ jobs, settings, statuses }: TimelineTabProps) {
+export default function TimelineTab({ jobs, settings, statuses, onOpenJob }: TimelineTabProps) {
   const forecastMonths = getForecastMonths();
 
   // Create timeline events grouped by month
   const timelineMonths = forecastMonths.map(monthKey => {
     const monthlyEvents: Array<{
       id: string;
+      jobId: string;
       title: string;
       client: string;
       amount: number;
@@ -48,6 +50,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
         const isDone = j.status === 'done' || statuses.find(s => s.id === j.status)?.behavior === 'done';
         monthlyEvents.push({
           id: `${j.id}-rec`,
+          jobId: j.id,
           title: j.name + (!isDone ? ' (มัดจำ)' : ''),
           client: j.client,
           amount: j.received,
@@ -72,6 +75,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
 
           monthlyEvents.push({
             id: `${j.id}-pend`,
+            jobId: j.id,
             title: j.name + (isWip ? ' (WIP - คาดการณ์รับเงิน)' : j.creditTerm > 0 ? ` (+${j.creditTerm} วัน)` : ''),
             client: j.client,
             amount: j.pending,
@@ -90,6 +94,7 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
           const rel = getRelativeDaysText(j.postDate);
           monthlyEvents.push({
             id: `${j.id}-milestone`,
+            jobId: j.id,
             title: `WIP: ${j.name} (เป้าหมายออนแอร์/ส่งงาน)`,
             client: j.client,
             amount: 0,
@@ -217,21 +222,28 @@ export default function TimelineTab({ jobs, settings, statuses }: TimelineTabPro
                   }
 
                   return (
-                    <div 
-                      key={evt.id} 
-                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass}`}
+                    <div
+                      key={evt.id}
+                      onClick={onOpenJob ? () => onOpenJob(evt.jobId) : undefined}
+                      role={onOpenJob ? 'button' : undefined}
+                      tabIndex={onOpenJob ? 0 : undefined}
+                      onKeyDown={onOpenJob ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenJob(evt.jobId); } } : undefined}
+                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass} ${onOpenJob ? 'cursor-pointer active:scale-[0.99]' : ''}`}
                     >
                       {/* Top Row with Title & Amount */}
                       <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-0.5 min-w-0">
-                          <h4 className="text-xs font-bold text-brand-text truncate max-w-[200px]">
-                            {evt.title}
-                          </h4>
-                          <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
-                            <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
-                            <span>•</span>
-                            <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
-                          </p>
+                        <div className="space-y-0.5 min-w-0 flex items-start gap-1">
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-brand-text truncate max-w-[200px]">
+                              {evt.title}
+                            </h4>
+                            <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
+                              <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
+                              <span>•</span>
+                              <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
+                            </p>
+                          </div>
+                          {onOpenJob && <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />}
                         </div>
 
                         <div className="text-right shrink-0 flex flex-col items-end gap-1">
