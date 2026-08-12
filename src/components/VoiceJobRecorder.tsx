@@ -5,21 +5,6 @@ import { supabase } from '../supabaseClient';
 import { IconSpark } from './icons';
 import { Mascot } from './Mascot';
 
-// Speaks a follow-up question out loud so the user doesn't have to read it -- best-effort only,
-// silently does nothing if the browser has no speechSynthesis support or no Thai voice.
-function speakThai(text: string) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'th-TH';
-    utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
-  } catch {
-    // TTS is a nice-to-have here; the question text is still shown on screen regardless.
-  }
-}
-
 export interface VoiceParsedJobFields {
   name?: string;
   client?: string;
@@ -38,9 +23,20 @@ interface VoiceJobRecorderProps {
   onParsed: (fields: VoiceParsedJobFields) => void;
 }
 
-type Status = 'idle' | 'recording' | 'processing' | 'awaiting_followup';
+type Status = 'idle' | 'asking' | 'recording' | 'processing';
 
-const MAX_TURNS = 3;
+// Fixed order the user asked for: walk through every field from first to last, never
+// skipping straight to money-related questions -- name, then client, then type, etc.
+const STEPS: { field: keyof VoiceParsedJobFields; question: string }[] = [
+  { field: 'name', question: 'ชื่องานหรือโปรเจกต์นี้ ชื่ออะไรครับ' },
+  { field: 'client', question: 'ใครเป็นคนจ้างครับ ลูกค้าหรือแบรนด์ไหน' },
+  { field: 'type', question: 'งานนี้เป็นงานประเภทไหนครับ เช่น โพสต์รีวิว วิดีโอ หรือให้คำปรึกษา' },
+  { field: 'value', question: 'มูลค่างานนี้เท่าไหร่ครับ พูดยอดเงินมาได้เลยครับ' },
+  { field: 'creditTerm', question: 'งานนี้มีเครดิตเทอมกี่วันครับ หรือได้รับเงินทันทีเลยครับ' },
+  { field: 'paymentStatus', question: 'ตอนนี้ได้รับเงินหรือยังครับ จ่ายครบแล้ว มัดจำมาบางส่วน หรือยังไม่ได้จ่ายเลยครับ' },
+];
+
+const MAX_RETRIES_PER_STEP = 2;
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -57,24 +53,68 @@ function blobToBase64(blob: Blob): Promise<string> {
 export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }: VoiceJobRecorderProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [seconds, setSeconds] = useState(0);
-  const [followUpQuestion, setFollowUpQuestion] = useState('');
+  const [stepIndex, setStepIndex] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fieldsRef = useRef<VoiceParsedJobFields>({});
-  const turnRef = useRef(0);
-  const questionRef = useRef<string>('');
+  const stepIndexRef = useRef(0);
+  const retriesRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const reset = () => {
     fieldsRef.current = {};
-    turnRef.current = 0;
-    questionRef.current = '';
-    setFollowUpQuestion('');
+    stepIndexRef.current = 0;
+    retriesRef.current = 0;
+    setStepIndex(0);
     setStatus('idle');
   };
 
+  const stopAnyPlayback = () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+  };
+
+  // Fetches natural-sounding speech from Gemini's TTS and plays it -- best-effort, the
+  // question text is always shown on screen too so a playback failure isn't blocking.
+  const speak = async (text: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/speak-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.audioBase64) return;
+      stopAnyPlayback();
+      const audio = new Audio(`data:audio/wav;base64,${json.audioBase64}`);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch {
+      // Silent question text on screen is still enough to proceed without spoken audio.
+    }
+  };
+
+  const askStep = (index: number) => {
+    stepIndexRef.current = index;
+    retriesRef.current = 0;
+    setStepIndex(index);
+    setStatus('asking');
+    speak(STEPS[index].question);
+  };
+
+  const finish = () => {
+    onParsed(fieldsRef.current);
+    reset();
+  };
+
   const handleStop = async (mimeType: string) => {
+    const step = STEPS[stepIndexRef.current];
     try {
       const blob = new Blob(chunksRef.current, { type: mimeType });
       if (blob.size === 0) throw new Error('ไม่ได้บันทึกเสียงไว้ ลองพูดใหม่อีกครั้งครับ');
@@ -84,8 +124,6 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       const token = sessionData.session?.access_token;
       if (!token) throw new Error('ไม่พบเซสชันผู้ใช้ กรุณาล็อกอินใหม่');
 
-      turnRef.current += 1;
-
       const res = await fetch('/api/parse-voice-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -93,7 +131,8 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
           audioBase64: base64,
           mimeType,
           priorFields: fieldsRef.current,
-          priorQuestion: questionRef.current || undefined,
+          targetField: step.field,
+          questionText: step.question,
         }),
       });
 
@@ -101,40 +140,41 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       if (!res.ok) throw new Error(json.error || 'แปลงเสียงไม่สำเร็จ');
 
       const newFields = json as VoiceParsedJobFields;
-      // Merge: only overwrite a field when this turn actually returned something for it.
-      fieldsRef.current = { ...fieldsRef.current, ...Object.fromEntries(Object.entries(newFields).filter(([, v]) => v !== '' && v !== undefined && v !== null)) };
+      fieldsRef.current = {
+        ...fieldsRef.current,
+        ...Object.fromEntries(Object.entries(newFields).filter(([, v]) => v !== '' && v !== undefined && v !== null)),
+      };
 
-      // Decide deterministically whether to ask a follow-up -- asking the model to make this
-      // call itself turned out unreliable with real audio input, so it's plain JS here instead.
-      const hasValue = typeof fieldsRef.current.value === 'number' && fieldsRef.current.value > 0;
-      const hasPaymentStatus = !!fieldsRef.current.paymentStatus;
+      const gotAnswerForStep =
+        step.field === 'paymentStatus' ? !!fieldsRef.current.paymentStatus : fieldsRef.current[step.field] !== undefined;
 
-      let nextQuestion = '';
-      if (!hasValue) {
-        nextQuestion = 'งานนี้มูลค่าเท่าไหร่ครับ พูดยอดเงินมาได้เลยครับ';
-      } else if (!hasPaymentStatus) {
-        nextQuestion = 'ตอนนี้ได้รับเงินหรือยังครับ จ่ายครบแล้ว มัดจำมาบางส่วน หรือยังไม่ได้จ่ายเลยครับ';
+      if (!gotAnswerForStep && retriesRef.current < MAX_RETRIES_PER_STEP) {
+        // Didn't catch an answer for this specific field -- ask the same question again
+        // rather than silently moving on and leaving it blank.
+        retriesRef.current += 1;
+        setStatus('asking');
+        speak('ขอโทษครับ ไม่ได้ยินชัดเจน ' + step.question);
+        return;
       }
 
-      if (nextQuestion && turnRef.current < MAX_TURNS) {
-        questionRef.current = nextQuestion;
-        setFollowUpQuestion(nextQuestion);
-        setStatus('awaiting_followup');
-        speakThai(nextQuestion);
+      const nextIndex = stepIndexRef.current + 1;
+      if (nextIndex < STEPS.length) {
+        askStep(nextIndex);
       } else {
-        onParsed(fieldsRef.current);
-        reset();
+        finish();
       }
     } catch (err: any) {
       triggerAlert('แปลงเสียงไม่สำเร็จ', err.message || 'ลองพูดใหม่อีกครั้ง หรือกรอกฟอร์มด้วยตัวเองแทนได้เลยครับ');
-      // Keep whatever we already gathered rather than throwing it away on a mid-conversation error.
-      if (Object.keys(fieldsRef.current).length > 0) onParsed(fieldsRef.current);
-      reset();
+      if (Object.keys(fieldsRef.current).length > 0) {
+        finish();
+      } else {
+        reset();
+      }
     }
   };
 
   const startRecording = async () => {
-    window.speechSynthesis?.cancel(); // don't let the question keep talking over the mic
+    stopAnyPlayback();
     if (!isPro) {
       onSwitchTab('plans');
       return;
@@ -166,13 +206,32 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     setStatus('processing');
   };
 
-  const skipRemaining = () => {
-    if (Object.keys(fieldsRef.current).length > 0) onParsed(fieldsRef.current);
-    reset();
+  const start = () => {
+    if (!isPro) {
+      onSwitchTab('plans');
+      return;
+    }
+    askStep(0);
+  };
+
+  const skipStep = () => {
+    stopAnyPlayback();
+    const nextIndex = stepIndexRef.current + 1;
+    if (nextIndex < STEPS.length) {
+      askStep(nextIndex);
+    } else {
+      finish();
+    }
+  };
+
+  const skipAll = () => {
+    stopAnyPlayback();
+    finish();
   };
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
   const ss = String(seconds % 60).padStart(2, '0');
+  const currentQuestion = STEPS[stepIndex]?.question || '';
 
   if (status === 'recording') {
     return (
@@ -205,7 +264,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     );
   }
 
-  if (status === 'awaiting_followup') {
+  if (status === 'asking') {
     return (
       <AnimatePresence mode="wait">
         <motion.div
@@ -213,14 +272,17 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
           animate={{ opacity: 1, y: 0 }}
           className="space-y-2.5 p-3.5 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20"
         >
+          <div className="flex items-center justify-between text-[9px] font-black text-brand-muted uppercase tracking-wide">
+            <span>คำถามที่ {stepIndex + 1} / {STEPS.length}</span>
+          </div>
           <div className="flex items-start gap-2.5">
             <Mascot mood="happy" size={32} className="shrink-0" />
             <p className="text-[11px] font-bold text-brand-text dark:text-neutral-200 leading-relaxed pt-1 flex-1">
-              {followUpQuestion}
+              {currentQuestion}
             </p>
             <button
               type="button"
-              onClick={() => speakThai(followUpQuestion)}
+              onClick={() => speak(currentQuestion)}
               title="ฟังคำถามอีกครั้ง"
               className="shrink-0 p-1.5 rounded-lg text-[#E65F2B] dark:text-[#FFA473] hover:bg-[#E65F2B]/10 transition-colors cursor-pointer"
             >
@@ -238,12 +300,19 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
             </button>
             <button
               type="button"
-              onClick={skipRemaining}
-              className="py-2.5 px-3.5 rounded-xl text-xs font-black text-brand-muted hover:text-brand-text border border-brand-border transition-all cursor-pointer"
+              onClick={skipStep}
+              className="py-2.5 px-3 rounded-xl text-xs font-black text-brand-muted hover:text-brand-text border border-brand-border transition-all cursor-pointer"
             >
-              ข้าม กรอกเอง
+              ข้ามข้อนี้
             </button>
           </div>
+          <button
+            type="button"
+            onClick={skipAll}
+            className="w-full text-[10px] font-bold text-brand-muted hover:text-brand-text underline underline-offset-2 cursor-pointer"
+          >
+            ข้ามที่เหลือทั้งหมด กรอกเอง
+          </button>
         </motion.div>
       </AnimatePresence>
     );
@@ -252,7 +321,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
   return (
     <button
       type="button"
-      onClick={startRecording}
+      onClick={start}
       className="w-full py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 border border-dashed border-[#E65F2B]/40 text-[#E65F2B] dark:text-[#FFA473] hover:bg-[#E65F2B]/5 transition-all cursor-pointer"
     >
       <Mic className="w-3.5 h-3.5" />

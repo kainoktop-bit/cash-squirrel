@@ -55,11 +55,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { audioBase64, mimeType, priorFields, priorQuestion } = (req.body || {}) as {
+  const { audioBase64, mimeType, priorFields, targetField, questionText } = (req.body || {}) as {
     audioBase64?: string;
     mimeType?: string;
     priorFields?: VoiceJobFields;
-    priorQuestion?: string;
+    targetField?: string;
+    questionText?: string;
   };
   if (!audioBase64 || !mimeType) {
     res.status(400).json({ error: 'Missing audio data' });
@@ -72,17 +73,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const isFollowUp = !!priorQuestion;
-  const contextBlock = isFollowUp
-    ? `\n\nนี่คือรอบสนทนาต่อเนื่อง ไม่ใช่รอบแรก:
-- ข้อมูลที่รู้แล้วจากรอบก่อนหน้า: ${JSON.stringify(priorFields || {})}
-- คำถามที่เพิ่งถามผู้ใช้ไปคือ: "${priorQuestion}"
-- คลิปเสียงนี้คือคำตอบของผู้ใช้ต่อคำถามนั้นโดยตรง ให้ตีความในบริบทของคำถามนั้น (เช่นถ้าถามว่าได้รับเงินหรือยัง แล้วผู้ใช้ตอบแค่ "มัดจำมา 2000" ให้เข้าใจว่า paymentStatus เป็น partial และ receivedAmount เป็น 2000)`
+  // The wizard on the client asks about one field at a time, in a fixed order, so every
+  // call here is "answering a specific question" -- give the model that context directly
+  // instead of leaving it to guess which field the user meant to fill in.
+  const contextBlock = targetField && questionText
+    ? `\n\nบริบท: นี่เป็นการสนทนาแบบถามทีละข้อ ผู้ใช้เพิ่งถูกถามคำถามนี้: "${questionText}" (ซึ่งถามเกี่ยวกับฟิลด์ "${targetField}") คลิปเสียงนี้คือคำตอบของผู้ใช้ต่อคำถามนั้นโดยตรง ให้ตีความคำตอบในบริบทของคำถามนั้นเป็นหลัก (เช่นถ้าถามว่าได้รับเงินหรือยัง แล้วผู้ใช้ตอบแค่ "มัดจำมา 2000" ให้เข้าใจว่า paymentStatus เป็น partial และ receivedAmount เป็น 2000) แต่ถ้าผู้ใช้พูดข้อมูลฟิลด์อื่นแทรกมาด้วยโดยบังเอิญก็ให้ดึงออกมาด้วย
+- ข้อมูลที่รู้แล้วจากรอบก่อนหน้า: ${JSON.stringify(priorFields || {})}`
     : '';
 
-  // Whether to ask a follow-up is decided deterministically by the client after merging
-  // fields (checking for missing value/paymentStatus) -- not left up to the model's judgment,
-  // since that turned out to be unreliable with real audio input. This call only extracts.
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
