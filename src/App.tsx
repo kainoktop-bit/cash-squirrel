@@ -1967,6 +1967,7 @@ export default function App() {
                     setJobIdToOpen(jobId);
                     setActiveTab('jobs');
                   }}
+                  onDeleteJob={handleDeleteJob}
                 />
               )}
 

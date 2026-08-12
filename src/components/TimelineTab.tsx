@@ -19,12 +19,13 @@ interface TimelineTabProps {
   jobs: Job[];
   settings: AppSettings;
   statuses: StatusOption[];
-  // Called when the user explicitly taps "แก้ไขข้อมูล" inside the read-only detail view --
+  // Called when the user explicitly taps the edit icon inside the read-only detail view --
   // clicking a Timeline row itself only opens that read-only view, never the edit form directly.
   onEditJob?: (jobId: string) => void;
+  onDeleteJob: (jobId: string) => void;
 }
 
-export default function TimelineTab({ jobs, settings, statuses, onEditJob }: TimelineTabProps) {
+export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDeleteJob }: TimelineTabProps) {
   const forecastMonths = getForecastMonths();
   const [viewJobId, setViewJobId] = useState<string | null>(null);
   const viewedJob = viewJobId ? jobs.find((j) => j.id === viewJobId) || null : null;
@@ -345,6 +346,11 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob }: Tim
           const id = viewJobId;
           setViewJobId(null);
           if (id) onEditJob?.(id);
+        }}
+        onDelete={() => {
+          const id = viewJobId;
+          setViewJobId(null);
+          if (id) onDeleteJob(id);
         }}
       />
     </div>
