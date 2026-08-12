@@ -1963,7 +1963,7 @@ export default function App() {
                   jobs={jobs}
                   settings={settings}
                   statuses={statuses}
-                  onOpenJob={(jobId) => {
+                  onEditJob={(jobId) => {
                     setJobIdToOpen(jobId);
                     setActiveTab('jobs');
                   }}

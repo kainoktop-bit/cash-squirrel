@@ -1,28 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Job, AppSettings, StatusOption } from '../types';
 import { formatCurrency, getForecastMonths, formatMonthKey, getMonthKey, getRelativeDaysText } from '../utils';
 import { motion } from 'motion/react';
-import { 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  AlertTriangle, 
-  ArrowUpRight, 
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  ArrowUpRight,
   ArrowDownRight,
-  ChevronRight 
+  ChevronRight
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconSpark, IconCoin, IconWarning, IconCheck } from './icons';
+import { JobDetailModal } from './JobDetailModal';
 
 interface TimelineTabProps {
   jobs: Job[];
   settings: AppSettings;
   statuses: StatusOption[];
-  onOpenJob?: (jobId: string) => void;
+  // Called when the user explicitly taps "แก้ไขข้อมูล" inside the read-only detail view --
+  // clicking a Timeline row itself only opens that read-only view, never the edit form directly.
+  onEditJob?: (jobId: string) => void;
 }
 
-export default function TimelineTab({ jobs, settings, statuses, onOpenJob }: TimelineTabProps) {
+export default function TimelineTab({ jobs, settings, statuses, onEditJob }: TimelineTabProps) {
   const forecastMonths = getForecastMonths();
+  const [viewJobId, setViewJobId] = useState<string | null>(null);
+  const viewedJob = viewJobId ? jobs.find((j) => j.id === viewJobId) || null : null;
 
   // Create timeline events grouped by month
   const timelineMonths = forecastMonths.map(monthKey => {
@@ -224,11 +229,11 @@ export default function TimelineTab({ jobs, settings, statuses, onOpenJob }: Tim
                   return (
                     <div
                       key={evt.id}
-                      onClick={onOpenJob ? () => onOpenJob(evt.jobId) : undefined}
-                      role={onOpenJob ? 'button' : undefined}
-                      tabIndex={onOpenJob ? 0 : undefined}
-                      onKeyDown={onOpenJob ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenJob(evt.jobId); } } : undefined}
-                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass} ${onOpenJob ? 'cursor-pointer active:scale-[0.99]' : ''}`}
+                      onClick={() => setViewJobId(evt.jobId)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewJobId(evt.jobId); } }}
+                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass} cursor-pointer active:scale-[0.99]`}
                     >
                       {/* Top Row with Title & Amount */}
                       <div className="flex items-center justify-between gap-4">
@@ -243,7 +248,7 @@ export default function TimelineTab({ jobs, settings, statuses, onOpenJob }: Tim
                               <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
                             </p>
                           </div>
-                          {onOpenJob && <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />}
+                          <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />
                         </div>
 
                         <div className="text-right shrink-0 flex flex-col items-end gap-1">
@@ -331,6 +336,17 @@ export default function TimelineTab({ jobs, settings, statuses, onOpenJob }: Tim
           </motion.div>
         ))}
       </div>
+
+      <JobDetailModal
+        job={viewedJob}
+        statuses={statuses}
+        onClose={() => setViewJobId(null)}
+        onEdit={() => {
+          const id = viewJobId;
+          setViewJobId(null);
+          if (id) onEditJob?.(id);
+        }}
+      />
     </div>
   );
 }
