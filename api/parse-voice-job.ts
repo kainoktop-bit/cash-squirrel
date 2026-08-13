@@ -26,6 +26,7 @@ interface VoiceJobFields {
   note?: string;
   paymentStatus?: string;
   receivedAmount?: number;
+  declined?: boolean;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -78,7 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // instead of leaving it to guess which field the user meant to fill in.
   const contextBlock = targetField && questionText
     ? `\n\nบริบท: นี่เป็นการสนทนาแบบถามทีละข้อ ผู้ใช้เพิ่งถูกถามคำถามนี้: "${questionText}" (ซึ่งถามเกี่ยวกับฟิลด์ "${targetField}") คลิปเสียงนี้คือคำตอบของผู้ใช้ต่อคำถามนั้นโดยตรง ให้ตีความคำตอบในบริบทของคำถามนั้นเป็นหลัก (เช่นถ้าถามว่าได้รับเงินหรือยัง แล้วผู้ใช้ตอบแค่ "มัดจำมา 2000" ให้เข้าใจว่า paymentStatus เป็น partial และ receivedAmount เป็น 2000) แต่ถ้าผู้ใช้พูดข้อมูลฟิลด์อื่นแทรกมาด้วยโดยบังเอิญก็ให้ดึงออกมาด้วย
-- ข้อมูลที่รู้แล้วจากรอบก่อนหน้า: ${JSON.stringify(priorFields || {})}`
+- ข้อมูลที่รู้แล้วจากรอบก่อนหน้า: ${JSON.stringify(priorFields || {})}
+- ถ้าผู้ใช้ปฏิเสธหรือขอข้ามคำถามนี้อย่างชัดเจน (เช่น "ไม่มี", "ไม่ระบุ", "ข้าม", "ไม่ใส่", "ไม่รู้") ให้ตั้ง "declined" เป็น true`
     : '';
 
   try {
@@ -117,6 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             note: { type: 'STRING', description: 'รายละเอียดเพิ่มเติม' },
             paymentStatus: { type: 'STRING', description: '"paid" | "partial" | "pending" -- เว้นว่างถ้าไม่ได้พูดถึงเรื่องการจ่ายเงินเลย' },
             receivedAmount: { type: 'NUMBER', description: 'จำนวนเงินที่ได้รับแล้วจริงเป็นบาท' },
+            declined: { type: 'BOOLEAN', description: 'true ถ้าผู้ใช้ปฏิเสธ/ขอข้ามคำถามล่าสุดอย่างชัดเจน' },
           },
         },
       },

@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Mic, Square, Loader2, Volume2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Mic, Loader2, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabaseClient';
 import { IconSpark } from './icons';
@@ -25,8 +25,9 @@ interface VoiceJobRecorderProps {
 
 type Status = 'idle' | 'asking' | 'recording' | 'processing';
 
-// Fixed order the user asked for: walk through every field from first to last, never
-// skipping straight to money-related questions -- name, then client, then type, etc.
+// Fixed order the user asked for: name, then client, then type, etc -- but any step is
+// skipped automatically once its field is already known (answered early, or incidentally
+// mentioned while answering an earlier question) or explicitly declined by the user.
 const STEPS: { field: keyof VoiceParsedJobFields; question: string }[] = [
   { field: 'name', question: 'ชื่องานหรือโปรเจกต์นี้ ชื่ออะไรครับ' },
   { field: 'client', question: 'ใครเป็นคนจ้างครับ ลูกค้าหรือแบรนด์ไหน' },
@@ -36,7 +37,15 @@ const STEPS: { field: keyof VoiceParsedJobFields; question: string }[] = [
   { field: 'paymentStatus', question: 'ตอนนี้ได้รับเงินหรือยังครับ จ่ายครบแล้ว มัดจำมาบางส่วน หรือยังไม่ได้จ่ายเลยครับ' },
 ];
 
-const MAX_RETRIES_PER_STEP = 2;
+const MAX_RETRIES_PER_STEP = 1;
+
+// Voice-activity detection tuning -- lets the conversation flow like a real call instead of
+// requiring a manual stop tap every turn: keep listening while the user talks, auto-stop
+// shortly after they go quiet, and give up if they never say anything at all.
+const SPEECH_RMS_THRESHOLD = 0.02;
+const SILENCE_MS_TO_STOP = 1300;
+const NO_SPEECH_TIMEOUT_MS = 4500;
+const MAX_RECORDING_MS = 20000;
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -50,21 +59,50 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+function isFieldFilled(fields: VoiceParsedJobFields, field: keyof VoiceParsedJobFields): boolean {
+  if (field === 'paymentStatus') return !!fields.paymentStatus;
+  return fields[field] !== undefined;
+}
+
 export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }: VoiceJobRecorderProps) {
   const [status, setStatus] = useState<Status>('idle');
-  const [seconds, setSeconds] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fieldsRef = useRef<VoiceParsedJobFields>({});
+  const declinedRef = useRef<Set<keyof VoiceParsedJobFields>>(new Set());
   const stepIndexRef = useRef(0);
   const retriesRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  // When a manual skip stops an in-flight recording, this suppresses the recorder's normal
+  // onstop handler so the (irrelevant, partial) audio never gets sent for extraction.
+  const suppressNextStopRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      cleanupVad();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopAnyPlayback();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cleanupVad = () => {
+    if (vadRafRef.current) cancelAnimationFrame(vadRafRef.current);
+    vadRafRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+  };
 
   const reset = () => {
+    cleanupVad();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     fieldsRef.current = {};
+    declinedRef.current = new Set();
     stepIndexRef.current = 0;
     retriesRef.current = 0;
     setStepIndex(0);
@@ -76,28 +114,42 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     audioRef.current = null;
   };
 
-  // Fetches natural-sounding speech from Gemini's TTS and plays it -- best-effort, the
-  // question text is always shown on screen too so a playback failure isn't blocking.
-  const speak = async (text: string) => {
+  // Fetches natural-sounding speech from Gemini's TTS and plays it -- best-effort. If it
+  // fails, onDone still fires so the conversation keeps moving without spoken audio.
+  const speak = async (text: string, onDone?: () => void) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) return;
+      if (!token) { onDone?.(); return; }
       const res = await fetch('/api/speak-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text }),
       });
-      if (!res.ok) return;
+      if (!res.ok) { onDone?.(); return; }
       const json = await res.json();
-      if (!json.audioBase64) return;
+      if (!json.audioBase64) { onDone?.(); return; }
       stopAnyPlayback();
       const audio = new Audio(`data:audio/wav;base64,${json.audioBase64}`);
       audioRef.current = audio;
-      audio.play().catch(() => {});
+      audio.onended = () => onDone?.();
+      audio.onerror = () => onDone?.();
+      audio.play().catch(() => onDone?.());
     } catch {
-      // Silent question text on screen is still enough to proceed without spoken audio.
+      onDone?.();
     }
+  };
+
+  // Finds the next step whose field isn't already known or declined -- lets the wizard skip
+  // ahead instead of nagging about things the user already answered or waved off.
+  const findNextStepIndex = (from: number): number => {
+    for (let i = from; i < STEPS.length; i++) {
+      const field = STEPS[i].field;
+      if (declinedRef.current.has(field)) continue;
+      if (isFieldFilled(fieldsRef.current, field)) continue;
+      return i;
+    }
+    return STEPS.length;
   };
 
   const askStep = (index: number) => {
@@ -105,7 +157,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     retriesRef.current = 0;
     setStepIndex(index);
     setStatus('asking');
-    speak(STEPS[index].question);
+    speak(STEPS[index].question, () => startRecording());
   };
 
   const finish = () => {
@@ -113,11 +165,20 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     reset();
   };
 
+  const advance = () => {
+    const nextIndex = findNextStepIndex(stepIndexRef.current + 1);
+    if (nextIndex < STEPS.length) {
+      askStep(nextIndex);
+    } else {
+      finish();
+    }
+  };
+
   const handleStop = async (mimeType: string) => {
     const step = STEPS[stepIndexRef.current];
     try {
       const blob = new Blob(chunksRef.current, { type: mimeType });
-      if (blob.size === 0) throw new Error('ไม่ได้บันทึกเสียงไว้ ลองพูดใหม่อีกครั้งครับ');
+      if (blob.size === 0) throw new Error('ไม่ได้ยินเสียงเลยครับ');
 
       const base64 = await blobToBase64(blob);
       const { data: sessionData } = await supabase.auth.getSession();
@@ -139,30 +200,28 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'แปลงเสียงไม่สำเร็จ');
 
-      const newFields = json as VoiceParsedJobFields;
+      const { declined, ...newFields } = json as VoiceParsedJobFields & { declined?: boolean };
       fieldsRef.current = {
         ...fieldsRef.current,
         ...Object.fromEntries(Object.entries(newFields).filter(([, v]) => v !== '' && v !== undefined && v !== null)),
       };
 
-      const gotAnswerForStep =
-        step.field === 'paymentStatus' ? !!fieldsRef.current.paymentStatus : fieldsRef.current[step.field] !== undefined;
-
-      if (!gotAnswerForStep && retriesRef.current < MAX_RETRIES_PER_STEP) {
-        // Didn't catch an answer for this specific field -- ask the same question again
-        // rather than silently moving on and leaving it blank.
-        retriesRef.current += 1;
-        setStatus('asking');
-        speak('ขอโทษครับ ไม่ได้ยินชัดเจน ' + step.question);
+      if (declined) {
+        declinedRef.current.add(step.field);
+        advance();
         return;
       }
 
-      const nextIndex = stepIndexRef.current + 1;
-      if (nextIndex < STEPS.length) {
-        askStep(nextIndex);
-      } else {
-        finish();
+      if (!isFieldFilled(fieldsRef.current, step.field) && retriesRef.current < MAX_RETRIES_PER_STEP) {
+        // Didn't catch an answer for this specific field -- ask once more rather than
+        // silently moving on, but don't nag past that.
+        retriesRef.current += 1;
+        setStatus('asking');
+        speak('ขอโทษครับ ไม่ได้ยินชัดเจน ' + step.question, () => startRecording());
+        return;
       }
+
+      advance();
     } catch (err: any) {
       triggerAlert('แปลงเสียงไม่สำเร็จ', err.message || 'ลองพูดใหม่อีกครั้ง หรือกรอกฟอร์มด้วยตัวเองแทนได้เลยครับ');
       if (Object.keys(fieldsRef.current).length > 0) {
@@ -173,6 +232,47 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     }
   };
 
+  // Watches mic volume so recording stops itself shortly after the user finishes talking --
+  // no manual stop tap needed, closer to a live back-and-forth than a walkie-talkie.
+  const startVad = (stream: MediaStream, onAutoStop: () => void) => {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx = new AudioCtx();
+    audioCtxRef.current = audioCtx;
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    const dataArray = new Uint8Array(analyser.fftSize);
+
+    const startedAt = Date.now();
+    let hasSpoken = false;
+    let lastVoiceAt = Date.now();
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(dataArray);
+      let sumSquares = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const norm = (dataArray[i] - 128) / 128;
+        sumSquares += norm * norm;
+      }
+      const rms = Math.sqrt(sumSquares / dataArray.length);
+      const now = Date.now();
+
+      if (rms > SPEECH_RMS_THRESHOLD) {
+        hasSpoken = true;
+        lastVoiceAt = now;
+      }
+
+      const elapsed = now - startedAt;
+      if (elapsed > MAX_RECORDING_MS) { onAutoStop(); return; }
+      if (!hasSpoken && elapsed > NO_SPEECH_TIMEOUT_MS) { onAutoStop(); return; }
+      if (hasSpoken && now - lastVoiceAt > SILENCE_MS_TO_STOP) { onAutoStop(); return; }
+
+      vadRafRef.current = requestAnimationFrame(tick);
+    };
+    vadRafRef.current = requestAnimationFrame(tick);
+  };
+
   const startRecording = async () => {
     stopAnyPlayback();
     if (!isPro) {
@@ -180,30 +280,34 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      let stream = streamRef.current;
+      if (!stream || stream.getAudioTracks().every((t) => t.readyState === 'ended')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        streamRef.current = stream;
+      }
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
-      recorder.onstop = () => handleStop(mimeType);
+      recorder.onstop = () => {
+        cleanupVad();
+        if (suppressNextStopRef.current) {
+          suppressNextStopRef.current = false;
+          return;
+        }
+        handleStop(mimeType);
+      };
       recorder.start();
       mediaRecorderRef.current = recorder;
       setStatus('recording');
-      setSeconds(0);
-      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      startVad(stream, () => {
+        if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
+      });
     } catch {
       triggerAlert('เข้าถึงไมโครโฟนไม่ได้', 'กรุณาอนุญาตให้เบราว์เซอร์ใช้ไมโครโฟน แล้วลองใหม่อีกครั้งครับ');
     }
-  };
-
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    if (timerRef.current) clearInterval(timerRef.current);
-    setStatus('processing');
   };
 
   const start = () => {
@@ -211,43 +315,66 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       onSwitchTab('plans');
       return;
     }
-    askStep(0);
+    askStep(findNextStepIndex(0));
+  };
+
+  // Lets the user end their turn early instead of waiting out the silence timeout -- this
+  // still processes whatever was said, unlike skipStep which discards the turn entirely.
+  const stopRecordingNow = () => {
+    cleanupVad();
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
   };
 
   const skipStep = () => {
     stopAnyPlayback();
-    const nextIndex = stepIndexRef.current + 1;
-    if (nextIndex < STEPS.length) {
-      askStep(nextIndex);
-    } else {
-      finish();
+    cleanupVad();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      suppressNextStopRef.current = true;
+      mediaRecorderRef.current.stop();
     }
+    declinedRef.current.add(STEPS[stepIndexRef.current].field);
+    advance();
   };
 
   const skipAll = () => {
     stopAnyPlayback();
+    cleanupVad();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      suppressNextStopRef.current = true;
+      mediaRecorderRef.current.stop();
+    }
     finish();
   };
 
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const ss = String(seconds % 60).padStart(2, '0');
   const currentQuestion = STEPS[stepIndex]?.question || '';
 
   if (status === 'recording') {
     return (
-      <button
-        type="button"
-        onClick={stopRecording}
-        className="w-full py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white transition-all cursor-pointer"
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-        </span>
-        กำลังฟัง... {mm}:{ss}
-        <Square className="w-3 h-3 fill-current" />
-        หยุดบันทึก
-      </button>
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={stopRecordingNow}
+          className="w-full py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white transition-all cursor-pointer"
+          title="แตะเพื่อจบคำตอบทันที"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+          </span>
+          กำลังฟัง... พูดได้เลยครับ
+        </button>
+        <div className="flex items-center justify-center gap-2 text-[10px]">
+          <p className="text-brand-muted">หยุดพูดสักครู่แล้วไปข้อถัดไปให้เองครับ</p>
+          <span className="opacity-30">•</span>
+          <button
+            type="button"
+            onClick={skipStep}
+            className="font-bold text-brand-muted hover:text-brand-text underline underline-offset-2 cursor-pointer"
+          >
+            ข้ามข้อนี้
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -289,30 +416,23 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
               <Volume2 className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={startRecording}
-              className="flex-1 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 bg-[#E65F2B] hover:bg-[#D8551F] text-white transition-all cursor-pointer"
-            >
-              <Mic className="w-3.5 h-3.5" />
-              ตอบด้วยเสียง
-            </button>
+          <div className="flex items-center gap-2 text-[10px]">
             <button
               type="button"
               onClick={skipStep}
-              className="py-2.5 px-3 rounded-xl text-xs font-black text-brand-muted hover:text-brand-text border border-brand-border transition-all cursor-pointer"
+              className="font-bold text-brand-muted hover:text-brand-text underline underline-offset-2 cursor-pointer"
             >
               ข้ามข้อนี้
             </button>
+            <span className="opacity-30">•</span>
+            <button
+              type="button"
+              onClick={skipAll}
+              className="font-bold text-brand-muted hover:text-brand-text underline underline-offset-2 cursor-pointer"
+            >
+              ข้ามที่เหลือทั้งหมด กรอกเอง
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={skipAll}
-            className="w-full text-[10px] font-bold text-brand-muted hover:text-brand-text underline underline-offset-2 cursor-pointer"
-          >
-            ข้ามที่เหลือทั้งหมด กรอกเอง
-          </button>
         </motion.div>
       </AnimatePresence>
     );
