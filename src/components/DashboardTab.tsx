@@ -578,12 +578,10 @@ export default function DashboardTab({
     return sum + j.pending;
   }, 0);
 
-  const totalContractVal = selectedMonthJobs.reduce((sum, j) => {
-    const isPaid = j.status === 'done' || 
-                    j.paymentStatus === 'paid' || 
-                    statuses.find(s => s.id === j.status)?.behavior === 'done';
-    return sum + (isPaid ? (j.received || j.value) : j.value);
-  }, 0);
+  // Must equal totalReceived + totalPending, not a separately-derived sum -- otherwise it
+  // silently drifts from the rest of the app (e.g. the Timeline tab's monthly total), which
+  // already nets out WHT and excludes not-yet-posted WIP jobs from the pending side.
+  const totalContractVal = totalReceived + totalPending;
 
   const profit = totalReceived - settings.monthlyExpense;
 
