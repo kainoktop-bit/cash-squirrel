@@ -1054,11 +1054,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 {/* Print Sheet Paper (Formed to A4 style ratio) */}
                 <div className="bg-white text-black p-8 sm:p-12 border border-stone-200 shadow-xl rounded-3xl min-h-[850px] font-sans print-invoice-area relative overflow-hidden select-text text-[11px] leading-normal">
                   
-                  {/* Watermark branding header */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-[#E65F2B]" />
+                  {/* Watermark branding header -- kept dark/neutral to read as an official
+                      document rather than a branded marketing piece */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-stone-900" />
 
                   {/* 1. Document Header Row (Title on Left, Logo on Right) */}
-                  <div className="flex justify-between items-start border-b-2 border-[#E65F2B] pb-4.5 gap-6">
+                  <div className="flex justify-between items-start border-b-2 border-stone-900 pb-4.5 gap-6">
                     <div className="space-y-1 min-w-0">
                       <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-wide uppercase">
                         {selectedInvoice.documentType === 'invoice'
@@ -1067,7 +1068,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                           ? 'ใบเสร็จรับเงิน'
                           : 'ใบเสนอราคา'}
                       </h1>
-                      <p className="text-[#E65F2B] font-bold tracking-wider text-[9px] uppercase">
+                      <p className="text-stone-500 font-bold tracking-wider text-[9px] uppercase">
                         {selectedInvoice.documentType === 'invoice'
                           ? 'INVOICE'
                           : selectedInvoice.documentType === 'receipt'
@@ -1085,7 +1086,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                         />
                       </div>
                     ) : (
-                      <div className="text-sm font-black text-[#E65F2B] tracking-wider text-right shrink-0 max-w-[220px] break-words">
+                      <div className="text-sm font-black text-stone-900 tracking-wider text-right shrink-0 max-w-[220px] break-words">
                         {selectedInvoice.issuer.name || '-'}
                       </div>
                     )}
@@ -1257,7 +1258,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                                 type="checkbox" 
                                 checked={!selectedInvoice.issuer.bankAccount} 
                                 disabled 
-                                className="w-3.5 h-3.5 rounded accent-[#E65F2B]" 
+                                className="w-3.5 h-3.5 rounded accent-stone-900"
                               />
                               <span>เงินสด (Cash)</span>
                             </label>
@@ -1266,7 +1267,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                                 type="checkbox" 
                                 checked={false} 
                                 disabled 
-                                className="w-3.5 h-3.5 rounded accent-[#E65F2B]" 
+                                className="w-3.5 h-3.5 rounded accent-stone-900"
                               />
                               <span>บัตรเครดิต (Credit Card)</span>
                             </label>
@@ -1275,7 +1276,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                                 type="checkbox" 
                                 checked={!!selectedInvoice.issuer.bankAccount} 
                                 disabled 
-                                className="w-3.5 h-3.5 rounded accent-[#E65F2B]" 
+                                className="w-3.5 h-3.5 rounded accent-stone-900"
                               />
                               <span>โอนผ่านบัญชี (Bank Transfer)</span>
                             </label>
@@ -1324,10 +1325,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                               </div>
                             )}
 
-                            <div className="border-t border-stone-300 pt-2.5 mt-2.5">
-                              <div className="flex justify-between items-center bg-[#FDF3EC] border border-[#E65F2B]/25 rounded-xl px-3.5 py-2.5">
-                                <span className="text-[12px] font-bold text-stone-800">จำนวนเงินรวมทั้งสิ้น:</span>
-                                <span className="font-mono text-base font-black text-[#E65F2B]">
+                            {/* Classic ledger-style double rule instead of a colored badge --
+                                weight and size carry the emphasis, not color, to read as an
+                                official document rather than a marketing highlight */}
+                            <div className="border-t-2 border-stone-900 pt-2.5 mt-2.5">
+                              <div className="flex justify-between items-center border-b-2 border-stone-900 pb-2.5">
+                                <span className="text-[12px] font-bold text-stone-900">จำนวนเงินรวมทั้งสิ้น:</span>
+                                <span className="font-mono text-base font-black text-stone-900">
                                   {formatCurrency(sTotals.grandTotal).replace('฿', '')}
                                 </span>
                               </div>
