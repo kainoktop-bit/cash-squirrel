@@ -86,7 +86,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      // flash-lite with thinking off -- this is a simple one-field extraction per call, not
+      // a task that benefits from the extra reasoning latency of the full flash model.
+      model: 'gemini-2.5-flash-lite',
       contents: [
         {
           role: 'user',
@@ -107,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       ],
       config: {
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',

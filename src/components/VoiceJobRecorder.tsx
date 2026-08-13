@@ -80,6 +80,10 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
   // When a manual skip stops an in-flight recording, this suppresses the recorder's normal
   // onstop handler so the (irrelevant, partial) audio never gets sent for extraction.
   const suppressNextStopRef = useRef(false);
+  // The 6 questions are fixed text, so their TTS audio is generated once up front instead of
+  // per-turn -- otherwise every question would wait on a fresh Gemini TTS round trip right
+  // when the user is expecting the conversation to keep moving.
+  const questionAudioCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     return () => {
@@ -114,9 +118,24 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
     audioRef.current = null;
   };
 
+  const playAudioBase64 = (audioBase64: string, onDone?: () => void) => {
+    stopAnyPlayback();
+    const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
+    audioRef.current = audio;
+    audio.onended = () => onDone?.();
+    audio.onerror = () => onDone?.();
+    audio.play().catch(() => onDone?.());
+  };
+
   // Fetches natural-sounding speech from Gemini's TTS and plays it -- best-effort. If it
-  // fails, onDone still fires so the conversation keeps moving without spoken audio.
+  // fails, onDone still fires so the conversation keeps moving without spoken audio. Reuses
+  // a cached clip when this exact text was already synthesized (see questionAudioCacheRef).
   const speak = async (text: string, onDone?: () => void) => {
+    const cached = questionAudioCacheRef.current.get(text);
+    if (cached) {
+      playAudioBase64(cached, onDone);
+      return;
+    }
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -129,15 +148,37 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       if (!res.ok) { onDone?.(); return; }
       const json = await res.json();
       if (!json.audioBase64) { onDone?.(); return; }
-      stopAnyPlayback();
-      const audio = new Audio(`data:audio/wav;base64,${json.audioBase64}`);
-      audioRef.current = audio;
-      audio.onended = () => onDone?.();
-      audio.onerror = () => onDone?.();
-      audio.play().catch(() => onDone?.());
+      questionAudioCacheRef.current.set(text, json.audioBase64);
+      playAudioBase64(json.audioBase64, onDone);
     } catch {
       onDone?.();
     }
+  };
+
+  // Kicks off TTS generation for every fixed question in parallel as soon as the user starts
+  // the wizard, so by the time each one is actually needed it plays back instantly instead of
+  // making the user wait mid-conversation.
+  const prefetchQuestionAudio = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return;
+    await Promise.all(
+      STEPS.map(async (step) => {
+        if (questionAudioCacheRef.current.has(step.question)) return;
+        try {
+          const res = await fetch('/api/speak-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ text: step.question }),
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          if (json.audioBase64) questionAudioCacheRef.current.set(step.question, json.audioBase64);
+        } catch {
+          // best-effort -- speak() falls back to a live fetch if this never lands
+        }
+      })
+    );
   };
 
   // Finds the next step whose field isn't already known or declined -- lets the wizard skip
@@ -214,10 +255,11 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
 
       if (!isFieldFilled(fieldsRef.current, step.field) && retriesRef.current < MAX_RETRIES_PER_STEP) {
         // Didn't catch an answer for this specific field -- ask once more rather than
-        // silently moving on, but don't nag past that.
+        // silently moving on, but don't nag past that. Reuses the cached clip (no new TTS
+        // round trip) so the retry itself doesn't add any extra delay.
         retriesRef.current += 1;
         setStatus('asking');
-        speak('ขอโทษครับ ไม่ได้ยินชัดเจน ' + step.question, () => startRecording());
+        speak(step.question, () => startRecording());
         return;
       }
 
@@ -315,6 +357,7 @@ export function VoiceJobRecorder({ isPro, onSwitchTab, triggerAlert, onParsed }:
       onSwitchTab('plans');
       return;
     }
+    prefetchQuestionAudio(); // fire-and-forget -- fills the cache while Q1 plays/is answered
     askStep(findNextStepIndex(0));
   };
 
