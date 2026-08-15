@@ -1020,11 +1020,14 @@ export default function DashboardTab({
                 onClick={() => onOpenGoalDetail(g.id)}
                 className="w-40 shrink-0 bg-brand-white border border-brand-border rounded-2xl p-4 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden"
               >
-                <div 
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-3 shadow-inner overflow-hidden border border-brand-border/40 bg-brand-faint"
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-3 shadow-inner overflow-hidden border border-brand-border/40"
+                  style={{ backgroundColor: g.bg || 'var(--faint)' }}
                 >
                   {g.imageUrl ? (
                     <img src={g.imageUrl} alt={g.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  ) : g.emoji ? (
+                    g.emoji
                   ) : (
                     <Sparkles className="w-6 h-6 text-[#E65F2B]" />
                   )}
