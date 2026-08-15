@@ -1175,56 +1175,41 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Withholding Tax visual selector cards */}
-                      <div className="space-y-2">
+                      {/* Withholding Tax -- clean dropdown instead of a card grid */}
+                      <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           หัก ณ ที่จ่าย (Withholding Tax)
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { rate: 0, label: 'ไม่มีหัก (0%)', desc: 'รับยอดเต็ม เช่น ไม่เข้าระบบภาษี' },
-                            { rate: 1, label: 'หัก 1% (ขนส่ง)', desc: 'งานโฆษณาขนส่งบริการพิเศษ' },
-                            { rate: 3, label: 'หัก 3% (ทั่วไป)', desc: 'งานจ้างทำของ ฟรีแลนซ์ไทย' },
-                            { rate: 5, label: 'หัก 5% (ค่าเช่า)', desc: 'ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ' },
-                          ].map(({ rate, label, desc }) => {
-                            const isSelected = formWhtRate === rate;
-                            return (
-                              <button
-                                key={rate}
-                                type="button"
-                                onClick={() => setFormWhtRate(rate)}
-                                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-[68px] ${
-                                  isSelected
-                                    ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-400 shadow-xs'
-                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                }`}
-                              >
-                                <span className="text-xs font-black">{label}</span>
-                                <span className="text-[9px] text-brand-muted dark:text-neutral-400 mt-0.5 leading-tight">{desc}</span>
-                              </button>
-                            );
-                          })}
+                        <div className="relative">
+                          <select
+                            value={formWhtRate}
+                            onChange={(e) => setFormWhtRate(Number(e.target.value))}
+                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-[#E65F2B] cursor-pointer transition-colors"
+                          >
+                            <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
+                            <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
+                            <option value={3}>3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
+                            <option value={5}>5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
 
-                      {/* Project Status Selection */}
-                      <div className="space-y-2">
+                      {/* Project Status -- one segmented control instead of a card grid, with
+                          "other" pulled out as its own subtle radio rather than another segment */}
+                      <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           สถานะโครงการ <span className="text-rose-500">*</span>
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="flex bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
                           {statuses.map(s => {
                             const isSelected = formStatus === s.id;
-                            let statusColor = 'border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300 bg-brand-white dark:bg-stone-800';
-                            if (isSelected) {
-                              if (s.behavior === 'done') {
-                                statusColor = 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-950 dark:text-emerald-400 shadow-xs ring-2 ring-emerald-500/20';
-                              } else if (s.behavior === 'partial') {
-                                statusColor = 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-400 shadow-xs ring-2 ring-amber-500/20';
-                              } else {
-                                statusColor = 'bg-rose-500/10 dark:bg-rose-500/15 border-rose-500 text-rose-950 dark:text-rose-400 shadow-xs ring-2 ring-rose-500/20';
-                              }
-                            }
+                            const activeColor =
+                              s.behavior === 'done'
+                                ? 'bg-emerald-500 text-white'
+                                : s.behavior === 'partial'
+                                ? 'bg-[#E65F2B] text-white'
+                                : 'bg-rose-500 text-white';
                             return (
                               <button
                                 key={s.id}
@@ -1241,24 +1226,26 @@ export default function JobsTab({
                                     setFormReceived('0');
                                   }
                                 }}
-                                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center h-[54px] ${statusColor}`}
+                                className={`flex-1 py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
+                                  isSelected ? `${activeColor} shadow-xs` : 'text-brand-muted hover:text-brand-text'
+                                }`}
                               >
-                                <span className="text-xs font-black">{s.label}</span>
+                                {s.label}
                               </button>
                             );
                           })}
-                          <button
-                            type="button"
-                            onClick={() => setFormStatus('__custom__')}
-                            className={`p-3 rounded-2xl border border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center h-[54px] ${
-                              formStatus === '__custom__'
-                                ? 'bg-purple-500/10 dark:bg-purple-500/15 border-purple-500 text-purple-950 dark:text-purple-400 shadow-xs ring-2 ring-purple-500/20'
-                                : 'border-brand-border/50 hover:border-brand-text/30 text-brand-muted bg-brand-white dark:bg-stone-800'
-                            }`}
-                          >
-                            <span className="text-xs font-black">เขียนสถานะเอง...</span>
-                          </button>
                         </div>
+                        <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
+                          <input
+                            type="radio"
+                            checked={formStatus === '__custom__'}
+                            onChange={() => setFormStatus('__custom__')}
+                            className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
+                          />
+                          <span className={`text-[11px] font-bold ${formStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
+                            อื่นๆ (เขียนสถานะเอง...)
+                          </span>
+                        </label>
                       </div>
 
                       {/* Live calculated mockup tax receipt */}
@@ -1936,35 +1923,54 @@ export default function JobsTab({
                         </div>
                       </div>
 
-                      {/* Status Selection */}
+                      {/* Status Selection -- segmented control, matching the add-job flow */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">สถานะโครงการ</label>
-                        <select
-                          value={editStatus}
-                          onChange={(e: any) => {
-                            const val = e.target.value;
-                            setEditStatus(val);
-                            const matched = statuses.find(s => s.id === val);
-                            if (val === 'done' || matched?.behavior === 'done') {
-                              setEditReceived(editValue);
-                            } else if (val === 'partial' || matched?.behavior === 'partial') {
-                              if (parseFloat(editReceived) === parseFloat(editValue)) {
-                                setEditReceived('');
-                              }
-                            } else {
-                              setEditReceived('0');
-                            }
-                          }}
-                          className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 cursor-pointer font-bold"
-                        >
-                          <option value="unspecified">ยังไม่ระบุ</option>
-                          {statuses.map(s => (
-                            <option key={s.id} value={s.id}>
-                              {s.label}
-                            </option>
-                          ))}
-                          <option value="__custom__">เขียนสถานะเอง...</option>
-                        </select>
+                        <div className="flex flex-wrap bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
+                          {[{ id: 'unspecified', label: 'ยังไม่ระบุ', behavior: 'pending' as const }, ...statuses].map(s => {
+                            const isSelected = editStatus === s.id;
+                            const activeColor =
+                              s.behavior === 'done'
+                                ? 'bg-emerald-500 text-white'
+                                : s.behavior === 'partial'
+                                ? 'bg-[#E65F2B] text-white'
+                                : 'bg-rose-500 text-white';
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setEditStatus(s.id);
+                                  if (s.behavior === 'done') {
+                                    setEditReceived(editValue);
+                                  } else if (s.behavior === 'partial') {
+                                    if (parseFloat(editReceived) === parseFloat(editValue)) {
+                                      setEditReceived('');
+                                    }
+                                  } else {
+                                    setEditReceived('0');
+                                  }
+                                }}
+                                className={`flex-1 min-w-[70px] py-2.5 px-1.5 rounded-lg text-center text-[11px] font-black transition-all cursor-pointer truncate ${
+                                  isSelected ? `${activeColor} shadow-xs` : 'text-brand-muted hover:text-brand-text'
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
+                          <input
+                            type="radio"
+                            checked={editStatus === '__custom__'}
+                            onChange={() => setEditStatus('__custom__')}
+                            className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
+                          />
+                          <span className={`text-[11px] font-bold ${editStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
+                            อื่นๆ (เขียนสถานะเอง...)
+                          </span>
+                        </label>
 
                         {editStatus === '__custom__' && (
                           <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
@@ -2024,35 +2030,23 @@ export default function JobsTab({
                         </div>
                       )}
 
-                      {/* Withholding Tax visual selector cards */}
-                      <div className="space-y-2">
+                      {/* Withholding Tax -- clean dropdown instead of a card grid */}
+                      <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
                           หัก ณ ที่จ่าย (Withholding Tax)
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { rate: 0, label: 'ไม่มีหัก (0%)', desc: 'รับยอดเต็ม เช่น ไม่เข้าระบบภาษี' },
-                            { rate: 1, label: 'หัก 1% (ขนส่ง)', desc: 'งานโฆษณาขนส่งบริการพิเศษ' },
-                            { rate: 3, label: 'หัก 3% (ทั่วไป)', desc: 'งานจ้างทำของ ฟรีแลนซ์ไทย' },
-                            { rate: 5, label: 'หัก 5% (ค่าเช่า)', desc: 'ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ' },
-                          ].map(({ rate, label, desc }) => {
-                            const isSelected = editWhtRate === rate;
-                            return (
-                              <button
-                                key={rate}
-                                type="button"
-                                onClick={() => setEditWhtRate(rate)}
-                                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-[68px] ${
-                                  isSelected
-                                    ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-400 shadow-xs'
-                                    : 'bg-brand-white dark:bg-stone-800 border-brand-border/50 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
-                                }`}
-                              >
-                                <span className="text-xs font-black">{label}</span>
-                                <span className="text-[9px] text-brand-muted dark:text-neutral-400 mt-0.5 leading-tight">{desc}</span>
-                              </button>
-                            );
-                          })}
+                        <div className="relative">
+                          <select
+                            value={editWhtRate}
+                            onChange={(e) => setEditWhtRate(Number(e.target.value))}
+                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-[#E65F2B] cursor-pointer transition-colors"
+                          >
+                            <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
+                            <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
+                            <option value={3}>3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
+                            <option value={5}>5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
 
