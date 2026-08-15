@@ -234,76 +234,46 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewJobId(evt.jobId); } }}
-                      className={`bg-brand-white border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass} cursor-pointer active:scale-[0.99]`}
+                      className={`bg-brand-white border border-brand-border rounded-xl p-4 flex items-center justify-between gap-4 shadow-2xs hover:shadow-xs transition-all border-l-4 ${borderLeftClass} cursor-pointer active:scale-[0.99]`}
                     >
-                      {/* Top Row with Title & Amount */}
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-0.5 min-w-0 flex items-start gap-1">
-                          <div className="min-w-0">
-                            <h4 className="text-xs font-bold text-brand-text truncate max-w-[200px]">
-                              {evt.title}
-                            </h4>
-                            <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
-                              <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
-                              <span>•</span>
-                              <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
-                            </p>
-                          </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-1 min-w-0">
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-brand-text truncate max-w-[200px]">
+                            {evt.title}
+                          </h4>
+                          <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
+                            <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
+                            <span>•</span>
+                            <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
+                          </p>
                         </div>
-
-                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                          {isWipMilestone ? (
-                            <p className="text-xs font-semibold text-brand-muted italic">
-                              (รอส่งมอบงาน)
-                            </p>
-                          ) : (
-                            <p className={`text-sm font-bold font-mono ${evt.isConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {formatCurrency(evt.amount)}
-                            </p>
-                          )}
-                          <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-md border ${
-                            evt.isConfirmed 
-                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
-                              : evt.isOverdue 
-                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/20 animate-pulse' 
-                              : isWipMilestone
-                              ? 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20'
-                              : isWipPending
-                              ? 'bg-violet-500/10 text-violet-700 border-violet-500/20'
-                              : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
-                          }`}>
-                            <Clock className="w-2.5 h-2.5 shrink-0" /> {evt.daysRemainingText}
-                          </span>
-                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />
                       </div>
 
-                      {/* Bottom Alert Bar for Pending / Remaining Days */}
-                      {!evt.isConfirmed && (
-                        <div className={`p-2 px-2.5 rounded-lg border text-[11px] flex justify-between items-center font-bold ${
-                          evt.isOverdue 
-                            ? 'bg-rose-500/5 border-rose-500/15 text-rose-600 dark:text-rose-400' 
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        {isWipMilestone ? (
+                          <p className="text-xs font-semibold text-brand-muted italic">
+                            (รอส่งมอบงาน)
+                          </p>
+                        ) : (
+                          <p className={`text-sm font-bold font-mono ${evt.isConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {formatCurrency(evt.amount)}
+                          </p>
+                        )}
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-md border ${
+                          evt.isConfirmed
+                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            : evt.isOverdue
+                            ? 'bg-rose-500/10 text-rose-600 border-rose-500/20 animate-pulse'
                             : isWipMilestone
-                            ? 'bg-indigo-500/5 border-indigo-500/15 text-indigo-700 dark:text-indigo-400'
+                            ? 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20'
                             : isWipPending
-                            ? 'bg-violet-500/5 border-violet-500/15 text-violet-700 dark:text-violet-400'
-                            : 'bg-amber-500/5 border-amber-500/15 text-amber-700 dark:text-amber-400'
+                            ? 'bg-violet-500/10 text-violet-700 border-violet-500/20'
+                            : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
                         }`}>
-                          <span className="flex items-center gap-1">
-                            <Clock className={`w-3.5 h-3.5 shrink-0 ${evt.isOverdue ? 'text-rose-500' : isWipMilestone ? 'text-indigo-500' : isWipPending ? 'text-violet-500' : 'text-amber-500'}`} />
-                            {isWipMilestone
-                              ? 'กำหนดออนแอร์/ส่งงานที่เหลือ:'
-                              : isWipPending
-                              ? 'คาดการณ์รับเงินที่เหลือ:'
-                              : evt.isOverdue
-                              ? 'เลยกำหนดชำระเงิน:'
-                              : 'กำหนดชำระเงินที่เหลือ:'}
-                          </span>
-                          <span className="font-black text-[12px] font-mono shrink-0">
-                            {evt.daysRemainingText.replace('รอออนแอร์: ', '').replace('เหลือเวลาผลิต: ', '')}
-                          </span>
-                        </div>
-                      )}
+                          <Clock className="w-2.5 h-2.5 shrink-0" /> {evt.daysRemainingText}
+                        </span>
+                      </div>
                     </div>
                   );
                 })
