@@ -1260,8 +1260,6 @@ export default function JobsTab({
                           
                           <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({formWhtRate}%):</div>
                           <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)).toLocaleString()}</div>
-                          
-                          <div className="border-t border-brand-border/30 dark:border-neutral-800 col-span-2 my-1" />
 
                           <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
                           <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
@@ -2062,8 +2060,6 @@ export default function JobsTab({
 
                           <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({editWhtRate}%):</div>
                           <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100)).toLocaleString()}</div>
-                          
-                          <div className="border-t border-brand-border/30 dark:border-neutral-800 col-span-2 my-1" />
 
                           <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
                           <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
