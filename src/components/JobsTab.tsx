@@ -580,8 +580,8 @@ export default function JobsTab({
           onClick={() => setSubTab('wip')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'wip'
-              ? 'bg-indigo-600 text-white shadow-xs border border-indigo-700/20'
-              : 'text-indigo-600 hover:bg-indigo-50/50 dark:text-indigo-400 dark:hover:bg-indigo-950/20'
+              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              : 'text-brand-muted hover:text-brand-text'
           }`}
         >
           สต๊อกคิดงาน/เตรียมผลิต ({wipCount})
@@ -590,8 +590,8 @@ export default function JobsTab({
           onClick={() => setSubTab('posted')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer select-none ${
             subTab === 'posted'
-              ? 'bg-emerald-600 text-white shadow-xs border border-emerald-700/20'
-              : 'text-emerald-600 hover:bg-emerald-50/50 dark:text-emerald-400 dark:hover:bg-emerald-950/20'
+              ? 'bg-brand-faint border border-brand-border/40 text-brand-text shadow-3xs'
+              : 'text-brand-muted hover:text-brand-text'
           }`}
         >
           โพสต์คลิปแล้ว & ดิวเก็บเงิน ({postedCount})
