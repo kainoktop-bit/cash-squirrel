@@ -4,7 +4,6 @@ import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDa
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight, IconSpark } from './icons';
-import { VoiceJobRecorder, VoiceParsedJobFields } from './VoiceJobRecorder';
 import {
   Briefcase,
   Search,
@@ -42,8 +41,6 @@ interface JobsTabProps {
     onConfirm: (val: string) => void,
     onCancel?: () => void
   ) => void;
-  isPro: boolean;
-  onSwitchTab: (tabId: string) => void;
   openJobId?: string | null;
   onOpenJobHandled?: () => void;
 }
@@ -62,8 +59,6 @@ export default function JobsTab({
   triggerAlert,
   triggerConfirm,
   triggerPrompt,
-  isPro,
-  onSwitchTab,
   openJobId,
   onOpenJobHandled,
 }: JobsTabProps) {
@@ -87,31 +82,6 @@ export default function JobsTab({
   const [formNote, setFormNote] = useState('');
   const [formWhtRate, setFormWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
   const [formExcludeHolidays, setFormExcludeHolidays] = useState(false); // ไม่นับเสาร์อาทิตย์และวันหยุดข้าราชการ
-
-  // Prefill the add-job form from a voice recording's parsed fields. Only overwrites fields
-  // that actually came back with something -- doesn't stomp things the user already typed.
-  const handleVoiceParsed = (fields: VoiceParsedJobFields) => {
-    if (fields.name) setFormName(fields.name);
-    if (fields.client) setFormClient(fields.client);
-    if (fields.type) {
-      const trimmedType = fields.type.trim();
-      if (trimmedType) {
-        setFormType(trimmedType);
-        if (!jobTypes.includes(trimmedType) && !DEFAULT_JOB_TYPES.includes(trimmedType)) {
-          setJobTypes(prev => Array.from(new Set([...prev, trimmedType])));
-        }
-      }
-    }
-    if (typeof fields.value === 'number' && fields.value > 0) setFormValue(String(fields.value));
-    if (typeof fields.creditTerm === 'number' && fields.creditTerm >= 0) setFormCreditTerm(fields.creditTerm);
-    if (fields.note) setFormNote(fields.note);
-    if (fields.paymentStatus === 'paid' || fields.paymentStatus === 'partial' || fields.paymentStatus === 'pending') {
-      setFormStatus(fields.paymentStatus === 'paid' ? 'done' : fields.paymentStatus);
-    }
-    if (typeof fields.receivedAmount === 'number' && fields.receivedAmount > 0) {
-      setFormReceived(String(fields.receivedAmount));
-    }
-  };
 
   // 🌰 Wizard/Step form state
   const [formStep, setFormStep] = useState(1);
@@ -1008,14 +978,6 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
-                      {/* Voice fill */}
-                      <VoiceJobRecorder
-                        isPro={isPro}
-                        onSwitchTab={onSwitchTab}
-                        triggerAlert={triggerAlert}
-                        onParsed={handleVoiceParsed}
-                      />
-
                       {/* Name */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชื่องาน / ดีลสัญญา <span className="text-rose-500">*</span></label>
