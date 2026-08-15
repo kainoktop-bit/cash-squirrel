@@ -26,39 +26,6 @@ function getLocalDateStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Single segmented switch instead of two separate cards -- reads as one control with a
-// current state, not two things to compare and pick between.
-function WipPostedToggle({ isPosted, onChange }: { isPosted: boolean; onChange: (val: boolean) => void }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงาน</label>
-      <div className="flex bg-brand-faint dark:bg-stone-850 rounded-2xl p-1 border border-brand-border/40">
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            !isPosted ? 'bg-amber-500 text-white shadow-xs' : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          เตรียมผลิต (WIP)
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            isPosted ? 'bg-emerald-500 text-white shadow-xs' : 'text-brand-muted hover:text-brand-text'
-          }`}
-        >
-          ส่งงานแล้ว (POSTED)
-        </button>
-      </div>
-      <p className="text-[10px] text-brand-muted font-medium px-1">
-        {!isPosted ? 'ยังไม่ส่งมอบงาน กำลังคุยดีล / เตรียมผลิต' : 'ส่งมอบงานหรือออนแอร์แล้ว รอเก็บเงิน'}
-      </p>
-    </div>
-  );
-}
-
 interface JobsTabProps {
   jobs: Job[];
   onAddJob: (job: Omit<Job, 'id'>) => void;
@@ -206,8 +173,8 @@ export default function JobsTab({
       setEditHoursSpent(editingJob.hoursSpent ? String(editingJob.hoursSpent) : '');
       setEditStatus(editingJob.status);
       setEditCreditTerm(editingJob.creditTerm);
-      setEditPostDate(editingJob.postDate || '');
-      setEditStartDate(editingJob.startDate || '');
+      setEditPostDate(editingJob.postDate || getLocalDateStr());
+      setEditStartDate(editingJob.startDate || getLocalDateStr());
       setEditIsPosted(editingJob.isPosted !== false);
       setEditNote(editingJob.note || '');
       setEditWhtRate(editingJob.whtRate || 0);
