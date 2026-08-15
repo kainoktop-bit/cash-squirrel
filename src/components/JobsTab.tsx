@@ -1184,7 +1184,7 @@ export default function JobsTab({
                           <select
                             value={formWhtRate}
                             onChange={(e) => setFormWhtRate(Number(e.target.value))}
-                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-[#E65F2B] cursor-pointer transition-colors"
+                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-emerald-500 cursor-pointer transition-colors"
                           >
                             <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
                             <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
@@ -1206,10 +1206,10 @@ export default function JobsTab({
                             const isSelected = formStatus === s.id;
                             const activeColor =
                               s.behavior === 'done'
-                                ? 'bg-emerald-500 text-white'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                                 : s.behavior === 'partial'
-                                ? 'bg-[#E65F2B] text-white'
-                                : 'bg-rose-500 text-white';
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                : 'bg-rose-500/15 text-rose-700 dark:text-rose-400';
                             return (
                               <button
                                 key={s.id}
@@ -1931,10 +1931,10 @@ export default function JobsTab({
                             const isSelected = editStatus === s.id;
                             const activeColor =
                               s.behavior === 'done'
-                                ? 'bg-emerald-500 text-white'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                                 : s.behavior === 'partial'
-                                ? 'bg-[#E65F2B] text-white'
-                                : 'bg-rose-500 text-white';
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                : 'bg-rose-500/15 text-rose-700 dark:text-rose-400';
                             return (
                               <button
                                 key={s.id}
@@ -2039,7 +2039,7 @@ export default function JobsTab({
                           <select
                             value={editWhtRate}
                             onChange={(e) => setEditWhtRate(Number(e.target.value))}
-                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-[#E65F2B] cursor-pointer transition-colors"
+                            className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-indigo-500 cursor-pointer transition-colors"
                           >
                             <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
                             <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
