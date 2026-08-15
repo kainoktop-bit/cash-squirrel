@@ -19,6 +19,46 @@ import {
   Send
 } from 'lucide-react';
 
+// Local (not UTC) YYYY-MM-DD -- avoids the date shifting by a day near midnight in UTC+7,
+// same convention already used inline elsewhere in this file's quick-action handlers.
+function getLocalDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Single segmented switch instead of two separate cards -- reads as one control with a
+// current state, not two things to compare and pick between.
+function WipPostedToggle({ isPosted, onChange }: { isPosted: boolean; onChange: (val: boolean) => void }) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงาน</label>
+      <div className="flex bg-brand-faint dark:bg-stone-850 rounded-2xl p-1 border border-brand-border/40">
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            !isPosted ? 'bg-amber-500 text-white shadow-xs' : 'text-brand-muted hover:text-brand-text'
+          }`}
+        >
+          เตรียมผลิต (WIP)
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            isPosted ? 'bg-emerald-500 text-white shadow-xs' : 'text-brand-muted hover:text-brand-text'
+          }`}
+        >
+          ส่งงานแล้ว (POSTED)
+        </button>
+      </div>
+      <p className="text-[10px] text-brand-muted font-medium px-1">
+        {!isPosted ? 'ยังไม่ส่งมอบงาน กำลังคุยดีล / เตรียมผลิต' : 'ส่งมอบงานหรือออนแอร์แล้ว รอเก็บเงิน'}
+      </p>
+    </div>
+  );
+}
+
 interface JobsTabProps {
   jobs: Job[];
   onAddJob: (job: Omit<Job, 'id'>) => void;
@@ -76,8 +116,8 @@ export default function JobsTab({
   const [formHoursSpent, setFormHoursSpent] = useState('');
   const [formStatus, setFormStatus] = useState<string>('pending');
   const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
-  const [formPostDate, setFormPostDate] = useState('');
-  const [formStartDate, setFormStartDate] = useState('');
+  const [formPostDate, setFormPostDate] = useState(getLocalDateStr());
+  const [formStartDate, setFormStartDate] = useState(getLocalDateStr());
   const [formIsPosted, setFormIsPosted] = useState(false);
   const [formNote, setFormNote] = useState('');
   const [formWhtRate, setFormWhtRate] = useState<number>(0); // หัก ณ ที่จ่าย %
@@ -409,8 +449,8 @@ export default function JobsTab({
     setCustomStatusLabelInput('');
     setCustomStatusBehavior('pending');
     setFormCreditTerm(0);
-    setFormPostDate('');
-    setFormStartDate('');
+    setFormPostDate(getLocalDateStr());
+    setFormStartDate(getLocalDateStr());
     setFormIsPosted(false);
     setFormNote('');
     setFormWhtRate(0);
@@ -496,8 +536,8 @@ export default function JobsTab({
               setCustomStatusLabelInput('');
               setCustomStatusBehavior('pending');
               setFormCreditTerm(0);
-              setFormPostDate('');
-              setFormStartDate('');
+              setFormPostDate(getLocalDateStr());
+              setFormStartDate(getLocalDateStr());
               setFormIsPosted(false);
               setFormNote('');
               setFormWhtRate(0);
@@ -1345,38 +1385,41 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
-                      {/* WIP vs Posted progress level */}
+                      {/* WIP vs Posted progress level -- one pill control with a sliding
+                          highlight instead of two separate boxes, so it reads as a single
+                          switch rather than two things to compare and read. */}
                       <div className="space-y-2">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">ระดับความคืบหน้าของโครงการ</label>
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงานตอนนี้</label>
+                        <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button
                             type="button"
-                            onClick={() => {
-                              setFormIsPosted(false);
-                            }}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                              !formIsPosted
-                                ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-400 font-extrabold shadow-xs ring-2 ring-amber-500/20'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
-                            }`}
+                            onClick={() => setFormIsPosted(false)}
+                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                           >
-                            <span className="text-sm font-bold">สต๊อกเตรียมผลิต (WIP)</span>
-                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">คุยดีล / แพลนคอนเทนต์ / เตรียมตัวผลิต</span>
+                            {!formIsPosted && (
+                              <motion.div
+                                layoutId="wip-toggle-add"
+                                className="absolute inset-0 bg-amber-500 rounded-xl"
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-xs font-black block ${!formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>สต๊อกเตรียมผลิต</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${!formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>ยังไม่ส่งงาน (WIP)</span>
                           </button>
-                          
                           <button
                             type="button"
-                            onClick={() => {
-                              setFormIsPosted(true);
-                            }}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                              formIsPosted
-                                ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-950 dark:text-emerald-400 font-extrabold shadow-xs ring-2 ring-emerald-500/20'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
-                            }`}
+                            onClick={() => setFormIsPosted(true)}
+                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                           >
-                            <span className="text-sm font-bold">ส่งงานแล้ว (POSTED)</span>
-                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">ส่งมอบงาน / ออนแอร์ / เตรียมเก็บเงิน</span>
+                            {formIsPosted && (
+                              <motion.div
+                                layoutId="wip-toggle-add"
+                                className="absolute inset-0 bg-emerald-500 rounded-xl"
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-xs font-black block ${formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>ส่งงานแล้ว</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>รอเก็บเงิน (POSTED)</span>
                           </button>
                         </div>
                       </div>
@@ -2079,38 +2122,41 @@ export default function JobsTab({
                       exit={{ opacity: 0, x: 15 }}
                       className="space-y-4"
                     >
-                      {/* WIP vs Posted progress level */}
+                      {/* WIP vs Posted progress level -- one pill control with a sliding
+                          highlight instead of two separate boxes, so it reads as a single
+                          switch rather than two things to compare and read. */}
                       <div className="space-y-2">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">ระดับความคืบหน้าของโครงการ</label>
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงานตอนนี้</label>
+                        <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditIsPosted(false);
-                            }}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                              !editIsPosted
-                                ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500 text-amber-955 dark:text-amber-400 font-extrabold shadow-xs ring-2 ring-amber-500/20'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
-                            }`}
+                            onClick={() => setEditIsPosted(false)}
+                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                           >
-                            <span className="text-sm font-bold">สต๊อกเตรียมผลิต (WIP)</span>
-                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">คุยดีล / แพลนคอนเทนต์ / เตรียมตัวผลิต</span>
+                            {!editIsPosted && (
+                              <motion.div
+                                layoutId="wip-toggle-edit"
+                                className="absolute inset-0 bg-amber-500 rounded-xl"
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-xs font-black block ${!editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>สต๊อกเตรียมผลิต</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${!editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>ยังไม่ส่งงาน (WIP)</span>
                           </button>
-                          
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditIsPosted(true);
-                            }}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                              editIsPosted
-                                ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 text-emerald-955 dark:text-emerald-400 font-extrabold shadow-xs ring-2 ring-emerald-500/20'
-                                : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:bg-brand-faint dark:hover:bg-stone-750'
-                            }`}
+                            onClick={() => setEditIsPosted(true)}
+                            className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
                           >
-                            <span className="text-sm font-bold">ส่งงานแล้ว (POSTED)</span>
-                            <span className="text-[9px] font-black opacity-85 uppercase tracking-wider">ส่งมอบงาน / ออนแอร์ / เตรียมเก็บเงิน</span>
+                            {editIsPosted && (
+                              <motion.div
+                                layoutId="wip-toggle-edit"
+                                className="absolute inset-0 bg-emerald-500 rounded-xl"
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-xs font-black block ${editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>ส่งงานแล้ว</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>รอเก็บเงิน (POSTED)</span>
                           </button>
                         </div>
                       </div>
