@@ -56,6 +56,10 @@ interface SummaryTabProps {
   statuses?: StatusOption[];
   selectedMonth: string;
   onSelectMonth: (month: string) => void;
+  // Lets another tab (e.g. the Dashboard's "quick log expense" shortcut) deep-link straight
+  // into the add-expense modal instead of the user having to scroll down to find it.
+  autoOpenAddExpense?: boolean;
+  onAutoOpenAddExpenseHandled?: () => void;
 }
 
 export default function SummaryTab({
@@ -76,6 +80,8 @@ export default function SummaryTab({
   statuses = [],
   selectedMonth,
   onSelectMonth,
+  autoOpenAddExpense,
+  onAutoOpenAddExpenseHandled,
 }: SummaryTabProps) {
   const currentMonthKey = useMemo(() => {
     const d = new Date();
@@ -84,6 +90,12 @@ export default function SummaryTab({
   const [quickReceivedInput, setQuickReceivedInput] = useState<{ [id: string]: string }>({});
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (!autoOpenAddExpense) return;
+    setIsAddExpenseOpen(true);
+    onAutoOpenAddExpenseHandled?.();
+  }, [autoOpenAddExpense, onAutoOpenAddExpenseHandled]);
 
   // Expense Form States
   const [expName, setExpName] = useState('');

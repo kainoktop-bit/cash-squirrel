@@ -868,6 +868,7 @@ export default function App() {
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
   const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
+  const [triggerAddExpense, setTriggerAddExpense] = useState(false);
 
   // Custom Dialog state for elegant, non-blocking prompts/alerts
   const [dialog, setDialog] = useState<CustomDialogState>({
@@ -1894,8 +1895,13 @@ export default function App() {
                   jobs={jobs}
                   goals={goals}
                   settings={settings}
+                  expenses={expenses}
                   onUpdateSettings={handleUpdateSettings}
                   onSwitchTab={setActiveTab}
+                  onQuickAddExpense={() => {
+                    setTriggerAddExpense(true);
+                    setActiveTab('summary');
+                  }}
                   onOpenAddGoal={() => {
                     setInitialSelectedGoalId('ADD_NEW_GOAL');
                     setActiveTab('split');
@@ -1953,6 +1959,8 @@ export default function App() {
                   statuses={statuses}
                   selectedMonth={selectedMonthKey}
                   onSelectMonth={setSelectedMonthKey}
+                  autoOpenAddExpense={triggerAddExpense}
+                  onAutoOpenAddExpenseHandled={() => setTriggerAddExpense(false)}
                 />
               )}
 

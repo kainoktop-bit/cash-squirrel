@@ -1,5 +1,5 @@
 import React from 'react';
-import { Job, Goal, AppSettings, StatusOption, NotifSettings } from '../types';
+import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../types';
 import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../utils';
 import { motion } from 'motion/react';
 import { Mascot } from './Mascot';
@@ -34,8 +34,10 @@ interface DashboardTabProps {
   jobs: Job[];
   goals: Goal[];
   settings: AppSettings;
+  expenses: Expense[];
   onUpdateSettings?: (settings: AppSettings) => void;
   onSwitchTab: (tabId: string) => void;
+  onQuickAddExpense: () => void;
   onOpenAddGoal: () => void;
   onOpenGoalDetail: (goalId: string) => void;
   statuses?: StatusOption[];
@@ -85,8 +87,10 @@ export default function DashboardTab({
   jobs,
   goals,
   settings,
+  expenses,
   onUpdateSettings,
   onSwitchTab,
+  onQuickAddExpense,
   onOpenAddGoal,
   onOpenGoalDetail,
   statuses = [],
@@ -583,7 +587,14 @@ export default function DashboardTab({
   // already nets out WHT and excludes not-yet-posted WIP jobs from the pending side.
   const totalContractVal = totalReceived + totalPending;
 
-  const profit = totalReceived - settings.monthlyExpense;
+  // Ad-hoc variable expenses logged for the selected month (equipment, outsourcing, etc.)
+  // -- must be netted out here too, or this stat silently ignores anything logged through
+  // the variable-expense tracker and never moves when the user records a new one.
+  const variableExpenseThisMonth = expenses
+    .filter(e => getMonthKey(e.date) === selectedMonthKey)
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const profit = totalReceived - settings.monthlyExpense - variableExpenseThisMonth;
 
   // Month-over-month comparison for the hero card
   const prevMonthKey = React.useMemo(() => {
@@ -617,10 +628,10 @@ export default function DashboardTab({
     alertStatus = 'warning';
     alertHeadline = `ยังไม่มีบันทึกเสบียงในเดือน ${monthName}`;
     alertFullMessage = `คลังเสบียงเดือน ${monthName} ยังไม่มีการบันทึกการเก็บลูกนัทเข้ามาในระบบ`;
-  } else if (totalReceived < settings.monthlyExpense) {
+  } else if (profit < 0) {
     alertStatus = 'danger';
-    alertHeadline = `วิกฤตเสบียงไม่พอรายจ่าย (ขาดอีก ${formatCurrency(settings.monthlyExpense - totalReceived)})`;
-    alertFullMessage = `วิกฤตหน้าหนาวเดือน ${monthName}: ลูกนัทในรังมีเพียง (${formatCurrency(totalReceived)}) ซึ่งยังไม่พอประทังชีวิตจากเป้ารายจ่ายคงที่ (${formatCurrency(settings.monthlyExpense)}) คุณยังขาดลูกนัทอีกจำนวน ${formatCurrency(settings.monthlyExpense - totalReceived)}`;
+    alertHeadline = `วิกฤตเสบียงไม่พอรายจ่าย (ขาดอีก ${formatCurrency(Math.abs(profit))})`;
+    alertFullMessage = `วิกฤตหน้าหนาวเดือน ${monthName}: ลูกนัทในรังมีเพียง (${formatCurrency(totalReceived)}) ซึ่งยังไม่พอประทังชีวิตจากรายจ่ายทั้งหมด (คงที่ ${formatCurrency(settings.monthlyExpense)}${variableExpenseThisMonth > 0 ? ` + รายจ่ายผันแปร ${formatCurrency(variableExpenseThisMonth)}` : ''}) คุณยังขาดลูกนัทอีกจำนวน ${formatCurrency(Math.abs(profit))}`;
   } else if (profit >= 0 && profit < 5000) {
     alertStatus = 'warning';
     alertHeadline = `เสบียงสะสมเดือน ${monthName} อยู่ระดับหมิ่นเหม่ (${formatCurrency(profit)})`;
@@ -733,13 +744,23 @@ export default function DashboardTab({
     <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
       
       {/* 1. Header Bar */}
-      <div className="px-1">
-        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
-          พยากรณ์รังเสบียง
-        </span>
-        <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-          ภาพรวมเสบียง
-        </h2>
+      <div className="px-1 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
+            พยากรณ์รังเสบียง
+          </span>
+          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
+            ภาพรวมเสบียง
+          </h2>
+        </div>
+        <button
+          onClick={onQuickAddExpense}
+          className="shrink-0 py-2.5 px-4 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-xs font-black rounded-2xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+          title="บันทึกรายจ่ายเพิ่มเติมในรอบเดือนนี้ เช่น ค่าอุปกรณ์ ค่าแอด ค่าเดินทาง"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          บันทึกรายจ่าย
+        </button>
       </div>
 
       {/* 2. Hero Card */}
