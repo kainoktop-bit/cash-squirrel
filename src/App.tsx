@@ -5,6 +5,7 @@ import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
 
 import DashboardTab from './components/DashboardTab';
 import JobsTab from './components/JobsTab';
+import ExpenseRecordView from './components/ExpenseRecordView';
 import TimelineTab from './components/TimelineTab';
 import SplitTab from './components/SplitTab';
 import SummaryTab from './components/SummaryTab';
@@ -65,7 +66,7 @@ type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 
 // collapsible section so first-time users see a simpler menu by default.
 const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', label: 'ภาพรวมกระแสเงินสด', icon: Home, group: 'core' },
-  { key: 'jobs', label: 'งานดีล & บันทึกรับเงิน', icon: Briefcase, group: 'core' },
+  { key: 'jobs', label: 'บันทึกรายรับ-รายจ่าย', icon: Briefcase, group: 'core' },
   { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'core' },
   { key: 'summary', label: 'สรุปยอดรายรับ & ออม', icon: Wallet, group: 'more' },
   { key: 'split', label: 'จัดสรรเงิน & เป้าหมายออม', icon: Percent, group: 'more' },
@@ -869,6 +870,9 @@ export default function App() {
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
   const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
   const [triggerAddExpense, setTriggerAddExpense] = useState(false);
+  // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
+  // same place instead of living in two disconnected tabs.
+  const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
 
   // Custom Dialog state for elegant, non-blocking prompts/alerts
   const [dialog, setDialog] = useState<CustomDialogState>({
@@ -1900,7 +1904,8 @@ export default function App() {
                   onSwitchTab={setActiveTab}
                   onQuickAddExpense={() => {
                     setTriggerAddExpense(true);
-                    setActiveTab('summary');
+                    setRecordMode('expense');
+                    setActiveTab('jobs');
                   }}
                   onOpenAddGoal={() => {
                     setInitialSelectedGoalId('ADD_NEW_GOAL');
@@ -1921,23 +1926,73 @@ export default function App() {
               )}
 
               {activeTab === 'jobs' && (
-                <JobsTab
-                  jobs={jobs}
-                  onAddJob={handleAddJob}
-                  onEditJob={handleEditJob}
-                  onDeleteJob={handleDeleteJob}
-                  isAddJobOpen={isAddJobOpen}
-                  onCloseAddJob={() => setIsAddJobOpen(prev => !prev)}
-                  statuses={statuses}
-                  setStatuses={setStatuses}
-                  jobTypes={jobTypes}
-                  setJobTypes={setJobTypes}
-                  triggerAlert={triggerAlert}
-                  triggerConfirm={triggerConfirm}
-                  triggerPrompt={triggerPrompt}
-                  openJobId={jobIdToOpen}
-                  onOpenJobHandled={() => setJobIdToOpen(null)}
-                />
+                <div className="space-y-6">
+                  {/* รายรับ / รายจ่าย mode switch -- same pill-toggle pattern used for the
+                      WIP/Posted switch inside JobsTab itself */}
+                  <div className="relative flex bg-brand-white border border-brand-border rounded-2xl p-1.5 shadow-2xs">
+                    <button
+                      onClick={() => setRecordMode('income')}
+                      className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
+                    >
+                      {recordMode === 'income' && (
+                        <motion.div
+                          layoutId="record-mode-toggle"
+                          className="absolute inset-0 bg-brand-faint border border-brand-border/40 rounded-xl"
+                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        />
+                      )}
+                      <span className={`relative z-10 text-xs font-black ${recordMode === 'income' ? 'text-brand-text' : 'text-brand-muted'}`}>
+                        รายรับ (งานดีล)
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setRecordMode('expense')}
+                      className="relative flex-1 py-3 rounded-xl text-center cursor-pointer overflow-hidden"
+                    >
+                      {recordMode === 'expense' && (
+                        <motion.div
+                          layoutId="record-mode-toggle"
+                          className="absolute inset-0 bg-brand-faint border border-brand-border/40 rounded-xl"
+                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        />
+                      )}
+                      <span className={`relative z-10 text-xs font-black ${recordMode === 'expense' ? 'text-brand-text' : 'text-brand-muted'}`}>
+                        รายจ่าย
+                      </span>
+                    </button>
+                  </div>
+
+                  {recordMode === 'income' ? (
+                    <JobsTab
+                      jobs={jobs}
+                      onAddJob={handleAddJob}
+                      onEditJob={handleEditJob}
+                      onDeleteJob={handleDeleteJob}
+                      isAddJobOpen={isAddJobOpen}
+                      onCloseAddJob={() => setIsAddJobOpen(prev => !prev)}
+                      statuses={statuses}
+                      setStatuses={setStatuses}
+                      jobTypes={jobTypes}
+                      setJobTypes={setJobTypes}
+                      triggerAlert={triggerAlert}
+                      triggerConfirm={triggerConfirm}
+                      triggerPrompt={triggerPrompt}
+                      openJobId={jobIdToOpen}
+                      onOpenJobHandled={() => setJobIdToOpen(null)}
+                    />
+                  ) : (
+                    <ExpenseRecordView
+                      expenses={expenses}
+                      onAddExpense={handleAddExpense}
+                      onDeleteExpense={handleDeleteExpense}
+                      selectedMonth={selectedMonthKey}
+                      triggerAlert={triggerAlert}
+                      triggerConfirm={triggerConfirm}
+                      autoOpenAdd={triggerAddExpense}
+                      onAutoOpenAddHandled={() => setTriggerAddExpense(false)}
+                    />
+                  )}
+                </div>
               )}
 
               {activeTab === 'summary' && (
@@ -1951,16 +2006,12 @@ export default function App() {
                   triggerConfirm={triggerConfirm}
                   triggerPrompt={triggerPrompt}
                   expenses={expenses}
-                  onAddExpense={handleAddExpense}
-                  onDeleteExpense={handleDeleteExpense}
                   onImportData={handleImportData}
                   onExportData={handleExportData}
                   onClearAllData={handleClearAllData}
                   statuses={statuses}
                   selectedMonth={selectedMonthKey}
                   onSelectMonth={setSelectedMonthKey}
-                  autoOpenAddExpense={triggerAddExpense}
-                  onAutoOpenAddExpenseHandled={() => setTriggerAddExpense(false)}
                 />
               )}
 
