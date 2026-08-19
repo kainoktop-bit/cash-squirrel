@@ -98,6 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       type: typeof body.type === 'string' ? body.type : undefined,
       value: Number(body.value) || 0,
       creditTerm: Number(body.creditTerm) || 0,
+      whtRate: Number(body.whtRate) || 0,
       paymentStatus: typeof body.paymentStatus === 'string' ? body.paymentStatus : 'pending',
       receivedAmount: body.receivedAmount != null ? Number(body.receivedAmount) : undefined,
     };

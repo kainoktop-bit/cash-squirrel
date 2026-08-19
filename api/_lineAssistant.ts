@@ -66,6 +66,7 @@ export interface JobDraft {
   creditTerm?: number;
   paymentStatus?: string; // 'paid' | 'partial' | 'pending'
   receivedAmount?: number;
+  whtRate?: number; // หัก ณ ที่จ่าย % -- 0 unless the caller (e.g. the LIFF form) sets it
   note?: string;
 }
 
@@ -290,16 +291,22 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
 
   const valueNum = draft.value || 0;
   const creditTerm = draft.creditTerm ?? 0;
+  // Same formula as JobsTab.tsx's add-job form: whtAmount deducted from value first, then
+  // "received" for a fully-paid job is the NET amount after tax, matching what actually lands
+  // in the bank -- not the gross contract value.
+  const whtRate = draft.whtRate || 0;
+  const whtAmount = Math.round(valueNum * (whtRate / 100));
+  const netReceivable = valueNum - whtAmount;
   let status: string = 'pending';
   let received = 0;
   if (draft.paymentStatus === 'paid') {
     status = 'done';
-    received = valueNum;
+    received = netReceivable;
   } else if (draft.paymentStatus === 'partial') {
     status = 'partial';
     received = draft.receivedAmount || 0;
   }
-  const pending = Math.max(0, valueNum - received);
+  const pending = Math.max(0, netReceivable - received);
   const payDate = calculatePayDate(today, creditTerm, false);
 
   return {
@@ -312,6 +319,8 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
     pending,
     status,
     creditTerm,
+    whtRate,
+    whtAmount,
     postDate: today,
     isPosted: true,
     payDate,
@@ -367,6 +376,7 @@ export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>):
       `ชื่องาน: ${job.name}`,
       ...(job.client ? [`ลูกค้า: ${job.client}`] : []),
       `มูลค่า: ${formatCurrency(job.value)}`,
+      ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
       `สถานะ: ${statusLabel}`,
       ...(job.pending > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending)}`] : []),
     ];
@@ -386,6 +396,7 @@ export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>):
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
+        ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: '#C17817' })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
         ...(job.pending > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending), { bold: false, color: '#C17817' })] : []),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),

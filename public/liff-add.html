@@ -239,6 +239,14 @@
       <label>มูลค่าค่าจ้างเต็ม (บาท) *</label>
       <input type="number" id="job-value" placeholder="เช่น 5000" min="0" />
 
+      <label>หัก ณ ที่จ่าย (Withholding Tax)</label>
+      <select id="job-whtRate">
+        <option value="0">0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
+        <option value="1">1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
+        <option value="3">3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
+        <option value="5">5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+      </select>
+
       <label>สถานะการจ่ายเงิน</label>
       <div class="pill-grid" id="job-status-pills">
         <div class="pill-choice selected income" data-status="paid">จ่ายครบแล้ว</div>
@@ -253,6 +261,8 @@
 
       <div class="receipt-box" id="job-receipt">
         <div class="receipt-row"><span>มูลค่างานเต็ม</span><span id="receipt-value">฿0</span></div>
+        <div class="receipt-row" id="receipt-wht-row"><span>หัก ณ ที่จ่าย (0%)</span><span id="receipt-wht">-฿0</span></div>
+        <div class="receipt-row"><span>ยอดสุทธิหลังหักภาษี</span><span id="receipt-net">฿0</span></div>
         <div class="receipt-row"><span>รับแล้ว</span><span id="receipt-received">฿0</span></div>
         <div class="receipt-row total"><span>ค้างรับ</span><span id="receipt-pending">฿0</span></div>
       </div>
@@ -363,13 +373,21 @@
 
   function updateReceipt() {
     var value = Number(document.getElementById('job-value').value) || 0;
-    var received = jobStatus === 'paid' ? value : (jobStatus === 'partial' ? (Number(document.getElementById('job-receivedAmount').value) || 0) : 0);
+    var whtRate = Number(document.getElementById('job-whtRate').value) || 0;
+    var whtAmount = Math.round(value * (whtRate / 100));
+    var netReceivable = value - whtAmount;
+    var received = jobStatus === 'paid' ? netReceivable : (jobStatus === 'partial' ? (Number(document.getElementById('job-receivedAmount').value) || 0) : 0);
     document.getElementById('receipt-value').textContent = fmtCurrency(value);
+    document.getElementById('receipt-wht-row').classList.toggle('hidden', whtRate === 0);
+    document.getElementById('receipt-wht-row').querySelector('span').textContent = 'หัก ณ ที่จ่าย (' + whtRate + '%)';
+    document.getElementById('receipt-wht').textContent = '-' + fmtCurrency(whtAmount);
+    document.getElementById('receipt-net').textContent = fmtCurrency(netReceivable);
     document.getElementById('receipt-received').textContent = fmtCurrency(received);
-    document.getElementById('receipt-pending').textContent = fmtCurrency(Math.max(0, value - received));
+    document.getElementById('receipt-pending').textContent = fmtCurrency(Math.max(0, netReceivable - received));
   }
 
   document.getElementById('job-value').addEventListener('input', updateReceipt);
+  document.getElementById('job-whtRate').addEventListener('change', updateReceipt);
   document.getElementById('job-receivedAmount').addEventListener('input', updateReceipt);
 
   document.querySelectorAll('#job-type-pills .pill-choice').forEach(function (pill) {
@@ -481,6 +499,7 @@
       client: document.getElementById('job-client').value.trim(),
       type: jobType,
       value: document.getElementById('job-value').value,
+      whtRate: document.getElementById('job-whtRate').value,
       creditTerm: document.getElementById('job-creditTerm').value,
       paymentStatus: jobStatus,
     };
