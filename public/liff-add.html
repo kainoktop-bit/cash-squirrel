@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>บันทึกรายการ - กระรอกตุนเงิน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --bg: #FBF2E4;
+    --card: #FFFFFF;
+    --text: #3D2314;
+    --muted: #7A5C43;
+    --faint: #F5EFE6;
+    --border: #E8DFD3;
+    --income: #7A4419;
+    --income-soft: #F5EFE6;
+    --expense: #A63F1B;
+    --expense-soft: #FAECE8;
+    --accent: #E65F2B;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1C130B;
+      --card: #261810;
+      --text: #F7EFEA;
+      --muted: #A89689;
+      --faint: #322117;
+      --border: #422E22;
+      --income: #E8A560;
+      --income-soft: #2A1D15;
+      --expense: #FF8A73;
+      --expense-soft: #3A1F17;
+      --accent: #FFA473;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px 16px 40px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .brand .emoji { font-size: 22px; }
+  h1 { font-size: 17px; margin: 0; font-weight: 700; }
+  .sub { color: var(--muted); font-size: 13px; margin: 4px 0 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 11px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .tab.active.income { background: var(--income-soft); color: var(--income); border-color: var(--income); }
+  .tab.active.expense { background: var(--expense-soft); color: var(--expense); border-color: var(--expense); }
+
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 0 6px; font-weight: 500; }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    appearance: none;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--faint);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .radio-option input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  .hidden { display: none !important; }
+
+  button.submit {
+    width: 100%;
+    margin-top: 22px;
+    padding: 15px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.submit.income { background: var(--accent); }
+  button.submit.expense { background: var(--expense); }
+  button.submit:disabled { opacity: 0.55; }
+
+  .error {
+    color: var(--expense);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+    background: var(--expense-soft);
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .status { text-align: center; padding: 60px 16px; }
+  .status .emoji { font-size: 44px; margin-bottom: 14px; }
+  .status h2 { margin: 0 0 8px; font-size: 18px; }
+  .status p { color: var(--muted); font-size: 14px; margin: 0; }
+  .status button {
+    margin-top: 24px;
+    padding: 13px 28px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<div id="form-view">
+  <div class="brand"><span class="emoji">🐿️</span><h1>บันทึกรายการ</h1></div>
+  <p class="sub">กรอกครั้งเดียวจบ ไม่ต้องแชทถามตอบ — บันทึกเข้าบัญชี LINE ของคุณโดยตรง</p>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active income" id="tab-income" onclick="setKind('job')">รายรับ</div>
+      <div class="tab expense" id="tab-expense" onclick="setKind('expense')">รายจ่าย</div>
+    </div>
+
+    <div id="job-fields">
+      <label>ชื่องาน/โปรเจกต์</label>
+      <input type="text" id="job-name" placeholder="เช่น ตัดต่อวิดีโอ" />
+
+      <label>ลูกค้า (ถ้าไม่มีเว้นว่างได้)</label>
+      <input type="text" id="job-client" placeholder="เช่น บริษัท ABC" />
+
+      <label>มูลค่างาน (บาท)</label>
+      <input type="number" id="job-value" placeholder="5000" min="0" />
+
+      <label>เครดิตเทอม (วัน, 0 = ได้เงินทันที)</label>
+      <input type="number" id="job-creditTerm" value="0" min="0" />
+
+      <label>สถานะการจ่ายเงิน</label>
+      <div class="radio-group">
+        <label class="radio-option"><input type="radio" name="paymentStatus" value="paid" checked /> จ่ายครบแล้ว</label>
+        <label class="radio-option"><input type="radio" name="paymentStatus" value="partial" /> มัดจำบางส่วน</label>
+        <label class="radio-option"><input type="radio" name="paymentStatus" value="pending" /> ยังไม่จ่าย</label>
+      </div>
+
+      <div id="received-amount-field" class="hidden">
+        <label>มัดจำมาแล้ว (บาท)</label>
+        <input type="number" id="job-receivedAmount" placeholder="1000" min="0" />
+      </div>
+    </div>
+
+    <div id="expense-fields" class="hidden">
+      <label>ชื่อรายการ</label>
+      <input type="text" id="expense-name" placeholder="เช่น ค่าซอฟต์แวร์ตัดต่อ" />
+
+      <label>หมวดหมู่</label>
+      <select id="expense-category">
+        <option>ค่าอุปกรณ์/ซอฟต์แวร์</option>
+        <option>ค่าโฆษณา/ยิงแอด</option>
+        <option>ค่าเดินทาง/น้ำมัน</option>
+        <option>อาหาร/รับรองลูกค้า</option>
+        <option>จ้างงานต่อ (Outsource)</option>
+        <option>ภาษี/ธรรมเนียม</option>
+        <option>ค่าบริการ/สาธารณูปโภค</option>
+        <option>อื่นๆ</option>
+      </select>
+
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="expense-amount" placeholder="500" min="0" />
+    </div>
+
+    <button class="submit income" id="submit-btn" onclick="submitForm()">บันทึก</button>
+    <div class="error" id="error-box"></div>
+  </div>
+</div>
+
+<div id="status-view" class="status hidden"></div>
+
+<script>
+  var currentKind = 'job';
+
+  function setKind(kind) {
+    currentKind = kind;
+    document.getElementById('tab-income').className = 'tab' + (kind === 'job' ? ' active income' : '');
+    document.getElementById('tab-expense').className = 'tab' + (kind === 'expense' ? ' active expense' : '');
+    document.getElementById('job-fields').classList.toggle('hidden', kind !== 'job');
+    document.getElementById('expense-fields').classList.toggle('hidden', kind !== 'expense');
+    document.getElementById('submit-btn').className = 'submit ' + (kind === 'job' ? 'income' : 'expense');
+  }
+
+  document.querySelectorAll('input[name="paymentStatus"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      document.getElementById('received-amount-field').classList.toggle('hidden', radio.value !== 'partial' || !radio.checked);
+    });
+  });
+
+  function showError(message) {
+    var box = document.getElementById('error-box');
+    box.textContent = message;
+    box.style.display = 'block';
+  }
+
+  function showStatus(emoji, title, message, showCloseButton) {
+    document.getElementById('form-view').classList.add('hidden');
+    var view = document.getElementById('status-view');
+    view.classList.remove('hidden');
+    view.innerHTML =
+      '<div class="emoji">' + emoji + '</div>' +
+      '<h2>' + title + '</h2>' +
+      '<p>' + message + '</p>' +
+      (showCloseButton ? '<button onclick="closeLiff()">ปิดหน้าต่าง</button>' : '');
+  }
+
+  function closeLiff() {
+    try {
+      if (window.liff && liff.isInClient && liff.isInClient()) {
+        liff.closeWindow();
+        return;
+      }
+    } catch (e) {}
+    window.close();
+  }
+
+  async function submitForm() {
+    document.getElementById('error-box').style.display = 'none';
+    var btn = document.getElementById('submit-btn');
+
+    var payload = { kind: currentKind };
+    if (currentKind === 'job') {
+      payload.name = document.getElementById('job-name').value.trim();
+      payload.client = document.getElementById('job-client').value.trim();
+      payload.value = document.getElementById('job-value').value;
+      payload.creditTerm = document.getElementById('job-creditTerm').value;
+      payload.paymentStatus = document.querySelector('input[name="paymentStatus"]:checked').value;
+      if (payload.paymentStatus === 'partial') {
+        payload.receivedAmount = document.getElementById('job-receivedAmount').value;
+      }
+      if (!payload.name || !payload.value) {
+        showError('กรุณากรอกชื่องานและมูลค่างานให้ครบถ้วนครับ');
+        return;
+      }
+    } else {
+      payload.name = document.getElementById('expense-name').value.trim();
+      payload.category = document.getElementById('expense-category').value;
+      payload.amount = document.getElementById('expense-amount').value;
+      if (!payload.name || !payload.amount) {
+        showError('กรุณากรอกชื่อรายการและจำนวนเงินให้ครบถ้วนครับ');
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    try {
+      var idToken = liff.getIDToken();
+      if (!idToken) {
+        showError('ไม่พบข้อมูลยืนยันตัวตนจาก LINE กรุณาเปิดฟอร์มนี้ผ่านแอป LINE อีกครั้ง');
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        return;
+      }
+      payload.idToken = idToken;
+
+      var res = await fetch('/api/liff-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      var data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        return;
+      }
+
+      showStatus('✅', 'บันทึกสำเร็จ!', 'ระบบส่งการ์ดสรุปกลับไปในแชทให้แล้วครับ', true);
+    } catch (err) {
+      showError('เกิดข้อผิดพลาด ลองใหม่อีกครั้งครับ');
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  }
+
+  (async function init() {
+    try {
+      var configRes = await fetch('/api/liff-config');
+      var config = await configRes.json();
+      if (!config.liffId) {
+        showStatus('⚠️', 'ยังไม่พร้อมใช้งาน', 'ฟอร์มนี้ยังไม่ได้ตั้งค่า LIFF_ID ครับ', false);
+        return;
+      }
+      await liff.init({ liffId: config.liffId });
+      if (!liff.isLoggedIn() && !liff.isInClient()) {
+        liff.login();
+      }
+    } catch (err) {
+      showStatus('⚠️', 'เปิดฟอร์มไม่สำเร็จ', 'ลองเปิดใหม่จากปุ่มในแชท LINE อีกครั้งครับ', false);
+    }
+  })();
+</script>
+
+</body>
+</html>
