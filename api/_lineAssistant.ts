@@ -64,6 +64,22 @@ function getGeminiClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey });
 }
 
+// The free-tier Gemini quota returns HTTP 429 under bursts (observed in production once testing
+// got chatty) -- one short retry smooths that over without adding much latency to a chat reply.
+async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const isRateLimited = message.includes('"code":429') || message.includes('RESOURCE_EXHAUSTED');
+    if (isRateLimited && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      return callWithRetry(fn, attempt + 1);
+    }
+    throw err;
+  }
+}
+
 // Throws on a genuine Supabase/query error (caller must not treat that the same as "not
 // linked" -- doing so once told an already-linked user their account wasn't found, which reads
 // as the bot lying). Only a real empty result means "not linked", so the caller can fall back
@@ -79,48 +95,6 @@ async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
     throw new Error(`findUserByLineId: ${error.message}`);
   }
   return (data as UserRow) || null;
-}
-
-// Only decides whether this message is trying to RECORD a new job (a write, so it needs the
-// careful extract -> confirm -> save flow below) versus everything else, which goes to the
-// free-form data-grounded Q&A instead. Keeping this gate narrow and binary -- rather than
-// sorting every message into a fixed set of query buckets -- is what lets Q&A understand
-// arbitrary phrasing instead of only near-exact matches to canned examples.
-async function isAddJobRequest(text: string): Promise<boolean> {
-  const ai = getGeminiClient();
-  if (!ai) return false;
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `ข้อความนี้จากแชท LINE ของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์): "${text}"
-
-ผู้ใช้กำลังจะ "บันทึกงาน/ดีลใหม่" (บรรยายว่ารับงานอะไร จากใคร มูลค่าเท่าไหร่ เพื่อบันทึกเป็นรายการใหม่) ใช่หรือไม่?
-ถ้าเป็นแค่การถามคำถาม/สอบถามข้อมูล (ไม่ว่าจะถามเรื่องอะไรก็ตาม) ให้ตอบ false ไม่ใช่แค่คำถามที่ตรงกับตัวอย่างเป๊ะๆ เท่านั้น`,
-            },
-          ],
-        },
-      ],
-      config: {
-        thinkingConfig: { thinkingBudget: 0 },
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: { isAddJob: { type: 'BOOLEAN' } },
-          required: ['isAddJob'],
-        },
-      },
-    });
-    const parsed = JSON.parse(response.text || '{}');
-    return !!parsed.isAddJob;
-  } catch (err) {
-    console.error('isAddJobRequest error:', err);
-    return false;
-  }
 }
 
 interface DataSnapshot {
@@ -178,9 +152,14 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, totalPendingAllTime };
 }
 
-async function answerFromData(text: string, snapshot: DataSnapshot): Promise<string> {
+// Combines what used to be 2 separate Gemini calls (intent gate + job-field extraction, or
+// intent gate + grounded Q&A) into one -- cuts LINE-assistant API usage roughly in half per
+// message, which matters given the free-tier Gemini quota's per-minute rate limit (a real 429
+// showed up in production once testing got chatty). isAddJob decides which half of the response
+// is meaningful: the job-draft fields, or "answer" -- the other side is left empty.
+async function classifyMessage(text: string, snapshot: DataSnapshot): Promise<{ isAddJob: boolean; answer: string; draft: JobDraft }> {
   const ai = getGeminiClient();
-  if (!ai) return 'ระบบตอบคำถามไม่พร้อมใช้งานตอนนี้ครับ ลองใหม่อีกครั้ง';
+  if (!ai) return { isAddJob: false, answer: 'ระบบตอบคำถามไม่พร้อมใช้งานตอนนี้ครับ ลองใหม่อีกครั้ง', draft: {} };
 
   const formatted = {
     งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
@@ -193,90 +172,80 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
+    const response = await callWithRetry(() =>
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) คุยกับผู้ใช้ในแชท LINE
 
-กฎสำคัญ:
-- ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
-- ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
-- ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
-- ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
-- "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
-- ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
+ข้อความจากผู้ใช้: "${text}"
+
+ขั้นแรก ตัดสินใจ (isAddJob): ข้อความนี้คือการ "บันทึกงาน/ดีลใหม่" (บรรยายว่ารับงานอะไร จากใคร มูลค่าเท่าไหร่ เพื่อบันทึกเป็นรายการใหม่) หรือไม่ -- ถ้าเป็นแค่คำถาม/สอบถามข้อมูลไม่ว่าเรื่องอะไรก็ตาม ให้ isAddJob = false ไม่ใช่แค่ข้อความที่ตรงตัวอย่างเป๊ะๆ เท่านั้น
+
+ถ้า isAddJob = true:
+- แยกข้อมูลใส่ฟิลด์ name/client/type/value/creditTerm/paymentStatus/receivedAmount/note -- ห้ามเดา เว้นว่างถ้าข้อความไม่ได้พูดถึง
+- ปล่อยฟิลด์ answer ว่างไว้
+
+ถ้า isAddJob = false:
+- ตอบคำถามลงในฟิลด์ answer ตามกฎนี้อย่างเคร่งครัด:
+  - ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
+  - ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
+  - ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
+  - ถ้ารายการว่างเปล่าให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
+  - "กระแสเงินสดสุทธิ" ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) ถ้าถามถึงกำไร ตอบด้วยตัวเลขนี้ได้แต่บอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ยังไม่ได้บันทึก (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน) ซึ่งไม่ถูกรวมในตัวเลขนี้
+  - ถ้าถามว่าตัวเลขไหน "รวมอะไรบ้าง" ให้อธิบายตามจริง และบอกว่าถ้ามีรายจ่ายที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
+- ปล่อยฟิลด์ name/client/type/value/creditTerm/paymentStatus/receivedAmount/note ว่างไว้ทั้งหมด
 
 ข้อมูลบัญชีจริง (JSON):
-${JSON.stringify(formatted, null, 2)}
-
-คำถามจากผู้ใช้: "${text}"`,
+${JSON.stringify(formatted, null, 2)}`,
+              },
+            ],
+          },
+        ],
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              isAddJob: { type: 'BOOLEAN' },
+              answer: { type: 'STRING' },
+              name: { type: 'STRING' },
+              client: { type: 'STRING' },
+              type: { type: 'STRING' },
+              value: { type: 'NUMBER' },
+              creditTerm: { type: 'NUMBER' },
+              paymentStatus: { type: 'STRING' },
+              receivedAmount: { type: 'NUMBER' },
+              note: { type: 'STRING' },
             },
-          ],
-        },
-      ],
-      config: {
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    });
-    return response.text?.trim() || 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกครั้งครับ';
-  } catch (err) {
-    console.error('answerFromData error:', err);
-    return 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ตอนนี้ ลองใหม่อีกครั้งครับ';
-  }
-}
-
-async function extractJobDraft(text: string): Promise<JobDraft> {
-  const ai = getGeminiClient();
-  if (!ai) return {};
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `แยกข้อมูลงานฟรีแลนซ์จากข้อความนี้: "${text}"
-
-กฎสำคัญ: ถ้าข้อมูลไหนไม่ได้พูดถึงในข้อความ ห้ามเดา ให้เว้นว่างหรือไม่ใส่ฟิลด์นั้นเลย
-- name: ชื่องานหรือโปรเจกต์
-- client: ชื่อลูกค้าหรือแบรนด์
-- type: ประเภทงาน เช่น Sponsored Post, Video Production, Consulting / Advisory
-- value: มูลค่างานเป็นตัวเลขบาทล้วนๆ
-- creditTerm: จำนวนวันเครดิตเทอม (0 ถ้าพูดว่าได้เงินทันที)
-- paymentStatus: "paid" ถ้าจ่ายครบแล้ว, "partial" ถ้ามัดจำ, "pending" ถ้าพูดชัดเจนว่ายังไม่จ่าย -- เว้นว่างถ้าไม่ได้พูดถึงการจ่ายเงินเลย
-- receivedAmount: จำนวนเงินที่ได้รับแล้วจริงเป็นบาท
-- note: รายละเอียดอื่นๆ ที่พูดถึงแต่ไม่เข้าฟิลด์ไหน`,
-            },
-          ],
-        },
-      ],
-      config: {
-        thinkingConfig: { thinkingBudget: 0 },
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            name: { type: 'STRING' },
-            client: { type: 'STRING' },
-            type: { type: 'STRING' },
-            value: { type: 'NUMBER' },
-            creditTerm: { type: 'NUMBER' },
-            paymentStatus: { type: 'STRING' },
-            receivedAmount: { type: 'NUMBER' },
-            note: { type: 'STRING' },
+            required: ['isAddJob'],
           },
         },
+      })
+    );
+    const parsed = JSON.parse(response.text || '{}');
+    return {
+      isAddJob: !!parsed.isAddJob,
+      answer: parsed.answer || '',
+      draft: {
+        name: parsed.name,
+        client: parsed.client,
+        type: parsed.type,
+        value: parsed.value,
+        creditTerm: parsed.creditTerm,
+        paymentStatus: parsed.paymentStatus,
+        receivedAmount: parsed.receivedAmount,
+        note: parsed.note,
       },
-    });
-    return JSON.parse(response.text || '{}');
+    };
   } catch (err) {
-    console.error('extractJobDraft error:', err);
-    return {};
+    console.error('classifyMessage error:', err);
+    return { isAddJob: false, answer: 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ตอนนี้ ลองใหม่อีกครั้งครับ', draft: {} };
   }
 }
 
@@ -287,14 +256,15 @@ async function extractFollowUpAnswer(question: string, answerText: string): Prom
   const ai = getGeminiClient();
   if (!ai) return {};
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `กำลังบันทึกงานฟรีแลนซ์ในแชท คุณเพิ่งถามผู้ใช้ว่า: "${question}"
+    const response = await callWithRetry(() =>
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `กำลังบันทึกงานฟรีแลนซ์ในแชท คุณเพิ่งถามผู้ใช้ว่า: "${question}"
 ผู้ใช้ตอบว่า: "${answerText}"
 
 แยกข้อมูลที่เกี่ยวข้องออกมาเป็นฟิลด์ต่อไปนี้ (เว้นว่างถ้าคำตอบไม่ได้พูดถึงฟิลด์นั้นเลย ห้ามเดา):
@@ -303,28 +273,29 @@ async function extractFollowUpAnswer(question: string, answerText: string): Prom
 - receivedAmount: จำนวนเงินที่ได้รับแล้วจริงเป็นบาท ถ้ามีพูดถึง
 - creditTerm: จำนวนวันเครดิตเทอม ถ้ามีพูดถึง (0 ถ้าได้เงินทันที)
 - name, type, value, note: เติมด้วยถ้าคำตอบบังเอิญพูดถึงเรื่องพวกนี้เพิ่มเติมมาด้วย`,
+              },
+            ],
+          },
+        ],
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              name: { type: 'STRING' },
+              client: { type: 'STRING' },
+              type: { type: 'STRING' },
+              value: { type: 'NUMBER' },
+              creditTerm: { type: 'NUMBER' },
+              paymentStatus: { type: 'STRING' },
+              receivedAmount: { type: 'NUMBER' },
+              note: { type: 'STRING' },
             },
-          ],
-        },
-      ],
-      config: {
-        thinkingConfig: { thinkingBudget: 0 },
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            name: { type: 'STRING' },
-            client: { type: 'STRING' },
-            type: { type: 'STRING' },
-            value: { type: 'NUMBER' },
-            creditTerm: { type: 'NUMBER' },
-            paymentStatus: { type: 'STRING' },
-            receivedAmount: { type: 'NUMBER' },
-            note: { type: 'STRING' },
           },
         },
-      },
-    });
+      })
+    );
     return JSON.parse(response.text || '{}');
   } catch (err) {
     console.error('extractFollowUpAnswer error:', err);
@@ -540,7 +511,10 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
     // Otherwise this message answers whatever field was last asked -- merge it in and either
     // ask the next missing field or, once everything required is there, save immediately
     // (no separate "confirm" step; the saved-job card itself is the receipt to review/edit).
-    const answered = pending.askedField ? await extractFollowUpAnswer(FIELD_QUESTIONS[pending.askedField], trimmed) : await extractJobDraft(trimmed);
+    // askedField is always set by both call sites that create a pending state below, so this
+    // question text is always the real one the user is replying to.
+    const question = pending.askedField ? FIELD_QUESTIONS[pending.askedField] : 'ขอรายละเอียดเพิ่มเติมครับ';
+    const answered = await extractFollowUpAnswer(question, trimmed);
     const merged = mergeDraft(pending.draft, answered);
     const stillMissing = missingRequiredFields(merged);
 
@@ -553,8 +527,11 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
     return { type: 'text', text: FIELD_QUESTIONS[nextField] };
   }
 
-  if (await isAddJobRequest(trimmed)) {
-    const draft = await extractJobDraft(trimmed);
+  const snapshot = buildDataSnapshot(user);
+  const classified = await classifyMessage(trimmed, snapshot);
+
+  if (classified.isAddJob) {
+    const draft = classified.draft;
     if (!draft.name || draft.value == null) {
       return { type: 'text', text: 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"' };
     }
@@ -569,7 +546,5 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
     return { type: 'text', text: FIELD_QUESTIONS[nextField] };
   }
 
-  const snapshot = buildDataSnapshot(user);
-  const answerText = await answerFromData(trimmed, snapshot);
-  return { type: 'text', text: answerText };
+  return { type: 'text', text: classified.answer || 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกครั้งครับ' };
 }
