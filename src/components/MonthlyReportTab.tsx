@@ -127,7 +127,7 @@ export default function MonthlyReportTab({
       'ยกเลิกการเชื่อมต่อ LINE',
       'คุณต้องการยกเลิกการรับแจ้งเตือนผ่าน LINE ใช่หรือไม่? ยังรับแจ้งเตือนทางอีเมลได้ตามปกติ',
       () => {
-        onUpdateNotifSettings({ ...notifSettings, lineUserId: undefined });
+        onUpdateNotifSettings({ ...notifSettings, lineUserId: null });
       }
     );
   };

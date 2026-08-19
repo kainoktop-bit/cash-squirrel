@@ -746,6 +746,12 @@ export default function App() {
     }
 
     try {
+      // notif_settings is intentionally left out of this upsert and merged separately below --
+      // several of its keys (lineUserId, lineLinkCode, linePendingJob, lastDigestSentDate,
+      // lastMonthlyReportSentMonth, ...) are written server-side by the LINE webhook/assistant
+      // and the cron jobs. A blind overwrite here from this device's in-memory copy would erase
+      // those the next time this device autosaves (confirmed: LINE linking would silently drop
+      // out mid-conversation because of exactly this race).
       const upsertData = {
         user_id: currentUser.id,
         email: email,
@@ -754,7 +760,6 @@ export default function App() {
         statuses: payload.statuses || [],
         job_types: payload.jobTypes || [],
         settings: payload.settings || {},
-        notif_settings: payload.notifSettings || {},
         expenses: payload.expenses || [],
         updated_at: new Date().toISOString()
       };
@@ -764,6 +769,16 @@ export default function App() {
         .upsert(upsertData, { onConflict: 'user_id' });
 
       if (error) throw error;
+
+      // Run after the row is guaranteed to exist (the upsert above creates it on first save).
+      // merge_notif_settings does notif_settings = coalesce(notif_settings, '{}') || patch in a
+      // single statement, so keys this device doesn't know about are left untouched server-side.
+      const { error: notifError } = await supabase.rpc('merge_notif_settings', {
+        p_user_id: currentUser.id,
+        p_patch: payload.notifSettings || {},
+      });
+      if (notifError) throw notifError;
+
       setCloudSyncStatus('synced');
     } catch (err: any) {
       const formattedErr = formatError(err);

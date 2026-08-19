@@ -137,7 +137,7 @@ export interface NotifSettings {
   lastDigestSentDate?: string; // YYYY-MM-DD (Asia/Bangkok), dedupe guard so the digest cron never double-sends the same day
   monthlyReportEnabled?: boolean; // Pro feature: opt-in to an automated monthly financial summary email, sent server-side by api/send-monthly-report
   lastMonthlyReportSentMonth?: string; // YYYY-MM, dedupe guard so the monthly report cron never double-sends the same month
-  lineUserId?: string; // set once the user links their LINE account via api/line-webhook.ts
+  lineUserId?: string | null; // set once the user links their LINE account via api/line-webhook.ts; explicitly null (not undefined -- see saveCloudData's merge RPC) when disconnected
   lineLinkCode?: string; // short-lived code shown in Settings, consumed by api/line-webhook.ts to link lineUserId
   lineLinkCodeExpiresAt?: string; // ISO timestamp; codes older than this are treated as expired
 }
