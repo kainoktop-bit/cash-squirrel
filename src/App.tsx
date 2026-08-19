@@ -19,7 +19,11 @@ import { InvoiceTab } from './components/InvoiceTab';
 import { InsightTab } from './components/InsightTab';
 import { PlansTab } from './components/PlansTab';
 import { supabase } from './supabaseClient';
-import { computeMonthlySummary, currentMonthKey } from '../api/_monthlySummary';
+// Aliased: this file already has its own local `currentMonthKey` (a memoized string further
+// down, computed from local machine time) -- importing the same name here would silently shadow
+// it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
+// that made the LINE-notify balance figure fail (found via a decoded production sourcemap).
+import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk } from './monthlySummary';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
@@ -1193,7 +1197,7 @@ export default function App() {
         extraExpenses.length ? [...extraExpenses, ...expenses] : expenses,
         goals,
         settings,
-        currentMonthKey()
+        getCurrentMonthKeyBkk()
       ).netFlow;
     } catch (err) {
       console.warn('computeMonthlySummary failed for LINE notify:', err);
