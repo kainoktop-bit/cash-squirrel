@@ -556,49 +556,25 @@ function formatThaiTimestamp(): string {
   return `${day} ${month} ${year} ${hh}:${mm}`;
 }
 
-// A colored pill + bold label -- the "รายรับ"/"รายจ่าย" tag at the top of the receipt card.
-function buildPillRow(label: string, color: string, title: string) {
+// A simple label-left / value-right row, like a bank transfer receipt statement.
+function buildStatementRow(label: string, value: string, opts?: { size?: string; color?: string; bold?: boolean }) {
   return {
     type: 'box',
-    layout: 'baseline',
-    spacing: 'sm',
+    layout: 'horizontal',
     contents: [
-      {
-        type: 'box',
-        layout: 'vertical',
-        backgroundColor: color,
-        cornerRadius: '6px',
-        paddingAll: '4px',
-        paddingStart: '8px',
-        paddingEnd: '8px',
-        contents: [{ type: 'text', text: label, size: 'xxs', color: '#FFFFFF', weight: 'bold', align: 'center' }],
-      },
-      { type: 'text', text: title, weight: 'bold', size: 'md', color: '#3D2314', wrap: true },
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2, gravity: 'center' },
+      { type: 'text', text: value, size: opts?.size || 'sm', color: opts?.color || '#3D2314', weight: opts?.bold === false ? 'regular' : 'bold', flex: 3, align: 'end', wrap: true },
     ],
   };
 }
 
-// A thin two-layer box that reads as a progress bar -- the outer box is the track, the inner
-// one (sized by percent width) is the fill.
-function buildProgressBar(pct: number, fillColor: string) {
-  return {
-    type: 'box',
-    layout: 'vertical',
-    backgroundColor: '#E8DFD3',
-    height: '6px',
-    cornerRadius: '3px',
-    margin: 'sm',
-    contents: [{ type: 'box', layout: 'vertical', backgroundColor: fillColor, height: '6px', width: `${Math.max(0, Math.min(100, pct))}%`, cornerRadius: '3px', contents: [] }],
-  };
-}
-
-// Squirrel-branded Flex "receipt" card shown right after a job is saved -- reuses the app's
-// own warm cream/acorn-orange palette (src/index.css :root) so it reads as the same product.
-// Falls back to a plain-text summary when APP_URL isn't configured (no working deep link yet).
+// Squirrel-branded Flex "receipt" card shown right after a job is saved -- styled like a bank
+// transfer notification (big amount up top, clean label/value rows below) since that's the
+// clearest, most familiar shape for this kind of confirmation. Falls back to a plain-text
+// summary when APP_URL isn't configured (no working deep link yet).
 function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
   const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
-  const receivedPct = job.value > 0 ? Math.round((job.received / job.value) * 100) : 0;
 
   if (!appUrl) {
     const lines = [
@@ -615,50 +591,20 @@ function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMe
 
   const contents = {
     type: 'bubble',
-    header: {
-      type: 'box',
-      layout: 'horizontal',
-      backgroundColor: '#FBF2E4',
-      paddingAll: '16px',
-      contents: [
-        {
-          type: 'box',
-          layout: 'vertical',
-          flex: 4,
-          contents: [
-            { type: 'text', text: 'บันทึกสำเร็จ ✅', weight: 'bold', size: 'lg', color: '#3D2314' },
-            { type: 'text', text: 'ตรวจสอบรายการที่บันทึกด้วยนะครับ', size: 'xs', color: '#7A5C43', wrap: true, margin: 'sm' },
-          ],
-        },
-        { type: 'text', text: '🐿️', size: 'xxl', flex: 1, align: 'end', gravity: 'center' },
-      ],
-    },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FFFFFF',
-      paddingAll: '16px',
-      spacing: 'sm',
+      backgroundColor: '#FBF2E4',
+      paddingAll: '20px',
+      spacing: 'md',
       contents: [
-        buildPillRow('รายรับ', '#0E9F6E', job.name),
-        { type: 'text', text: formatThaiTimestamp(), size: 'xs', color: '#A89689' },
+        buildStatementRow('รับเงิน', `+${formatCurrency(job.value)}`, { size: 'xxl', color: '#0E9F6E' }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
-        {
-          type: 'box',
-          layout: 'horizontal',
-          margin: 'md',
-          contents: [
-            { type: 'text', text: statusLabel, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true },
-            { type: 'text', text: formatCurrency(job.value), size: 'xl', weight: 'bold', color: '#0E9F6E', flex: 2, align: 'end' },
-          ],
-        },
-        ...(job.pending > 0
-          ? [
-              buildProgressBar(receivedPct, '#0E9F6E'),
-              { type: 'text', text: `รับแล้ว ${formatCurrency(job.received)} จาก ${formatCurrency(job.value)} • ค้าง ${formatCurrency(job.pending)}`, size: 'xxs', color: '#A89689', margin: 'xs' },
-            ]
-          : []),
-        ...(job.client ? [{ type: 'text', text: `👤 ลูกค้า: ${job.client}`, size: 'xs', color: '#7A5C43', margin: 'md' }] : []),
+        buildStatementRow('ชื่องาน', job.name, { bold: false }),
+        ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
+        buildStatementRow('สถานะ', statusLabel, { bold: false }),
+        ...(job.pending > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending), { bold: false, color: '#C17817' })] : []),
+        buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
       ],
     },
     footer: {
@@ -739,43 +685,18 @@ function buildExpenseSavedMessage(expense: Expense): LineMessage {
 
   const contents = {
     type: 'bubble',
-    header: {
-      type: 'box',
-      layout: 'horizontal',
-      backgroundColor: '#FBF2E4',
-      paddingAll: '16px',
-      contents: [
-        {
-          type: 'box',
-          layout: 'vertical',
-          flex: 4,
-          contents: [
-            { type: 'text', text: 'บันทึกสำเร็จ ✅', weight: 'bold', size: 'lg', color: '#3D2314' },
-            { type: 'text', text: 'ตรวจสอบรายการที่บันทึกด้วยนะครับ', size: 'xs', color: '#7A5C43', wrap: true, margin: 'sm' },
-          ],
-        },
-        { type: 'text', text: '🐿️', size: 'xxl', flex: 1, align: 'end', gravity: 'center' },
-      ],
-    },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FFFFFF',
-      paddingAll: '16px',
-      spacing: 'sm',
+      backgroundColor: '#FBF2E4',
+      paddingAll: '20px',
+      spacing: 'md',
       contents: [
-        buildPillRow('รายจ่าย', '#A63F1B', expense.name),
-        { type: 'text', text: formatThaiTimestamp(), size: 'xs', color: '#A89689' },
+        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xxl', color: '#A63F1B' }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
-        {
-          type: 'box',
-          layout: 'horizontal',
-          margin: 'md',
-          contents: [
-            { type: 'text', text: expense.category, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true },
-            { type: 'text', text: formatCurrency(expense.amount), size: 'xl', weight: 'bold', color: '#A63F1B', flex: 2, align: 'end' },
-          ],
-        },
+        buildStatementRow('รายการ', expense.name, { bold: false }),
+        buildStatementRow('หมวด', expense.category, { bold: false }),
+        buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
       ],
     },
     footer: {
