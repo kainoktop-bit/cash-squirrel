@@ -3,7 +3,7 @@ import { Job, StatusOption } from '../types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
-import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight, IconSpark } from './icons';
+import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from './icons';
 import {
   Briefcase,
   Search,
@@ -32,6 +32,7 @@ interface JobsTabProps {
   onEditJob: (id: string, updated: Partial<Job>) => void;
   onDeleteJob: (id: string) => void;
   isAddJobOpen: boolean;
+  onOpenAddJob: () => void;
   onCloseAddJob: () => void;
   statuses: StatusOption[];
   setStatuses: React.Dispatch<React.SetStateAction<StatusOption[]>>;
@@ -58,6 +59,7 @@ export default function JobsTab({
   onEditJob,
   onDeleteJob,
   isAddJobOpen,
+  onOpenAddJob,
   onCloseAddJob,
   statuses,
   setStatuses,
@@ -518,7 +520,7 @@ export default function JobsTab({
               setFormNote('');
               setFormWhtRate(0);
               setFormStep(1);
-              onCloseAddJob(); // toggles/opens
+              onOpenAddJob();
             }}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
@@ -1628,7 +1630,7 @@ export default function JobsTab({
                           : 'bg-emerald-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-1">บันทึกข้อมูลดีลงาน <IconSpark className="w-3 h-3" /></span>
+                      บันทึกข้อมูลดีลงาน
                     </button>
                   )}
                 </div>
@@ -2370,7 +2372,7 @@ export default function JobsTab({
                           : 'bg-indigo-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-1">บันทึกการแก้ไขดีลงาน <IconSpark className="w-3 h-3" /></span>
+                      บันทึกการแก้ไขดีลงาน
                     </button>
                   )}
                 </div>

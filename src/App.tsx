@@ -1165,7 +1165,7 @@ export default function App() {
   // web app -- mirrors the same "bank app" receipt the LINE bot/LIFF form already send, so
   // recording something here pings LINE too instead of only when added from there. Never blocks
   // or surfaces an error to the user; a failed/skipped push is silently fine.
-  const notifyLineRecordAdded = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number) => {
+  const notifyLineRecordAdded = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
     if (!session?.user?.email || session.isGuest) return;
     (async () => {
       try {
@@ -1183,6 +1183,24 @@ export default function App() {
     })();
   };
 
+  // computeMonthlySummary is only for the LINE card's "คงเหลือเดือนนี้" line -- never let it (or
+  // anything else) block the notify call itself, since a thrown error here would silently
+  // swallow the whole notification before the fetch even happens.
+  const monthNetSafe = (extraJobs: Job[] = [], extraExpenses: Expense[] = []): number | undefined => {
+    try {
+      return computeMonthlySummary(
+        extraJobs.length ? [...extraJobs, ...jobs] : jobs,
+        extraExpenses.length ? [...extraExpenses, ...expenses] : expenses,
+        goals,
+        settings,
+        currentMonthKey()
+      ).netFlow;
+    } catch (err) {
+      console.warn('computeMonthlySummary failed for LINE notify:', err);
+      return undefined;
+    }
+  };
+
   // Core functions
   const handleAddJob = (newJob: Omit<Job, 'id'>) => {
     const jobWithId: Job = {
@@ -1197,8 +1215,7 @@ export default function App() {
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
 
-    const summary = computeMonthlySummary([jobWithId, ...jobs], expenses, goals, settings, currentMonthKey());
-    notifyLineRecordAdded('job', jobWithId, summary.netFlow);
+    notifyLineRecordAdded('job', jobWithId, monthNetSafe([jobWithId]));
   };
 
   const handleEditJob = (id: string, updated: Partial<Job>) => {
@@ -1443,8 +1460,7 @@ export default function App() {
     };
     setExpenses(prev => [expWithId, ...prev]);
 
-    const summary = computeMonthlySummary(jobs, [expWithId, ...expenses], goals, settings, currentMonthKey());
-    notifyLineRecordAdded('expense', expWithId, summary.netFlow);
+    notifyLineRecordAdded('expense', expWithId, monthNetSafe([], [expWithId]));
   };
 
   const handleDeleteExpense = (id: string) => {
@@ -2063,7 +2079,8 @@ export default function App() {
                       onEditJob={handleEditJob}
                       onDeleteJob={handleDeleteJob}
                       isAddJobOpen={isAddJobOpen}
-                      onCloseAddJob={() => setIsAddJobOpen(prev => !prev)}
+                      onOpenAddJob={() => setIsAddJobOpen(true)}
+                      onCloseAddJob={() => setIsAddJobOpen(false)}
                       statuses={statuses}
                       setStatuses={setStatuses}
                       jobTypes={jobTypes}
