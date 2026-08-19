@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Target, Check, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Check, Plus, Backpack, GraduationCap, Laptop, Briefcase } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCamera, IconLaptop, IconGraduation, IconBag, IconPencil, IconClose } from './icons';
 import { AppSettings, Goal, FixedExpenseItem } from '../types';
 import { formatCurrency, formatNumberWithCommas, stripNumberInput, sumFixedExpenseItems } from '../utils';
+
+// Drives the default nav grouping in App.tsx (see PERSONA_CORE_KEYS there) -- picking one
+// here doesn't lock anything away, it just changes what shows up in the main menu by
+// default vs the collapsible "เครื่องมือเพิ่มเติม" section.
+const PERSONA_OPTIONS: { id: NonNullable<AppSettings['userPersona']>; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'school', label: 'นักเรียน', description: 'เก็บเงินค่าขนม บันทึกรายรับ-รายจ่ายง่ายๆ', icon: Backpack },
+  { id: 'university', label: 'นักศึกษา', description: 'มีรายได้พิเศษบ้าง อยากตั้งเป้าออมด้วย', icon: GraduationCap },
+  { id: 'freelance', label: 'ฟรีแลนซ์', description: 'รับงานเป็นชิ้น ต้องตามเครดิตเทอม ออกบิล', icon: Laptop },
+  { id: 'employee', label: 'วัยทำงาน', description: 'เงินเดือนประจำ อยากคุมรายจ่ายและออมเงิน', icon: Briefcase },
+];
 
 interface ProfileSetupWizardProps {
   isOpen: boolean;
@@ -29,12 +39,14 @@ const JOB_TYPE_OPTIONS = [
 ];
 
 const STEP_TITLES = [
+  'คุณคือใคร?',
   'คุณรับงานแบบไหนบ้าง?',
   'ค่าใช้จ่ายคงที่ต่อเดือนของคุณ',
   'อยากตั้งเป้าหมายเก็บเงินไว้เลยไหม?',
 ];
 
 const STEP_DESCRIPTIONS = [
+  'ใช้จัดเมนูหลักให้เหมาะกับคุณ ไม่บังคับ เปลี่ยนทีหลังได้เสมอ',
   'เลือกได้มากกว่า 1 ข้อ ใช้ทำโปรไฟล์ของคุณเท่านั้น',
   'ระบบใช้ยอดนี้คำนวณกำไรสุทธิและแจ้งเตือนให้คุณทุกเดือน',
   'ไม่บังคับ ตั้งเพิ่มทีหลังได้ในหน้าจัดสรรเงิน',
@@ -50,6 +62,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   isPreview = false,
 }) => {
   const [step, setStep] = useState(0);
+  const [persona, setPersona] = useState<AppSettings['userPersona']>(settings.userPersona);
   const [jobTypes, setJobTypes] = useState<string[]>([]);
   const [jobTypeOther, setJobTypeOther] = useState('');
   const [fixedExpenseItems, setFixedExpenseItems] = useState<FixedExpenseItem[]>(settings.fixedExpenseItems || []);
@@ -62,6 +75,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setStep(0);
+      setPersona(settings.userPersona);
       setFixedExpenseItems(settings.fixedExpenseItems || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,7 +83,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
 
   if (!isOpen) return null;
 
-  const totalSteps = 3;
+  const totalSteps = 4;
 
   const toggleJobType = (id: string) => {
     setJobTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
@@ -97,6 +111,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
       profileJobTypes: jobTypes,
       profileJobTypeOther: jobTypeOther.trim() || undefined,
       profileSetupCompleted: true,
+      userPersona: persona,
     });
 
     // Actually wire the answer into the real "เลือกประเภทงาน" picker options — otherwise
@@ -177,6 +192,49 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
             <AnimatePresence mode="wait">
               {step === 0 && (
                 <motion.div
+                  key="step-persona"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2"
+                >
+                  {PERSONA_OPTIONS.map(opt => {
+                    const selected = persona === opt.id;
+                    return (
+                      <motion.button
+                        key={opt.id}
+                        type="button"
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setPersona(opt.id)}
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border text-left text-xs font-bold transition-all cursor-pointer ${
+                          selected
+                            ? 'border-[#E65F2B] bg-[#FDF3EC] dark:bg-[#352115] text-brand-text shadow-sm'
+                            : 'border-brand-border/50 text-brand-text hover:border-brand-border hover:bg-brand-faint/50'
+                        }`}
+                      >
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 transition-colors ${
+                          selected ? 'bg-white dark:bg-stone-900' : 'bg-brand-faint dark:bg-neutral-800'
+                        }`}>
+                          <opt.icon className="w-4 h-4" />
+                        </span>
+                        <span className="flex-1">
+                          <span className="block">{opt.label}</span>
+                          <span className="block text-[10px] font-medium text-brand-muted mt-0.5">{opt.description}</span>
+                        </span>
+                        <div className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                          selected ? 'bg-[#E65F2B] border-[#E65F2B]' : 'border-brand-border/60'
+                        }`}>
+                          {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+              )}
+
+              {step === 1 && (
+                <motion.div
                   key="step0"
                   initial={{ opacity: 0, x: 12 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -224,7 +282,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                 </motion.div>
               )}
 
-              {step === 1 && (
+              {step === 2 && (
                 <motion.div
                   key="step1"
                   initial={{ opacity: 0, x: 12 }}
@@ -293,7 +351,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
                 </motion.div>
               )}
 
-              {step === 2 && (
+              {step === 3 && (
                 <motion.div
                   key="step2"
                   initial={{ opacity: 0, x: 12 }}

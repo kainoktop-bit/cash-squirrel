@@ -64,6 +64,8 @@ type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 
 
 // Core items stay visible at all times; "more" items are grouped under a
 // collapsible section so first-time users see a simpler menu by default.
+// This is the freelance-persona grouping -- also the fallback when no persona is set
+// (existing accounts, or the setup wizard's persona step was skipped).
 const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
   { key: 'dashboard', label: 'ภาพรวมกระแสเงินสด', icon: Home, group: 'core' },
   { key: 'jobs', label: 'บันทึกรายรับ-รายจ่าย', icon: Briefcase, group: 'core' },
@@ -77,6 +79,16 @@ const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ class
   { key: 'plans', label: 'แพ็กเกจ & อัปเกรด', icon: IconCrown, group: 'bottom' },
   { key: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, group: 'bottom' },
 ];
+
+// Every feature stays reachable regardless of persona -- these lists only decide which
+// tabs default to the always-visible "core" row vs the collapsible "more" section.
+// dashboard/jobs/settings/plans aren't listed because they're always core/bottom
+// (handled separately below) for every persona.
+const PERSONA_CORE_KEYS: Record<'school' | 'university' | 'employee', TabKey[]> = {
+  school: ['split'],
+  university: ['split', 'summary'],
+  employee: ['split', 'summary'],
+};
 
 const cleanStatuses = (arr: any[]): StatusOption[] => {
   if (!Array.isArray(arr)) return [
@@ -211,8 +223,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
-  const isMoreTabActive = NAV_ITEMS.some(item => item.group === 'more' && item.key === activeTab);
-  const showMoreNavItems = moreNavOpen || isMoreTabActive;
 
   const renderNavButton = (item: typeof NAV_ITEMS[number], closeMobileOnClick: boolean) => {
     const Icon = item.icon;
@@ -397,6 +407,21 @@ export default function App() {
     const saved = localStorage.getItem('cashflow_settings');
     return saved ? JSON.parse(saved) : defaultSettings;
   });
+
+  // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
+  // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
+  const navItems = React.useMemo(() => {
+    const persona = settings.userPersona;
+    if (!persona || persona === 'freelance') return NAV_ITEMS;
+    const coreKeys = PERSONA_CORE_KEYS[persona];
+    return NAV_ITEMS.map(item =>
+      item.group === 'bottom' || item.key === 'dashboard' || item.key === 'jobs'
+        ? item
+        : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
+    );
+  }, [settings.userPersona]);
+  const isMoreTabActive = navItems.some(item => item.group === 'more' && item.key === activeTab);
+  const showMoreNavItems = moreNavOpen || isMoreTabActive;
 
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
@@ -1488,7 +1513,7 @@ export default function App() {
 
         {/* Desktop Sidebar Navigation List */}
         <nav className="space-y-1.5 flex-1">
-          {NAV_ITEMS.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
+          {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, false))}
 
           {renderMoreToggle()}
           <AnimatePresence initial={false}>
@@ -1500,12 +1525,12 @@ export default function App() {
                 transition={{ duration: 0.2 }}
                 className="space-y-1.5 overflow-hidden"
               >
-                {NAV_ITEMS.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
+                {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, false))}
               </motion.div>
             )}
           </AnimatePresence>
 
-          {NAV_ITEMS.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
+          {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, false))}
         </nav>
 
         {/* User profile & signout container */}
@@ -1652,7 +1677,7 @@ export default function App() {
 
                 {/* Navigation Links inside Drawer */}
                 <nav className="space-y-1.5">
-                  {NAV_ITEMS.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
+                  {navItems.filter(item => item.group === 'core').map(item => renderNavButton(item, true))}
 
                   {renderMoreToggle()}
                   <AnimatePresence initial={false}>
@@ -1664,12 +1689,12 @@ export default function App() {
                         transition={{ duration: 0.2 }}
                         className="space-y-1.5 overflow-hidden"
                       >
-                        {NAV_ITEMS.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
+                        {navItems.filter(item => item.group === 'more').map(item => renderNavButton(item, true))}
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  {NAV_ITEMS.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
+                  {navItems.filter(item => item.group === 'bottom').map(item => renderNavButton(item, true))}
                 </nav>
               </div>
 

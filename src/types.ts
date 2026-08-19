@@ -107,6 +107,10 @@ export interface AppSettings {
   profileSetupCompleted?: boolean; // whether the first-time account setup wizard has been completed
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected
+  // Who the account is for -- drives which nav items default to the always-visible "core"
+  // group vs the collapsible "เครื่องมือเพิ่มเติม" group. Every feature stays reachable either
+  // way; this only changes what's shown by default so first-time users see less at once.
+  userPersona?: 'school' | 'university' | 'freelance' | 'employee';
 }
 
 export interface PendingReminder {
