@@ -19,6 +19,7 @@ import { InvoiceTab } from './components/InvoiceTab';
 import { InsightTab } from './components/InsightTab';
 import { PlansTab } from './components/PlansTab';
 import { supabase } from './supabaseClient';
+import { computeMonthlySummary, currentMonthKey } from '../api/_monthlySummary';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
@@ -1160,6 +1161,28 @@ export default function App() {
     }
   }, [session, isLoadedForUser, jobs, statuses, notifSettings.enabled]);
 
+  // Best-effort push to LINE (if linked) whenever a job/expense is added straight through the
+  // web app -- mirrors the same "bank app" receipt the LINE bot/LIFF form already send, so
+  // recording something here pings LINE too instead of only when added from there. Never blocks
+  // or surfaces an error to the user; a failed/skipped push is silently fine.
+  const notifyLineRecordAdded = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number) => {
+    if (!session?.user?.email || session.isGuest) return;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        await fetch('/api/notify-record-added', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ kind, record, monthNet }),
+        });
+      } catch (err) {
+        console.warn('notifyLineRecordAdded failed:', err);
+      }
+    })();
+  };
+
   // Core functions
   const handleAddJob = (newJob: Omit<Job, 'id'>) => {
     const jobWithId: Job = {
@@ -1173,6 +1196,9 @@ export default function App() {
     });
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
+
+    const summary = computeMonthlySummary([jobWithId, ...jobs], expenses, goals, settings, currentMonthKey());
+    notifyLineRecordAdded('job', jobWithId, summary.netFlow);
   };
 
   const handleEditJob = (id: string, updated: Partial<Job>) => {
@@ -1416,6 +1442,9 @@ export default function App() {
       id: `expense-${Date.now()}`
     };
     setExpenses(prev => [expWithId, ...prev]);
+
+    const summary = computeMonthlySummary(jobs, [expWithId, ...expenses], goals, settings, currentMonthKey());
+    notifyLineRecordAdded('expense', expWithId, summary.netFlow);
   };
 
   const handleDeleteExpense = (id: string) => {

@@ -361,11 +361,27 @@ function buildStatementRow(label: string, value: string, opts?: { size?: string;
   };
 }
 
+// Minimal shape buildJobSavedMessage actually needs -- looser than buildJobFromDraft's return
+// type so api/notify-record-added.ts can hand it a plain Job object straight from the web app
+// (src/types.ts's Job satisfies this structurally) without going through the draft/chat flow.
+export interface JobCardData {
+  id: string;
+  name: string;
+  client: string;
+  value: number;
+  pending?: number;
+  status?: string;
+  whtRate?: number;
+  whtAmount?: number;
+}
+
 // Squirrel-branded Flex "receipt" card shown right after a job is saved -- styled like a bank
 // transfer notification (big amount up top, clean label/value rows below) since that's the
 // clearest, most familiar shape for this kind of confirmation. Falls back to a plain-text
-// summary when APP_URL isn't configured (no working deep link yet).
-export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
+// summary when APP_URL isn't configured (no working deep link yet). monthNet, when given, adds
+// a running "คงเหลือเดือนนี้" line -- the same net-cash-flow figure MonthlyReportTab shows,
+// computed by the caller (see computeMonthlySummary) so this stays a pure display function.
+export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
 
@@ -378,7 +394,8 @@ export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>):
       `มูลค่า: ${formatCurrency(job.value)}`,
       ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
       `สถานะ: ${statusLabel}`,
-      ...(job.pending > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending)}`] : []),
+      ...((job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
+      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(monthNet)}`] : []),
     ];
     return { type: 'text', text: lines.join('\n') };
   }
@@ -398,8 +415,9 @@ export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>):
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
         ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: '#C17817' })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
-        ...(job.pending > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending), { bold: false, color: '#C17817' })] : []),
+        ...((job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
+        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(monthNet), { color: monthNet >= 0 ? '#0E9F6E' : '#A63F1B' })] : []),
       ],
     },
     footer: {
@@ -459,11 +477,19 @@ export async function persistExpense(user: UserRow, expense: Expense): Promise<b
 // accent (--pink-acc in src/index.css) instead of acorn orange, so income vs expense reads apart
 // at a glance. No specific-record deep link yet (only jobs support ?job=<id> in App.tsx), so the
 // button just opens the app.
-export function buildExpenseSavedMessage(expense: Expense): LineMessage {
+export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): LineMessage {
   const appUrl = process.env.APP_URL;
 
   if (!appUrl) {
-    const lines = ['บันทึกรายจ่ายสำเร็จแล้วครับ! 🧾', '', `รายการ: ${expense.name}`, `หมวด: ${expense.category}`, `จำนวน: ${formatCurrency(expense.amount)}`, `วันที่: ${expense.date}`];
+    const lines = [
+      'บันทึกรายจ่ายสำเร็จแล้วครับ! 🧾',
+      '',
+      `รายการ: ${expense.name}`,
+      `หมวด: ${expense.category}`,
+      `จำนวน: ${formatCurrency(expense.amount)}`,
+      `วันที่: ${expense.date}`,
+      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(monthNet)}`] : []),
+    ];
     return { type: 'text', text: lines.join('\n') };
   }
 
@@ -481,6 +507,7 @@ export function buildExpenseSavedMessage(expense: Expense): LineMessage {
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
+        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(monthNet), { color: monthNet >= 0 ? '#0E9F6E' : '#A63F1B' })] : []),
       ],
     },
     footer: {
