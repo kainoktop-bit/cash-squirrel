@@ -83,7 +83,9 @@ export default function JobsTab({
   const [formHoursSpent, setFormHoursSpent] = useState('');
   const [formStatus, setFormStatus] = useState<string>('pending');
   const [formCreditTerm, setFormCreditTerm] = useState<number>(0);
-  const [formPostDate, setFormPostDate] = useState(getLocalDateStr());
+  // Unlike formStartDate (WIP), this one is left blank by default -- it's the actual delivery/
+  // on-air date for an already-posted job, which is rarely "today" and shouldn't be assumed.
+  const [formPostDate, setFormPostDate] = useState('');
   const [formStartDate, setFormStartDate] = useState(getLocalDateStr());
   const [formIsPosted, setFormIsPosted] = useState(false);
   const [formNote, setFormNote] = useState('');
@@ -335,6 +337,13 @@ export default function JobsTab({
       return;
     }
 
+    // formPostDate starts blank on purpose (see its useState comment) -- for a posted job it
+    // feeds payDate/monthly reporting directly, so it can't be left empty like formStartDate can.
+    if (formIsPosted && !formPostDate) {
+      triggerAlert('กรุณาเลือกวันส่งมอบงาน', 'กรุณาระบุวันส่งมอบงานหรือวันออนแอร์จริงก่อนบันทึก');
+      return;
+    }
+
     let finalType = formType;
     if (formType === '__custom__') {
       const trimmed = customTypeInput.trim();
@@ -416,7 +425,7 @@ export default function JobsTab({
     setCustomStatusLabelInput('');
     setCustomStatusBehavior('pending');
     setFormCreditTerm(0);
-    setFormPostDate(getLocalDateStr());
+    setFormPostDate('');
     setFormStartDate(getLocalDateStr());
     setFormIsPosted(false);
     setFormNote('');
@@ -503,7 +512,7 @@ export default function JobsTab({
               setCustomStatusLabelInput('');
               setCustomStatusBehavior('pending');
               setFormCreditTerm(0);
-              setFormPostDate(getLocalDateStr());
+              setFormPostDate('');
               setFormStartDate(getLocalDateStr());
               setFormIsPosted(false);
               setFormNote('');
