@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { calculatePayDate, getRelativeDaysText } from '../src/utils.js';
+import { calculatePayDate, getRelativeDaysText, getThaiMonthName } from '../src/utils.js';
 import type { Expense } from '../src/types.js';
 import type { LineMessage } from './_line.js';
 import {
@@ -545,12 +545,60 @@ async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraf
   return true;
 }
 
+// Bangkok "20 ส.ค. 2569 00:18" style timestamp, matching what people expect from a receipt card.
+function formatThaiTimestamp(): string {
+  const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const day = bkk.getUTCDate();
+  const month = getThaiMonthName(bkk.getUTCMonth(), true);
+  const year = bkk.getUTCFullYear() + 543;
+  const hh = String(bkk.getUTCHours()).padStart(2, '0');
+  const mm = String(bkk.getUTCMinutes()).padStart(2, '0');
+  return `${day} ${month} ${year} ${hh}:${mm}`;
+}
+
+// A colored pill + bold label -- the "รายรับ"/"รายจ่าย" tag at the top of the receipt card.
+function buildPillRow(label: string, color: string, title: string) {
+  return {
+    type: 'box',
+    layout: 'baseline',
+    spacing: 'sm',
+    contents: [
+      {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: color,
+        cornerRadius: '6px',
+        paddingAll: '4px',
+        paddingStart: '8px',
+        paddingEnd: '8px',
+        contents: [{ type: 'text', text: label, size: 'xxs', color: '#FFFFFF', weight: 'bold', align: 'center' }],
+      },
+      { type: 'text', text: title, weight: 'bold', size: 'md', color: '#3D2314', wrap: true },
+    ],
+  };
+}
+
+// A thin two-layer box that reads as a progress bar -- the outer box is the track, the inner
+// one (sized by percent width) is the fill.
+function buildProgressBar(pct: number, fillColor: string) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    backgroundColor: '#E8DFD3',
+    height: '6px',
+    cornerRadius: '3px',
+    margin: 'sm',
+    contents: [{ type: 'box', layout: 'vertical', backgroundColor: fillColor, height: '6px', width: `${Math.max(0, Math.min(100, pct))}%`, cornerRadius: '3px', contents: [] }],
+  };
+}
+
 // Squirrel-branded Flex "receipt" card shown right after a job is saved -- reuses the app's
 // own warm cream/acorn-orange palette (src/index.css :root) so it reads as the same product.
 // Falls back to a plain-text summary when APP_URL isn't configured (no working deep link yet).
 function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
   const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
+  const receivedPct = job.value > 0 ? Math.round((job.received / job.value) * 100) : 0;
 
   if (!appUrl) {
     const lines = [
@@ -565,39 +613,53 @@ function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMe
     return { type: 'text', text: lines.join('\n') };
   }
 
-  const rows: [string, string][] = [
-    ['ชื่องาน', job.name],
-    ...(job.client ? ([['ลูกค้า', job.client]] as [string, string][]) : []),
-    ['มูลค่า', formatCurrency(job.value)],
-    ['สถานะ', statusLabel],
-    ...(job.pending > 0 ? ([['ยอดค้างรับ', formatCurrency(job.pending)]] as [string, string][]) : []),
-  ];
-
-  const bodyContents = rows.map(([label, value]) => ({
-    type: 'box',
-    layout: 'horizontal',
-    contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2 },
-      { type: 'text', text: value, size: 'sm', color: '#3D2314', flex: 3, wrap: true, weight: 'bold' },
-    ],
-  }));
-
   const contents = {
     type: 'bubble',
     header: {
       type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#E65F2B',
+      layout: 'horizontal',
+      backgroundColor: '#FBF2E4',
       paddingAll: '16px',
-      contents: [{ type: 'text', text: '🐿️ บันทึกงานสำเร็จ', color: '#FFFFFF', weight: 'bold', size: 'md' }],
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 4,
+          contents: [
+            { type: 'text', text: 'บันทึกสำเร็จ ✅', weight: 'bold', size: 'lg', color: '#3D2314' },
+            { type: 'text', text: 'ตรวจสอบรายการที่บันทึกด้วยนะครับ', size: 'xs', color: '#7A5C43', wrap: true, margin: 'sm' },
+          ],
+        },
+        { type: 'text', text: '🐿️', size: 'xxl', flex: 1, align: 'end', gravity: 'center' },
+      ],
     },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FBF2E4',
-      spacing: 'md',
+      backgroundColor: '#FFFFFF',
       paddingAll: '16px',
-      contents: bodyContents,
+      spacing: 'sm',
+      contents: [
+        buildPillRow('รายรับ', '#0E9F6E', job.name),
+        { type: 'text', text: formatThaiTimestamp(), size: 'xs', color: '#A89689' },
+        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'md',
+          contents: [
+            { type: 'text', text: statusLabel, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true },
+            { type: 'text', text: formatCurrency(job.value), size: 'xl', weight: 'bold', color: '#0E9F6E', flex: 2, align: 'end' },
+          ],
+        },
+        ...(job.pending > 0
+          ? [
+              buildProgressBar(receivedPct, '#0E9F6E'),
+              { type: 'text', text: `รับแล้ว ${formatCurrency(job.received)} จาก ${formatCurrency(job.value)} • ค้าง ${formatCurrency(job.pending)}`, size: 'xxs', color: '#A89689', margin: 'xs' },
+            ]
+          : []),
+        ...(job.client ? [{ type: 'text', text: `👤 ลูกค้า: ${job.client}`, size: 'xs', color: '#7A5C43', margin: 'md' }] : []),
+      ],
     },
     footer: {
       type: 'box',
@@ -675,38 +737,46 @@ function buildExpenseSavedMessage(expense: Expense): LineMessage {
     return { type: 'text', text: lines.join('\n') };
   }
 
-  const rows: [string, string][] = [
-    ['รายการ', expense.name],
-    ['หมวด', expense.category],
-    ['จำนวน', formatCurrency(expense.amount)],
-    ['วันที่', expense.date],
-  ];
-
-  const bodyContents = rows.map(([label, value]) => ({
-    type: 'box',
-    layout: 'horizontal',
-    contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2 },
-      { type: 'text', text: value, size: 'sm', color: '#3D2314', flex: 3, wrap: true, weight: 'bold' },
-    ],
-  }));
-
   const contents = {
     type: 'bubble',
     header: {
       type: 'box',
-      layout: 'vertical',
-      backgroundColor: '#A63F1B',
+      layout: 'horizontal',
+      backgroundColor: '#FBF2E4',
       paddingAll: '16px',
-      contents: [{ type: 'text', text: '🧾 บันทึกรายจ่ายสำเร็จ', color: '#FFFFFF', weight: 'bold', size: 'md' }],
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          flex: 4,
+          contents: [
+            { type: 'text', text: 'บันทึกสำเร็จ ✅', weight: 'bold', size: 'lg', color: '#3D2314' },
+            { type: 'text', text: 'ตรวจสอบรายการที่บันทึกด้วยนะครับ', size: 'xs', color: '#7A5C43', wrap: true, margin: 'sm' },
+          ],
+        },
+        { type: 'text', text: '🐿️', size: 'xxl', flex: 1, align: 'end', gravity: 'center' },
+      ],
     },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FBF2E4',
-      spacing: 'md',
+      backgroundColor: '#FFFFFF',
       paddingAll: '16px',
-      contents: bodyContents,
+      spacing: 'sm',
+      contents: [
+        buildPillRow('รายจ่าย', '#A63F1B', expense.name),
+        { type: 'text', text: formatThaiTimestamp(), size: 'xs', color: '#A89689' },
+        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'md',
+          contents: [
+            { type: 'text', text: expense.category, size: 'sm', color: '#7A5C43', flex: 3, gravity: 'center', wrap: true },
+            { type: 'text', text: formatCurrency(expense.amount), size: 'xl', weight: 'bold', color: '#A63F1B', flex: 2, align: 'end' },
+          ],
+        },
+      ],
     },
     footer: {
       type: 'box',
