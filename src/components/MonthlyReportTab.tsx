@@ -102,6 +102,11 @@ export default function MonthlyReportTab({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'สร้างรหัสเชื่อมต่อไม่สำเร็จ');
       setLineLinkCode(json.code);
+      // The API wrote this straight to Supabase, bypassing local state -- if we don't mirror
+      // it here too, the app's own debounced/on-hide cloud-save (which fires the instant you
+      // switch to LINE to type the code) will overwrite it with this stale copy and erase it
+      // before you can ever send it.
+      onUpdateNotifSettings({ ...notifSettings, lineLinkCode: json.code, lineLinkCodeExpiresAt: json.expiresAt });
     } catch (err: any) {
       triggerAlert('สร้างรหัสเชื่อมต่อไม่สำเร็จ', err.message || 'ลองใหม่อีกครั้งครับ');
     } finally {
