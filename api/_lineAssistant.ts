@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { calculatePayDate, getRelativeDaysText, getThaiMonthName } from '../src/utils.js';
 import type { Expense } from '../src/types.js';
@@ -14,25 +13,29 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
+// No AI/Gemini calls anywhere in this file by design -- adding a job/expense is a fully
+// deterministic step-by-step questionnaire (one field at a time, simple keyword/number parsing),
+// and everything else is fixed Quick Reply commands. This traded away free-form natural-language
+// understanding on purpose: the Gemini free tier kept hitting rate limits under real testing, and
+// the user chose reliability over flexibility for now.
+
 interface StatusRow {
   id: string;
   label: string;
   behavior: 'done' | 'partial' | 'pending';
 }
 
-// Fields the assistant will actively follow up on (one at a time) when a draft is missing
-// them -- everything else stays optional/best-effort.
-type MissingJobField = 'client' | 'paymentStatus';
-type MissingExpenseField = 'category';
+type JobStep = 'name' | 'client' | 'value' | 'creditTerm' | 'paymentStatus' | 'receivedAmount';
+type ExpenseStep = 'name' | 'category' | 'amount';
 
 interface PendingJobState {
   draft: JobDraft;
-  askedField?: MissingJobField;
+  step: JobStep;
 }
 
 interface PendingExpenseState {
   draft: ExpenseDraft;
-  askedField?: MissingExpenseField;
+  step: ExpenseStep;
 }
 
 interface NotifSettingsRow {
@@ -74,7 +77,7 @@ interface ExpenseDraft {
 }
 
 // Mirrors ExpenseRecordView.tsx's EXPENSE_CATEGORIES -- kept in sync manually since one lives in
-// the web app's UI and the other guides the LINE assistant's free-text extraction.
+// the web app's UI and the other is shown as a numbered pick-list in LINE.
 const EXPENSE_CATEGORIES = [
   'ค่าอุปกรณ์/ซอฟต์แวร์',
   'ค่าโฆษณา/ยิงแอด',
@@ -85,28 +88,6 @@ const EXPENSE_CATEGORIES = [
   'ค่าบริการ/สาธารณูปโภค',
   'อื่นๆ',
 ];
-
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
-}
-
-// The free-tier Gemini quota returns HTTP 429 under bursts (observed in production once testing
-// got chatty) -- one short retry smooths that over without adding much latency to a chat reply.
-async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const isRateLimited = message.includes('"code":429') || message.includes('RESOURCE_EXHAUSTED');
-    if (isRateLimited && attempt < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
-      return callWithRetry(fn, attempt + 1);
-    }
-    throw err;
-  }
-}
 
 // Throws on a genuine Supabase/query error (caller must not treat that the same as "not
 // linked" -- doing so once told an already-linked user their account wasn't found, which reads
@@ -135,9 +116,8 @@ interface DataSnapshot {
   totalPendingAllTime: number;
 }
 
-// All the deterministic math lives here in plain JS -- Gemini is only ever handed the already-
-// computed results below, never asked to sum/compare numbers itself, so answers can't drift
-// from what the app itself shows (the exact bug class this session kept running into).
+// All the deterministic math lives here in plain JS -- matches the app's own formulas exactly
+// (via computeMonthlySummary), so answers can't drift from what the app itself shows.
 function buildDataSnapshot(user: UserRow): DataSnapshot {
   const jobs = user.jobs || [];
   const statuses = user.statuses || [];
@@ -180,9 +160,8 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, totalPendingAllTime };
 }
 
-// Tappable shortcuts (LINE Quick Reply) for the questions people ask most -- these are answered
-// straight from buildDataSnapshot in plain JS with zero Gemini calls, so the busiest queries
-// never touch the AI quota at all. Free-form typing still goes through classifyMessage as usual.
+// Tappable shortcuts (LINE Quick Reply) -- every one of these is answered deterministically,
+// zero AI calls involved anywhere in this flow.
 const QUICK_REPLY: import('./_line.js').LineQuickReply = {
   items: [
     { type: 'action', action: { type: 'message', label: '➕ เพิ่มงาน', text: 'เพิ่มงาน' } },
@@ -225,260 +204,43 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
   งานค้างจ่าย: formatUnpaidQuickReply,
   สรุปเดือนนี้: formatThisMonthQuickReply,
   งานสต็อก: formatWipQuickReply,
-  เพิ่มงาน: () => '✍️ บอกรายละเอียดงานมาได้เลยครับ เช่น\n"รับงานถ่ายภาพจาก ABC 5000 บาท เครดิต 30 วัน"',
-  เพิ่มรายจ่าย: () => '✍️ บอกรายละเอียดรายจ่ายมาได้เลยครับ เช่น\n"จ่ายค่าซอฟต์แวร์ 500 บาท"',
 };
 
-// Combines what used to be several separate Gemini calls (intent gate + job/expense-field
-// extraction, or intent gate + grounded Q&A) into one -- cuts LINE-assistant API usage a lot per
-// message, which matters given the free-tier Gemini quota's per-minute rate limit (a real 429
-// showed up in production once testing got chatty). intent decides which part of the response
-// is meaningful: the job-draft fields, the expense-draft fields, or "answer" -- the rest is empty.
-async function classifyMessage(
-  text: string,
-  snapshot: DataSnapshot
-): Promise<{ intent: 'addJob' | 'addExpense' | 'answer'; answer: string; jobDraft: JobDraft; expenseDraft: ExpenseDraft }> {
-  const ai = getGeminiClient();
-  if (!ai) return { intent: 'answer', answer: 'ระบบตอบคำถามไม่พร้อมใช้งานตอนนี้ครับ ลองใหม่อีกครั้ง', jobDraft: {}, expenseDraft: {} };
+const HELP_TEXT = [
+  '🐿️ ไม่เข้าใจคำสั่งนี้ครับ ลองกดปุ่มด้านล่าง หรือพิมพ์:',
+  '➕ "เพิ่มงาน" เพื่อบันทึกรายรับ',
+  '➕ "เพิ่มรายจ่าย" เพื่อบันทึกรายจ่าย',
+  '📋 "งานค้างจ่าย"',
+  '📊 "สรุปเดือนนี้"',
+  '📦 "งานสต็อก"',
+].join('\n');
 
-  const formatted = {
-    งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
-    งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}`),
-    งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
-    งานที่ครบกำหนดชำระวันนี้: snapshot.dueToday.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(j.pending)}`),
-    ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
-    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายรวม: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(snapshot.thisMonth.netFlow), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
-    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายรวม: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated + snapshot.lastMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(snapshot.lastMonth.netFlow), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.lastMonth.actualSavings) },
-  };
-
-  try {
-    const response = await callWithRetry(() =>
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) คุยกับผู้ใช้ในแชท LINE
-
-ข้อความจากผู้ใช้: "${text}"
-
-ขั้นแรก ตัดสินใจ (intent) ว่าข้อความนี้เป็นแบบไหนใน 3 แบบนี้:
-- "addJob": บันทึกงาน/ดีลรายรับใหม่ (บรรยายว่ารับงานอะไร จากใคร มูลค่าเท่าไหร่)
-- "addExpense": บันทึกรายจ่าย/ค่าใช้จ่ายใหม่ (บรรยายว่าจ่ายค่าอะไร จำนวนเท่าไหร่ -- ไม่ใช่รายรับ)
-- "answer": ทุกอย่างที่ไม่ใช่การบันทึกรายการใหม่ (คำถาม/สอบถามข้อมูล/ทักทาย ฯลฯ) -- ถ้าไม่แน่ใจให้เลือกอันนี้ ไม่ใช่แค่ข้อความที่ตรงตัวอย่างเป๊ะๆ เท่านั้นถึงจะนับ
-
-ถ้า intent = "addJob":
-- แยกข้อมูลใส่ฟิลด์ name/client/type/value/creditTerm/paymentStatus/receivedAmount/note -- ห้ามเดา เว้นว่างถ้าข้อความไม่ได้พูดถึง
-- ปล่อยฟิลด์ answer และฟิลด์ expense* ว่างไว้ทั้งหมด
-
-ถ้า intent = "addExpense":
-- แยกข้อมูลใส่ฟิลด์ expenseName (ชื่อรายการ)/expenseCategory/expenseAmount (จำนวนเงินบาทล้วนๆ)/expenseNote -- ห้ามเดา เว้นว่างถ้าไม่ได้พูดถึง
-- expenseCategory เลือกให้ใกล้เคียงที่สุดจากหมวดนี้: [${EXPENSE_CATEGORIES.join(', ')}] ถ้าไม่ชัดเจนให้เว้นว่างไว้ (จะถามเพิ่มทีหลัง)
-- ปล่อยฟิลด์ answer และฟิลด์ job (name/client/type/value/...) ว่างไว้ทั้งหมด
-
-ถ้า intent = "answer":
-- ตอบคำถามลงในฟิลด์ answer ตามกฎนี้อย่างเคร่งครัด:
-  - ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
-  - ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
-  - ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
-  - ใส่อีโมจิที่เกี่ยวข้องนำหน้าแต่ละบรรทัด/หัวข้อ (เช่น 💰 เงินรับ, 💸 รายจ่าย, 📅 วันที่, ⚠️ ค้างจ่าย/เลยกำหนด) และเว้นบรรทัดว่างคั่นระหว่างหัวข้อเมื่อมีมากกว่า 1 หัวข้อ ให้อ่านง่ายสบายตาแบบแชท ไม่ใช่ตอบเป็นพรืดเดียวยาวๆ
-  - ถ้ารายการว่างเปล่าให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
-  - "กระแสเงินสดสุทธิ" ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) ถ้าถามถึงกำไร ตอบด้วยตัวเลขนี้ได้แต่บอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ยังไม่ได้บันทึก (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน) ซึ่งไม่ถูกรวมในตัวเลขนี้
-  - ถ้าถามว่าตัวเลขไหน "รวมอะไรบ้าง" ให้อธิบายตามจริง และบอกว่าถ้ามีรายจ่ายที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
-- ปล่อยฟิลด์ job และ expense ทั้งหมดว่างไว้
-
-ข้อมูลบัญชีจริง (JSON):
-${JSON.stringify(formatted, null, 2)}`,
-              },
-            ],
-          },
-        ],
-        config: {
-          thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              intent: { type: 'STRING' },
-              answer: { type: 'STRING' },
-              name: { type: 'STRING' },
-              client: { type: 'STRING' },
-              type: { type: 'STRING' },
-              value: { type: 'NUMBER' },
-              creditTerm: { type: 'NUMBER' },
-              paymentStatus: { type: 'STRING' },
-              receivedAmount: { type: 'NUMBER' },
-              note: { type: 'STRING' },
-              expenseName: { type: 'STRING' },
-              expenseCategory: { type: 'STRING' },
-              expenseAmount: { type: 'NUMBER' },
-              expenseNote: { type: 'STRING' },
-            },
-            required: ['intent'],
-          },
-        },
-      })
-    );
-    const parsed = JSON.parse(response.text || '{}');
-    const intent: 'addJob' | 'addExpense' | 'answer' = parsed.intent === 'addJob' || parsed.intent === 'addExpense' ? parsed.intent : 'answer';
-    return {
-      intent,
-      answer: parsed.answer || '',
-      jobDraft: {
-        name: parsed.name,
-        client: parsed.client,
-        type: parsed.type,
-        value: parsed.value,
-        creditTerm: parsed.creditTerm,
-        paymentStatus: parsed.paymentStatus,
-        receivedAmount: parsed.receivedAmount,
-        note: parsed.note,
-      },
-      expenseDraft: {
-        name: parsed.expenseName,
-        category: parsed.expenseCategory,
-        amount: parsed.expenseAmount,
-        note: parsed.expenseNote,
-      },
-    };
-  } catch (err) {
-    console.error('classifyMessage error:', err);
-    return { intent: 'answer', answer: 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ตอนนี้ ลองใหม่อีกครั้งครับ', jobDraft: {}, expenseDraft: {} };
-  }
+// Pulls the first number out of free text ("5000", "5,000 บาท", "ห้าพัน" -- no, just digits).
+function parseNumber(text: string): number | null {
+  const match = text.replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  const n = parseFloat(match[0]);
+  return Number.isFinite(n) ? n : null;
 }
 
-// Once a job draft is asking about a specific field, this reply is almost certainly the answer
-// to that field -- but stays a full extraction (not a plain string assignment) so a natural
-// reply like "เก็บครบแล้วครับ 5000" still gets read correctly instead of being taken literally.
-async function extractFollowUpAnswer(question: string, answerText: string): Promise<JobDraft> {
-  const ai = getGeminiClient();
-  if (!ai) return {};
-  try {
-    const response = await callWithRetry(() =>
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `กำลังบันทึกงานฟรีแลนซ์ในแชท คุณเพิ่งถามผู้ใช้ว่า: "${question}"
-ผู้ใช้ตอบว่า: "${answerText}"
-
-แยกข้อมูลที่เกี่ยวข้องออกมาเป็นฟิลด์ต่อไปนี้ (เว้นว่างถ้าคำตอบไม่ได้พูดถึงฟิลด์นั้นเลย ห้ามเดา):
-- client: ชื่อลูกค้าหรือแบรนด์
-- paymentStatus: "paid" ถ้าจ่ายครบแล้ว, "partial" ถ้ามัดจำบางส่วน, "pending" ถ้ายังไม่จ่าย
-- receivedAmount: จำนวนเงินที่ได้รับแล้วจริงเป็นบาท ถ้ามีพูดถึง
-- creditTerm: จำนวนวันเครดิตเทอม ถ้ามีพูดถึง (0 ถ้าได้เงินทันที)
-- name, type, value, note: เติมด้วยถ้าคำตอบบังเอิญพูดถึงเรื่องพวกนี้เพิ่มเติมมาด้วย`,
-              },
-            ],
-          },
-        ],
-        config: {
-          thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              name: { type: 'STRING' },
-              client: { type: 'STRING' },
-              type: { type: 'STRING' },
-              value: { type: 'NUMBER' },
-              creditTerm: { type: 'NUMBER' },
-              paymentStatus: { type: 'STRING' },
-              receivedAmount: { type: 'NUMBER' },
-              note: { type: 'STRING' },
-            },
-          },
-        },
-      })
-    );
-    return JSON.parse(response.text || '{}');
-  } catch (err) {
-    console.error('extractFollowUpAnswer error:', err);
-    return {};
-  }
-}
-
-// Expense drafts only ever need to follow up on one field (category), so this stays much
-// simpler than extractFollowUpAnswer above -- same idea, smaller schema.
-async function extractExpenseFollowUp(question: string, answerText: string): Promise<ExpenseDraft> {
-  const ai = getGeminiClient();
-  if (!ai) return {};
-  try {
-    const response = await callWithRetry(() =>
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `กำลังบันทึกรายจ่ายในแชท คุณเพิ่งถามผู้ใช้ว่า: "${question}"
-ผู้ใช้ตอบว่า: "${answerText}"
-
-แยกข้อมูลออกมา (เว้นว่างถ้าคำตอบไม่ได้พูดถึงฟิลด์นั้นเลย ห้ามเดา):
-- category: เลือกให้ใกล้เคียงที่สุดจาก [${EXPENSE_CATEGORIES.join(', ')}] ถ้าผู้ใช้พูดคำอื่นที่ไม่เข้าหมวดไหนเลยให้ใช้คำที่ผู้ใช้พูดตรงๆ
-- name, amount, note: เติมด้วยถ้าคำตอบบังเอิญพูดถึงเรื่องพวกนี้เพิ่มเติมมาด้วย`,
-              },
-            ],
-          },
-        ],
-        config: {
-          thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              name: { type: 'STRING' },
-              category: { type: 'STRING' },
-              amount: { type: 'NUMBER' },
-              note: { type: 'STRING' },
-            },
-          },
-        },
-      })
-    );
-    return JSON.parse(response.text || '{}');
-  } catch (err) {
-    console.error('extractExpenseFollowUp error:', err);
-    return {};
-  }
-}
-
-function mergeRecord<T extends object>(base: T, extra: Partial<T>): T {
-  const merged = { ...base } as Record<string, unknown>;
-  Object.keys(extra).forEach((key) => {
-    const value = (extra as Record<string, unknown>)[key];
-    if (value !== undefined && value !== null && value !== '') {
-      merged[key] = value;
-    }
-  });
-  return merged as T;
-}
-
-const JOB_FIELD_QUESTIONS: Record<MissingJobField, string> = {
-  client: 'ลูกค้าชื่ออะไรครับ',
-  paymentStatus: 'ได้รับเงินแล้วหรือยังครับ (จ่ายครบแล้ว / มัดจำบางส่วน / ยังไม่จ่าย)',
+const JOB_STEP_PROMPTS: Record<JobStep, string> = {
+  name: '📝 ชื่องาน/โปรเจกต์อะไรครับ',
+  client: '👤 ลูกค้าชื่ออะไรครับ (ถ้าไม่มีพิมพ์ "-")',
+  value: '💰 มูลค่างานเท่าไหร่ครับ (พิมพ์ตัวเลข เช่น 5000)',
+  creditTerm: '📅 เครดิตเทอมกี่วันครับ (พิมพ์ 0 ถ้าได้เงินทันที)',
+  paymentStatus: 'ได้รับเงินแล้วหรือยังครับ?\n1) จ่ายครบแล้ว\n2) มัดจำบางส่วน\n3) ยังไม่จ่าย\n(พิมพ์ 1, 2 หรือ 3)',
+  receivedAmount: '💵 มัดจำมาแล้วกี่บาทครับ',
 };
 
-function missingRequiredJobFields(draft: JobDraft): MissingJobField[] {
-  const missing: MissingJobField[] = [];
-  if (!draft.client) missing.push('client');
-  if (!draft.paymentStatus) missing.push('paymentStatus');
-  return missing;
-}
+const JOB_STEP_ORDER: JobStep[] = ['name', 'client', 'value', 'creditTerm', 'paymentStatus'];
 
-const EXPENSE_FIELD_QUESTIONS: Record<MissingExpenseField, string> = {
-  category: `รายจ่ายนี้เป็นหมวดไหนครับ เช่น ${EXPENSE_CATEGORIES.slice(0, 4).join(' / ')} ...`,
+const EXPENSE_STEP_PROMPTS: Record<ExpenseStep, string> = {
+  name: '📝 ชื่อรายการรายจ่ายอะไรครับ',
+  category: `📂 เลือกหมวดหมู่ครับ (พิมพ์ตัวเลข)\n${EXPENSE_CATEGORIES.map((c, i) => `${i + 1}) ${c}`).join('\n')}`,
+  amount: '💰 จำนวนเงินเท่าไหร่ครับ (พิมพ์ตัวเลข)',
 };
 
-function missingRequiredExpenseFields(draft: ExpenseDraft): MissingExpenseField[] {
-  return draft.category ? [] : ['category'];
-}
+const EXPENSE_STEP_ORDER: ExpenseStep[] = ['name', 'category', 'amount'];
 
 async function updateNotifSettings(userId: string, notifSettings: NotifSettingsRow): Promise<void> {
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: notifSettings }).eq('user_id', userId);
@@ -493,6 +255,17 @@ async function savePendingJob(user: UserRow, state: PendingJobState): Promise<vo
 async function clearPendingJob(user: UserRow): Promise<void> {
   const notifSettings: NotifSettingsRow = { ...(user.notif_settings || {}) };
   delete notifSettings.linePendingJob;
+  await updateNotifSettings(user.user_id, notifSettings);
+}
+
+async function savePendingExpense(user: UserRow, state: PendingExpenseState): Promise<void> {
+  const notifSettings: NotifSettingsRow = user.notif_settings || {};
+  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingExpense: state });
+}
+
+async function clearPendingExpense(user: UserRow): Promise<void> {
+  const notifSettings: NotifSettingsRow = { ...(user.notif_settings || {}) };
+  delete notifSettings.linePendingExpense;
   await updateNotifSettings(user.user_id, notifSettings);
 }
 
@@ -633,17 +406,6 @@ async function saveDraftNow(user: UserRow, draft: JobDraft): Promise<LineMessage
   return buildJobSavedMessage(job);
 }
 
-async function savePendingExpense(user: UserRow, state: PendingExpenseState): Promise<void> {
-  const notifSettings: NotifSettingsRow = user.notif_settings || {};
-  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingExpense: state });
-}
-
-async function clearPendingExpense(user: UserRow): Promise<void> {
-  const notifSettings: NotifSettingsRow = { ...(user.notif_settings || {}) };
-  delete notifSettings.linePendingExpense;
-  await updateNotifSettings(user.user_id, notifSettings);
-}
-
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
 function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
   const today = (() => {
@@ -729,8 +491,86 @@ function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'part
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
 
-const DECLINE_KEYWORDS = ['ไม่ต้องถาม', 'พอแล้ว', 'แค่นี้พอ', 'บันทึกเลย', 'ไม่ต้องละเอียด', 'เอาแค่นี้', 'ข้ามไป', 'ไม่ทราบ', 'ไม่รู้เหมือนกัน'];
 const CANCEL_KEYWORDS = ['ยกเลิก', 'cancel', 'ไม่เอาแล้ว', 'เริ่มใหม่'];
+
+// Advances the job-entry questionnaire by exactly one step given the answer to the step it's
+// currently on. Returns either a follow-up prompt (still collecting) or the final saved message.
+async function advanceJobStep(user: UserRow, pending: PendingJobState, trimmed: string): Promise<LineMessage> {
+  const draft: JobDraft = { ...pending.draft };
+  const step = pending.step;
+
+  if (step === 'name') {
+    if (!trimmed) return { type: 'text', text: JOB_STEP_PROMPTS.name };
+    draft.name = trimmed;
+  } else if (step === 'client') {
+    draft.client = trimmed === '-' || /^(ไม่มี|ไม่ระบุ|ข้าม)$/.test(trimmed) ? '' : trimmed;
+  } else if (step === 'value') {
+    const n = parseNumber(trimmed);
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 5000' };
+    draft.value = n;
+  } else if (step === 'creditTerm') {
+    const n = parseNumber(trimmed);
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 0 หรือ 30' };
+    draft.creditTerm = n;
+  } else if (step === 'paymentStatus') {
+    if (/(^|\D)1(\D|$)|ครบ|จ่ายแล้ว|paid/i.test(trimmed)) {
+      draft.paymentStatus = 'paid';
+    } else if (/(^|\D)2(\D|$)|มัดจำ|บางส่วน|partial/i.test(trimmed)) {
+      draft.paymentStatus = 'partial';
+    } else if (/(^|\D)3(\D|$)|ยังไม่|ค้าง|pending/i.test(trimmed)) {
+      draft.paymentStatus = 'pending';
+    } else {
+      return { type: 'text', text: JOB_STEP_PROMPTS.paymentStatus };
+    }
+  } else if (step === 'receivedAmount') {
+    const n = parseNumber(trimmed);
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 1000' };
+    draft.receivedAmount = n;
+    return await saveDraftNow(user, draft);
+  }
+
+  if (step === 'paymentStatus' && draft.paymentStatus === 'partial') {
+    await savePendingJob(user, { draft, step: 'receivedAmount' });
+    return { type: 'text', text: JOB_STEP_PROMPTS.receivedAmount };
+  }
+  if (step === 'paymentStatus') {
+    return await saveDraftNow(user, draft);
+  }
+
+  const nextIdx = JOB_STEP_ORDER.indexOf(step) + 1;
+  const next = JOB_STEP_ORDER[nextIdx];
+  await savePendingJob(user, { draft, step: next });
+  return { type: 'text', text: JOB_STEP_PROMPTS[next] };
+}
+
+async function advanceExpenseStep(user: UserRow, pending: PendingExpenseState, trimmed: string): Promise<LineMessage> {
+  const draft: ExpenseDraft = { ...pending.draft };
+  const step = pending.step;
+
+  if (step === 'name') {
+    if (!trimmed) return { type: 'text', text: EXPENSE_STEP_PROMPTS.name };
+    draft.name = trimmed;
+  } else if (step === 'category') {
+    const n = parseInt(trimmed, 10);
+    if (Number.isInteger(n) && n >= 1 && n <= EXPENSE_CATEGORIES.length) {
+      draft.category = EXPENSE_CATEGORIES[n - 1];
+    } else if (trimmed) {
+      draft.category = trimmed;
+    } else {
+      return { type: 'text', text: EXPENSE_STEP_PROMPTS.category };
+    }
+  } else if (step === 'amount') {
+    const n = parseNumber(trimmed);
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 500' };
+    draft.amount = n;
+    return await saveExpenseDraftNow(user, draft);
+  }
+
+  const nextIdx = EXPENSE_STEP_ORDER.indexOf(step) + 1;
+  const next = EXPENSE_STEP_ORDER[nextIdx];
+  await savePendingExpense(user, { draft, step: next });
+  return { type: 'text', text: EXPENSE_STEP_PROMPTS[next] };
+}
 
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
 // to any app account yet, so the caller can fall back to the link-code flow. Every non-null
@@ -761,97 +601,31 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     return { type: 'text', text: QUICK_ACTIONS[trimmed](snapshot) };
   }
 
-  if (notifSettings.linePendingJob) {
-    const pending = notifSettings.linePendingJob;
+  if (trimmed === 'เพิ่มงาน') {
+    await savePendingJob(user, { draft: {}, step: 'name' });
+    return { type: 'text', text: JOB_STEP_PROMPTS.name };
+  }
 
+  if (trimmed === 'เพิ่มรายจ่าย') {
+    await savePendingExpense(user, { draft: {}, step: 'name' });
+    return { type: 'text', text: EXPENSE_STEP_PROMPTS.name };
+  }
+
+  if (notifSettings.linePendingJob) {
     if (CANCEL_KEYWORDS.some((k) => lower.includes(k))) {
       await clearPendingJob(user);
       return { type: 'text', text: 'ยกเลิกการบันทึกงานแล้วครับ' };
     }
-
-    if (DECLINE_KEYWORDS.some((k) => lower.includes(k))) {
-      return await saveDraftNow(user, pending.draft);
-    }
-
-    // Otherwise this message answers whatever field was last asked -- merge it in and either
-    // ask the next missing field or, once everything required is there, save immediately
-    // (no separate "confirm" step; the saved-job card itself is the receipt to review/edit).
-    // askedField is always set by both call sites that create a pending state below, so this
-    // question text is always the real one the user is replying to.
-    const question = pending.askedField ? JOB_FIELD_QUESTIONS[pending.askedField] : 'ขอรายละเอียดเพิ่มเติมครับ';
-    const answered = await extractFollowUpAnswer(question, trimmed);
-    const merged = mergeRecord(pending.draft, answered);
-    const stillMissing = missingRequiredJobFields(merged);
-
-    if (stillMissing.length === 0) {
-      return await saveDraftNow(user, merged);
-    }
-
-    const nextField = stillMissing[0];
-    await savePendingJob(user, { draft: merged, askedField: nextField });
-    return { type: 'text', text: JOB_FIELD_QUESTIONS[nextField] };
+    return await advanceJobStep(user, notifSettings.linePendingJob, trimmed);
   }
 
   if (notifSettings.linePendingExpense) {
-    const pending = notifSettings.linePendingExpense;
-
     if (CANCEL_KEYWORDS.some((k) => lower.includes(k))) {
       await clearPendingExpense(user);
       return { type: 'text', text: 'ยกเลิกการบันทึกรายจ่ายแล้วครับ' };
     }
-
-    if (DECLINE_KEYWORDS.some((k) => lower.includes(k))) {
-      return await saveExpenseDraftNow(user, pending.draft);
-    }
-
-    const question = pending.askedField ? EXPENSE_FIELD_QUESTIONS[pending.askedField] : 'ขอรายละเอียดเพิ่มเติมครับ';
-    const answered = await extractExpenseFollowUp(question, trimmed);
-    const merged = mergeRecord(pending.draft, answered);
-    const stillMissing = missingRequiredExpenseFields(merged);
-
-    if (stillMissing.length === 0) {
-      return await saveExpenseDraftNow(user, merged);
-    }
-
-    const nextField = stillMissing[0];
-    await savePendingExpense(user, { draft: merged, askedField: nextField });
-    return { type: 'text', text: EXPENSE_FIELD_QUESTIONS[nextField] };
+    return await advanceExpenseStep(user, notifSettings.linePendingExpense, trimmed);
   }
 
-  const snapshot = buildDataSnapshot(user);
-  const classified = await classifyMessage(trimmed, snapshot);
-
-  if (classified.intent === 'addJob') {
-    const draft = classified.jobDraft;
-    if (!draft.name || draft.value == null) {
-      return { type: 'text', text: 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"' };
-    }
-
-    const missing = missingRequiredJobFields(draft);
-    if (missing.length === 0) {
-      return await saveDraftNow(user, draft);
-    }
-
-    const nextField = missing[0];
-    await savePendingJob(user, { draft, askedField: nextField });
-    return { type: 'text', text: JOB_FIELD_QUESTIONS[nextField] };
-  }
-
-  if (classified.intent === 'addExpense') {
-    const draft = classified.expenseDraft;
-    if (!draft.name || draft.amount == null) {
-      return { type: 'text', text: 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่อรายการ" กับ "จำนวนเงิน" เช่น\n"จ่ายค่าซอฟต์แวร์ 500 บาท"' };
-    }
-
-    const missing = missingRequiredExpenseFields(draft);
-    if (missing.length === 0) {
-      return await saveExpenseDraftNow(user, draft);
-    }
-
-    const nextField = missing[0];
-    await savePendingExpense(user, { draft, askedField: nextField });
-    return { type: 'text', text: EXPENSE_FIELD_QUESTIONS[nextField] };
-  }
-
-  return { type: 'text', text: classified.answer || 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกครั้งครับ' };
+  return { type: 'text', text: HELP_TEXT };
 }
