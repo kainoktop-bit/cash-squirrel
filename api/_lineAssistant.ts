@@ -67,11 +67,14 @@ async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
   return (data as UserRow) || null;
 }
 
-type Intent = 'add_job' | 'query_wip' | 'query_unpaid' | 'query_overdue' | 'query_month_summary' | 'other';
-
-async function classifyIntent(text: string): Promise<{ intent: Intent; targetMonth: 'current' | 'last' }> {
+// Only decides whether this message is trying to RECORD a new job (a write, so it needs the
+// careful extract -> confirm -> save flow below) versus everything else, which goes to the
+// free-form data-grounded Q&A instead. Keeping this gate narrow and binary -- rather than
+// sorting every message into a fixed set of query buckets -- is what lets Q&A understand
+// arbitrary phrasing instead of only near-exact matches to canned examples.
+async function isAddJobRequest(text: string): Promise<boolean> {
   const ai = getGeminiClient();
-  if (!ai) return { intent: 'other', targetMonth: 'current' };
+  if (!ai) return false;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-lite',
@@ -80,17 +83,10 @@ async function classifyIntent(text: string): Promise<{ intent: Intent; targetMon
           role: 'user',
           parts: [
             {
-              text: `จัดหมวดหมู่ข้อความนี้จากแชท LINE ของแอปกระรอกตุนเงิน (แอปจัดการเงินสำหรับฟรีแลนซ์): "${text}"
+              text: `ข้อความนี้จากแชท LINE ของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์): "${text}"
 
-เลือกหมวดหมู่ที่ตรงที่สุดจากนี้เท่านั้น:
-- "add_job": ผู้ใช้ต้องการบันทึกงาน/ดีลใหม่ (พูดถึงการรับงาน ได้เงิน ลูกค้า มูลค่างาน)
-- "query_wip": ถามเกี่ยวกับงานที่ยังไม่โพสต์/อยู่ระหว่างเตรียมผลิต (เช่น "งานสต็อกมีอะไรบ้าง")
-- "query_unpaid": ถามเกี่ยวกับงานที่ยังไม่ได้รับเงิน/ค้างจ่าย
-- "query_overdue": ถามเกี่ยวกับงานที่เลยกำหนดชำระแล้ว
-- "query_month_summary": ถามสรุปรายรับ/รายงานประจำเดือน
-- "other": ทักทาย หรือไม่ชัดเจนว่าต้องการอะไร
-
-ถ้าเป็น query_month_summary ให้ระบุ targetMonth เป็น "last" ถ้าพูดถึงเดือนที่แล้ว มิฉะนั้นเป็น "current"`,
+ผู้ใช้กำลังจะ "บันทึกงาน/ดีลใหม่" (บรรยายว่ารับงานอะไร จากใคร มูลค่าเท่าไหร่ เพื่อบันทึกเป็นรายการใหม่) ใช่หรือไม่?
+ถ้าเป็นแค่การถามคำถาม/สอบถามข้อมูล (ไม่ว่าจะถามเรื่องอะไรก็ตาม) ให้ตอบ false ไม่ใช่แค่คำถามที่ตรงกับตัวอย่างเป๊ะๆ เท่านั้น`,
             },
           ],
         },
@@ -100,21 +96,120 @@ async function classifyIntent(text: string): Promise<{ intent: Intent; targetMon
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
-          properties: {
-            intent: { type: 'STRING' },
-            targetMonth: { type: 'STRING' },
-          },
-          required: ['intent'],
+          properties: { isAddJob: { type: 'BOOLEAN' } },
+          required: ['isAddJob'],
         },
       },
     });
     const parsed = JSON.parse(response.text || '{}');
-    const validIntents: Intent[] = ['add_job', 'query_wip', 'query_unpaid', 'query_overdue', 'query_month_summary', 'other'];
-    const intent: Intent = validIntents.includes(parsed.intent) ? parsed.intent : 'other';
-    return { intent, targetMonth: parsed.targetMonth === 'last' ? 'last' : 'current' };
+    return !!parsed.isAddJob;
   } catch (err) {
-    console.error('classifyIntent error:', err);
-    return { intent: 'other', targetMonth: 'current' };
+    console.error('isAddJobRequest error:', err);
+    return false;
+  }
+}
+
+interface DataSnapshot {
+  wip: { name: string; client: string; value: number }[];
+  unpaid: { name: string; client: string; pending: number; dueText: string }[];
+  overdue: { name: string; client: string; pending: number; overdueText: string }[];
+  dueToday: { name: string; client: string; pending: number }[];
+  thisMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
+  lastMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
+  totalPendingAllTime: number;
+}
+
+// All the deterministic math lives here in plain JS -- Gemini is only ever handed the already-
+// computed results below, never asked to sum/compare numbers itself, so answers can't drift
+// from what the app itself shows (the exact bug class this session kept running into).
+function buildDataSnapshot(user: UserRow): DataSnapshot {
+  const jobs = user.jobs || [];
+  const statuses = user.statuses || [];
+  const isUnpaidBehavior = (statusId: string) => statusBehavior(statuses, statusId) !== 'done';
+
+  const wip = jobs
+    .filter((j) => j.isPosted === false)
+    .map((j) => ({ name: j.name, client: j.client || '', value: j.value || 0 }));
+
+  const unpaidJobs = jobs.filter((j) => (j.pending || 0) > 0 && isUnpaidBehavior(j.status || ''));
+  const unpaid = unpaidJobs.map((j) => {
+    const dateStr = j.dueDate || j.payDate;
+    return { name: j.name, client: j.client || '', pending: j.pending || 0, dueText: dateStr ? getRelativeDaysText(dateStr).text : 'ไม่ระบุวันครบกำหนด' };
+  });
+
+  const overdue = unpaidJobs
+    .filter((j) => {
+      const dateStr = j.dueDate || j.payDate;
+      return dateStr ? getRelativeDaysText(dateStr).isOverdue : false;
+    })
+    .map((j) => {
+      const rel = getRelativeDaysText(j.dueDate || j.payDate);
+      return { name: j.name, client: j.client || '', pending: j.pending || 0, overdueText: rel.text };
+    });
+
+  const dueToday = unpaidJobs
+    .filter((j) => {
+      const dateStr = j.dueDate || j.payDate;
+      return dateStr ? getRelativeDaysText(dateStr).text === 'วันนี้' : false;
+    })
+    .map((j) => ({ name: j.name, client: j.client || '', pending: j.pending || 0 }));
+
+  const thisMonthKey = currentMonthKey();
+  const lastMonthKey = previousMonthKey();
+  const thisMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, thisMonthKey), monthKey: thisMonthKey };
+  const lastMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, lastMonthKey), monthKey: lastMonthKey };
+
+  const totalPendingAllTime = unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
+
+  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, totalPendingAllTime };
+}
+
+async function answerFromData(text: string, snapshot: DataSnapshot): Promise<string> {
+  const ai = getGeminiClient();
+  if (!ai) return 'ระบบตอบคำถามไม่พร้อมใช้งานตอนนี้ครับ ลองใหม่อีกครั้ง';
+
+  const formatted = {
+    งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
+    งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}`),
+    งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
+    งานที่ครบกำหนดชำระวันนี้: snapshot.dueToday.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(j.pending)}`),
+    ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
+    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายรวม: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(snapshot.thisMonth.netFlow), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
+    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายรวม: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated + snapshot.lastMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(snapshot.lastMonth.netFlow), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.lastMonth.actualSavings) },
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
+
+กฎสำคัญ:
+- ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเอง
+- ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
+- ตอบสั้น กระชับ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
+- ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
+
+ข้อมูลบัญชีจริง (JSON):
+${JSON.stringify(formatted, null, 2)}
+
+คำถามจากผู้ใช้: "${text}"`,
+            },
+          ],
+        },
+      ],
+      config: {
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+    return response.text?.trim() || 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ ลองถามใหม่อีกครั้งครับ';
+  } catch (err) {
+    console.error('answerFromData error:', err);
+    return 'ขอโทษครับ ตอบคำถามนี้ไม่ได้ตอนนี้ ลองใหม่อีกครั้งครับ';
   }
 }
 
@@ -252,46 +347,6 @@ function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'part
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
 
-function formatWipJobsReply(jobs: JobRow[]): string {
-  const wip = jobs.filter((j) => j.isPosted === false);
-  if (wip.length === 0) return '🌰 ตอนนี้ไม่มีงานที่อยู่ในสต็อก/เตรียมผลิตเลยครับ';
-  const lines = wip.map((j) => `• ${j.name}${j.client ? ` (${j.client})` : ''} -- ${formatCurrency(j.value)}`);
-  return `📦 งานสต็อก/เตรียมผลิต (${wip.length} รายการ):\n${lines.join('\n')}`;
-}
-
-function formatUnpaidJobsReply(jobs: JobRow[], statuses: StatusRow[]): string {
-  const unpaid = jobs.filter((j) => (j.pending || 0) > 0 && statusBehavior(statuses, j.status || '') !== 'done');
-  if (unpaid.length === 0) return '🌰 ไม่มีงานค้างจ่ายเลยครับ เคลียร์หมดแล้ว!';
-  const total = unpaid.reduce((sum, j) => sum + (j.pending || 0), 0);
-  const lines = unpaid.map((j) => `• ${j.name}${j.client ? ` (${j.client})` : ''} -- ค้าง ${formatCurrency(j.pending || 0)}`);
-  return `💰 งานที่ยังไม่จ่าย (${unpaid.length} รายการ รวม ${formatCurrency(total)}):\n${lines.join('\n')}`;
-}
-
-function formatOverdueJobsReply(jobs: JobRow[], statuses: StatusRow[]): string {
-  const overdue = jobs.filter((j) => {
-    if ((j.pending || 0) <= 0 || statusBehavior(statuses, j.status || '') === 'done') return false;
-    const dateStr = j.dueDate || j.payDate;
-    return dateStr ? getRelativeDaysText(dateStr).isOverdue : false;
-  });
-  if (overdue.length === 0) return '🌰 ไม่มีงานที่เลยกำหนดชำระเลยครับ';
-  const lines = overdue.map((j) => {
-    const rel = getRelativeDaysText(j.dueDate || j.payDate);
-    return `• ${j.name}${j.client ? ` (${j.client})` : ''} -- ค้าง ${formatCurrency(j.pending || 0)} (${rel.text})`;
-  });
-  return `⚠️ งานที่เลยกำหนดชำระ (${overdue.length} รายการ):\n${lines.join('\n')}`;
-}
-
-function formatMonthSummaryLine(monthKey: string, summary: ReturnType<typeof computeMonthlySummary>): string {
-  return [
-    `📊 สรุปเดือน ${monthKey}`,
-    '',
-    `รับแล้วจริง: ${formatCurrency(summary.received)}`,
-    `รายจ่ายรวม: ${formatCurrency(summary.fixedExpenseCalculated + summary.variableExpense)}`,
-    `กระแสเงินสดสุทธิ: ${formatCurrency(summary.netFlow)}`,
-    `ยอดออมสะสมโดยประมาณ: ${formatCurrency(summary.actualSavings)}`,
-  ].join('\n');
-}
-
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
 // to any app account yet, so the caller can fall back to the link-code flow.
 export async function handleAssistantMessage(lineUserId: string, text: string): Promise<string | null> {
@@ -314,29 +369,15 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
     return `ยังมีงานค้างยืนยันอยู่ครับ:\n\n${formatJobDraft(draft)}\n\nพิมพ์ "ยืนยัน" เพื่อบันทึก หรือ "ยกเลิก" เพื่อเริ่มใหม่ครับ`;
   }
 
-  const { intent, targetMonth } = await classifyIntent(trimmed);
-
-  switch (intent) {
-    case 'add_job': {
-      const draft = await extractJobDraft(trimmed);
-      if (!draft.name || draft.value == null) {
-        return 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"';
-      }
-      await savePendingJob(user, draft);
-      return `ตรวจสอบข้อมูลก่อนบันทึกครับ:\n\n${formatJobDraft(draft)}\n\nพิมพ์ "ยืนยัน" เพื่อบันทึก หรือ "ยกเลิก" เพื่อเริ่มใหม่ครับ`;
+  if (await isAddJobRequest(trimmed)) {
+    const draft = await extractJobDraft(trimmed);
+    if (!draft.name || draft.value == null) {
+      return 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"';
     }
-    case 'query_wip':
-      return formatWipJobsReply(user.jobs || []);
-    case 'query_unpaid':
-      return formatUnpaidJobsReply(user.jobs || [], user.statuses || []);
-    case 'query_overdue':
-      return formatOverdueJobsReply(user.jobs || [], user.statuses || []);
-    case 'query_month_summary': {
-      const monthKey = targetMonth === 'last' ? previousMonthKey() : currentMonthKey();
-      const summary = computeMonthlySummary(user.jobs || [], user.expenses || [], user.goals || [], user.settings || {}, monthKey);
-      return formatMonthSummaryLine(monthKey, summary);
-    }
-    default:
-      return 'พิมพ์คำสั่งแบบนี้ได้ครับ:\n• "รับงานสปอนเซอร์จาก ABC 5000 บาท" (เพิ่มงาน)\n• "งานสต็อกมีอะไรบ้าง" (งานที่ยังไม่โพสต์)\n• "งานที่ยังไม่จ่ายมีอะไรบ้าง"\n• "งานที่เลยกำหนดมีอะไรบ้าง"\n• "รายงานเดือนนี้" หรือ "รายงานเดือนที่แล้ว"';
+    await savePendingJob(user, draft);
+    return `ตรวจสอบข้อมูลก่อนบันทึกครับ:\n\n${formatJobDraft(draft)}\n\nพิมพ์ "ยืนยัน" เพื่อบันทึก หรือ "ยกเลิก" เพื่อเริ่มใหม่ครับ`;
   }
+
+  const snapshot = buildDataSnapshot(user);
+  return await answerFromData(trimmed, snapshot);
 }
