@@ -64,6 +64,10 @@ function getGeminiClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey });
 }
 
+// Throws on a genuine Supabase/query error (caller must not treat that the same as "not
+// linked" -- doing so once told an already-linked user their account wasn't found, which reads
+// as the bot lying). Only a real empty result means "not linked", so the caller can fall back
+// to the link-code flow.
 async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
   const { data, error } = await supabaseAdmin
     .from('user_cashflow_data')
@@ -72,7 +76,7 @@ async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
     .maybeSingle();
   if (error) {
     console.error('findUserByLineId error:', error);
-    return null;
+    throw new Error(`findUserByLineId: ${error.message}`);
   }
   return (data as UserRow) || null;
 }
@@ -199,10 +203,12 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
               text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
 
 กฎสำคัญ:
-- ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเอง
+- ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
 - ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
-- ตอบสั้น กระชับ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
+- ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
 - ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
+- "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
+- ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
 
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
@@ -504,7 +510,15 @@ const CANCEL_KEYWORDS = ['ยกเลิก', 'cancel', 'ไม่เอาแ�
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
 // to any app account yet, so the caller can fall back to the link-code flow.
 export async function handleAssistantMessage(lineUserId: string, text: string): Promise<LineMessage | null> {
-  const user = await findUserByLineId(lineUserId);
+  let user: UserRow | null;
+  try {
+    user = await findUserByLineId(lineUserId);
+  } catch (err) {
+    // A real query error, not "this LINE user isn't linked" -- must never fall through to the
+    // link-code flow, since that would wrongly tell an already-linked user they aren't linked.
+    console.error('handleAssistantMessage: findUserByLineId failed:', err);
+    return { type: 'text', text: 'ขอโทษครับ ระบบมีปัญหาชั่วคราวตอนนี้ ลองพิมพ์คำถามใหม่อีกครั้งครับ' };
+  }
   if (!user) return null;
 
   const notifSettings: NotifSettingsRow = user.notif_settings || {};
