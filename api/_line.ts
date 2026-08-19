@@ -1,7 +1,10 @@
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 export interface LineQuickReply {
-  items: { type: 'action'; action: { type: 'message'; label: string; text: string } }[];
+  items: (
+    | { type: 'action'; action: { type: 'message'; label: string; text: string } }
+    | { type: 'action'; action: { type: 'uri'; label: string; uri: string } }
+  )[];
 }
 
 // Shared message shape for both push (this file) and reply (api/line-webhook.ts) --
@@ -26,9 +29,9 @@ function getLineRecipients(): Record<string, string> {
   return map;
 }
 
-// Pushes to a known LINE user ID directly -- use this once an account has self-service linked
-// via api/line-webhook.ts (notifSettings.lineUserId).
-export async function sendLineMessage(lineUserId: string, text: string): Promise<boolean> {
+// Pushes any message (text or Flex) to a known LINE user ID directly -- use this once an account
+// has self-service linked via api/line-webhook.ts (notifSettings.lineUserId).
+export async function sendLineMessagePayload(lineUserId: string, message: LineMessage): Promise<boolean> {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!token) return false;
 
@@ -39,20 +42,22 @@ export async function sendLineMessage(lineUserId: string, text: string): Promise
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        to: lineUserId,
-        messages: [{ type: 'text', text: text.slice(0, 4900) }], // LINE caps text messages at 5000 chars
-      }),
+      body: JSON.stringify({ to: lineUserId, messages: [message] }),
     });
     if (!res.ok) {
-      console.error(`sendLineMessage: LINE API error for ${lineUserId}:`, await res.text());
+      console.error(`sendLineMessagePayload: LINE API error for ${lineUserId}:`, await res.text());
       return false;
     }
     return true;
   } catch (err) {
-    console.error(`sendLineMessage: failed to send to ${lineUserId}:`, err);
+    console.error(`sendLineMessagePayload: failed to send to ${lineUserId}:`, err);
     return false;
   }
+}
+
+// Plain-text convenience wrapper around sendLineMessagePayload above.
+export async function sendLineMessage(lineUserId: string, text: string): Promise<boolean> {
+  return sendLineMessagePayload(lineUserId, { type: 'text', text: text.slice(0, 4900) }); // LINE caps text messages at 5000 chars
 }
 
 // Resolves a LINE user ID for the given email -- a self-service linked lineUserId takes
