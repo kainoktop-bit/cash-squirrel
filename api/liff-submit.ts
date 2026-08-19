@@ -95,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const draft: JobDraft = {
       name: typeof body.name === 'string' ? body.name.trim() : '',
       client: typeof body.client === 'string' ? body.client.trim() : '',
+      type: typeof body.type === 'string' ? body.type : undefined,
       value: Number(body.value) || 0,
       creditTerm: Number(body.creditTerm) || 0,
       paymentStatus: typeof body.paymentStatus === 'string' ? body.paymentStatus : 'pending',
