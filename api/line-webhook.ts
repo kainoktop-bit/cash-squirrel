@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import { supabaseAdmin } from './_supabaseAdmin.js';
+import { handleAssistantMessage } from './_lineAssistant.js';
 
 export const config = {
   api: {
@@ -116,9 +117,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lineUserId = event.source?.userId;
         if (event.source?.type !== 'user' || !lineUserId) return;
 
-        const linked = await tryLinkAccount(lineUserId, event.message.text || '');
+        const messageText = event.message.text || '';
+
+        // Already-linked accounts go through the AI assistant (add job / query / report).
+        // handleAssistantMessage returns null when this LINE user isn't linked to anything
+        // yet, in which case we fall back to matching the message against a pending link code.
+        const assistantReply = await handleAssistantMessage(lineUserId, messageText);
+        if (assistantReply !== null) {
+          await reply(accessToken, event.replyToken, assistantReply);
+          return;
+        }
+
+        const linked = await tryLinkAccount(lineUserId, messageText);
         const replyText = linked
-          ? '✅ เชื่อมต่อบัญชีสำเร็จแล้วครับ!\nตอนนี้คุณจะได้รับแจ้งเตือนจากกระรอกตุนเงินผ่าน LINE นี้แล้ว'
+          ? '✅ เชื่อมต่อบัญชีสำเร็จแล้วครับ!\nตอนนี้คุณจะได้รับแจ้งเตือนจากกระรอกตุนเงินผ่าน LINE นี้ รวมถึงพิมพ์เพิ่มงานหรือถามข้อมูลได้เลยครับ'
           : 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
 
         await reply(accessToken, event.replyToken, replyText);

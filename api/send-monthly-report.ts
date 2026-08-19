@@ -4,44 +4,20 @@ import { supabaseAdmin } from './_supabaseAdmin.js';
 import { sendGmailEmail } from './_gmail.js';
 import { sendLineMessageToEmail } from './_line.js';
 import { formatMonthKey } from '../src/utils.js';
+import {
+  JobRow,
+  ExpenseRow,
+  GoalRow,
+  SettingsRow,
+  MonthlySummary,
+  nowInBangkok,
+  jobsInMonth,
+  expensesInMonth,
+  computeMonthlySummary,
+  formatCurrency,
+} from './_monthlySummary.js';
 
 const FREE_TRIAL_DAYS = 30;
-
-interface JobRow {
-  id: string;
-  name: string;
-  type?: string;
-  client?: string;
-  value: number;
-  received: number;
-  pending?: number;
-  status?: string;
-  creditTerm?: number;
-  startDate?: string;
-  postDate?: string;
-  payDate: string | null;
-  whtRate?: number;
-  whtAmount?: number;
-  note?: string;
-}
-
-interface ExpenseRow {
-  name?: string;
-  category?: string;
-  amount: number;
-  date: string;
-  note?: string;
-}
-
-interface GoalRow {
-  allocatedPercentage?: number;
-}
-
-interface SettingsRow {
-  monthlyExpense?: number;
-  monthlyRevenueGoal?: number;
-  savingsPercentage?: number;
-}
 
 interface NotifSettingsRow {
   alertEmail?: string;
@@ -51,79 +27,11 @@ interface NotifSettingsRow {
   [key: string]: unknown;
 }
 
-// Bangkok is UTC+7 with no DST; a fixed offset is enough to get "today" right locally.
-function nowInBangkok(): Date {
-  const now = new Date();
-  return new Date(now.getTime() + 7 * 60 * 60 * 1000);
-}
-
 // The month this cron should report on: the previous calendar month relative to Bangkok "today".
 function targetMonthKey(): string {
   const bkk = nowInBangkok();
   const d = new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth() - 1, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function dateKeyInMonth(dateStr: string | undefined | null, monthKey: string): boolean {
-  return !!dateStr && dateStr.substring(0, 7) === monthKey;
-}
-
-function jobsInMonth(jobs: JobRow[], monthKey: string): JobRow[] {
-  return jobs.filter((j) => dateKeyInMonth(j.payDate || j.postDate, monthKey));
-}
-
-function expensesInMonth(expenses: ExpenseRow[], monthKey: string): ExpenseRow[] {
-  return expenses.filter((e) => dateKeyInMonth(e.date, monthKey));
-}
-
-interface MonthlySummary {
-  income: number;
-  received: number;
-  variableExpense: number;
-  fixedExpenseCalculated: number;
-  netFlow: number;
-  actualSavings: number;
-}
-
-// Mirrors MonthlyReportTab.tsx's monthlyData useMemo exactly, for one target month,
-// with includeFullYearFixed hardcoded to true (its default in the UI).
-function computeMonthlySummary(
-  jobs: JobRow[],
-  expenses: ExpenseRow[],
-  goals: GoalRow[],
-  settings: SettingsRow,
-  monthKey: string
-): MonthlySummary {
-  const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
-  const savingsPct = totalAllocatedPct > 0 ? totalAllocatedPct : (settings.savingsPercentage || 40);
-
-  let income = 0;
-  let received = 0;
-  for (const j of jobs) {
-    const dateKey = j.payDate || j.postDate;
-    if (dateKeyInMonth(dateKey, monthKey)) {
-      income += j.value || 0;
-      received += j.received || 0;
-    }
-  }
-
-  let variableExpense = 0;
-  for (const e of expenses) {
-    if (dateKeyInMonth(e.date, monthKey)) {
-      variableExpense += e.amount || 0;
-    }
-  }
-
-  const fixedExpense = settings.monthlyExpense || 0;
-  const fixedExpenseCalculated = fixedExpense; // includeFullYearFixed = true (default)
-  const netFlow = received - fixedExpenseCalculated - variableExpense;
-  const actualSavings = Math.round(received * (savingsPct / 100));
-
-  return { income, received, variableExpense, fixedExpenseCalculated, netFlow, actualSavings };
-}
-
-function formatCurrency(n: number): string {
-  return `฿${Math.round(n).toLocaleString('th-TH')}`;
 }
 
 function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
