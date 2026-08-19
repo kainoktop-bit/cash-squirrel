@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { sendGmailEmail } from './_gmail.js';
+import { sendLineMessageToEmail } from './_line.js';
 
 const FREE_TRIAL_DAYS = 30;
 
@@ -135,6 +136,31 @@ function buildDigestHtml(jobs: JobWithDiff[]): string {
   </div>`;
 }
 
+// Condensed plain-text version for LINE -- same info as the email, no HTML.
+function buildDigestLineText(jobs: JobWithDiff[]): string {
+  const overdue = jobs.filter((j) => j.diffDays < 0);
+  const dueToday = jobs.filter((j) => j.diffDays === 0);
+  const dueSoon = jobs.filter((j) => j.diffDays > 0);
+
+  const lines: string[] = ['🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม', ''];
+
+  const addSection = (title: string, section: JobWithDiff[]) => {
+    if (section.length === 0) return;
+    lines.push(`${title} (${section.length} รายการ)`);
+    for (const j of section) {
+      lines.push(`• ${j.client || 'ไม่ระบุ'} - ${j.name} - ฿${j.pending.toLocaleString('th-TH')} (${dueLabel(j.diffDays)})`);
+    }
+    lines.push('');
+  };
+
+  addSection('⚠️ เกินกำหนดชำระเงินแล้ว', overdue);
+  addSection('⏰ ครบกำหนดวันนี้', dueToday);
+  addSection('📅 ใกล้ครบกำหนด (1-2 วัน)', dueSoon);
+
+  lines.push('เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียด');
+  return lines.join('\n');
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
@@ -241,6 +267,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!ok) {
           skipped += 1;
           continue;
+        }
+
+        // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
+        // email or a LINE API hiccup just means no LINE message this time.
+        if (row.email) {
+          sendLineMessageToEmail(row.email, buildDigestLineText(attentionJobs)).catch((err) =>
+            console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
+          );
         }
 
         // Only count genuinely overdue items as a "follow-up" -- a heads-up for something due

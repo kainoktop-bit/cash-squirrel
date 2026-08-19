@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as XLSX from 'xlsx';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { sendGmailEmail } from './_gmail.js';
+import { sendLineMessageToEmail } from './_line.js';
 import { formatMonthKey } from '../src/utils.js';
 
 const FREE_TRIAL_DAYS = 30;
@@ -158,6 +159,27 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
     </div>
     <p style="color:#7A5C43;font-size:12px;margin-top:24px;">แนบไฟล์ Excel สรุปรายรับ-รายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดนี้คำนวณจากข้อมูลเดียวกับที่แสดงในแอปกระรอกตุนเงินเสมอ ปิดการแจ้งเตือนได้ที่หน้ารายงานในแอป</p>
   </div>`;
+}
+
+// Condensed plain-text version for LINE -- same numbers as the email, no HTML/attachment.
+function buildReportLineText(monthLabel: string, s: MonthlySummary): string {
+  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
+  return [
+    `📊 สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
+    '',
+    `รายรับจริง: ${formatCurrency(s.received)}`,
+    `รายจ่ายจริง: ${formatCurrency(totalExpense)}`,
+    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(s.netFlow)}`,
+    '',
+    'รายละเอียด:',
+    `• มูลค่ารวมสัญญาดีลทั้งหมด: ${formatCurrency(s.income)}`,
+    `• ยอดโอนรับแล้วจริง: ${formatCurrency(s.received)}`,
+    `• หัก ค่าใช้จ่ายคงที่รายเดือน: ${formatCurrency(s.fixedExpenseCalculated)}`,
+    `• ค่าใช้จ่ายผันแปร: ${formatCurrency(s.variableExpense)}`,
+    `• ยอดออมสะสมโดยประมาณ: ${formatCurrency(s.actualSavings)}`,
+    '',
+    'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียดเพิ่มเติม',
+  ].join('\n');
 }
 
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
@@ -324,6 +346,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!ok) {
           skipped += 1;
           continue;
+        }
+
+        // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
+        // email or a LINE API hiccup just means no LINE message this time.
+        if (row.email) {
+          sendLineMessageToEmail(row.email, buildReportLineText(monthLabel, summary)).catch((err) =>
+            console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err)
+          );
         }
 
         await supabaseAdmin
