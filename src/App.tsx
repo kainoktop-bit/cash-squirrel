@@ -869,7 +869,6 @@ export default function App() {
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
   const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
-  const [triggerAddExpense, setTriggerAddExpense] = useState(false);
   // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
   // same place instead of living in two disconnected tabs.
   const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
@@ -1902,11 +1901,6 @@ export default function App() {
                   expenses={expenses}
                   onUpdateSettings={handleUpdateSettings}
                   onSwitchTab={setActiveTab}
-                  onQuickAddExpense={() => {
-                    setTriggerAddExpense(true);
-                    setRecordMode('expense');
-                    setActiveTab('jobs');
-                  }}
                   onOpenAddGoal={() => {
                     setInitialSelectedGoalId('ADD_NEW_GOAL');
                     setActiveTab('split');
@@ -1988,8 +1982,6 @@ export default function App() {
                       selectedMonth={selectedMonthKey}
                       triggerAlert={triggerAlert}
                       triggerConfirm={triggerConfirm}
-                      autoOpenAdd={triggerAddExpense}
-                      onAutoOpenAddHandled={() => setTriggerAddExpense(false)}
                     />
                   )}
                 </div>

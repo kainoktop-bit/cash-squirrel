@@ -37,7 +37,6 @@ interface DashboardTabProps {
   expenses: Expense[];
   onUpdateSettings?: (settings: AppSettings) => void;
   onSwitchTab: (tabId: string) => void;
-  onQuickAddExpense: () => void;
   onOpenAddGoal: () => void;
   onOpenGoalDetail: (goalId: string) => void;
   statuses?: StatusOption[];
@@ -90,7 +89,6 @@ export default function DashboardTab({
   expenses,
   onUpdateSettings,
   onSwitchTab,
-  onQuickAddExpense,
   onOpenAddGoal,
   onOpenGoalDetail,
   statuses = [],
@@ -744,23 +742,13 @@ export default function DashboardTab({
     <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
       
       {/* 1. Header Bar */}
-      <div className="px-1 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
-            พยากรณ์รังเสบียง
-          </span>
-          <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            ภาพรวมเสบียง
-          </h2>
-        </div>
-        <button
-          onClick={onQuickAddExpense}
-          className="shrink-0 py-2.5 px-4 bg-[#E65F2B] hover:bg-[#D8551F] text-white text-xs font-black rounded-2xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-          title="บันทึกรายจ่ายเพิ่มเติมในรอบเดือนนี้ เช่น ค่าอุปกรณ์ ค่าแอด ค่าเดินทาง"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          บันทึกรายจ่าย
-        </button>
+      <div className="px-1">
+        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
+          พยากรณ์รังเสบียง
+        </span>
+        <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
+          ภาพรวมเสบียง
+        </h2>
       </div>
 
       {/* 2. Hero Card */}
