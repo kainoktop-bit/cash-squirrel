@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { calculatePayDate, getRelativeDaysText } from '../src/utils.js';
+import type { LineMessage } from './_line.js';
 import {
   JobRow,
   ExpenseRow,
@@ -18,11 +19,20 @@ interface StatusRow {
   behavior: 'done' | 'partial' | 'pending';
 }
 
+// Fields the assistant will actively follow up on (one at a time) when a job draft is missing
+// them -- everything else in JobDraft stays optional/best-effort.
+type MissingField = 'client' | 'paymentStatus';
+
+interface PendingJobState {
+  draft: JobDraft;
+  askedField?: MissingField;
+}
+
 interface NotifSettingsRow {
   lineUserId?: string;
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
-  linePendingJob?: JobDraft | null;
+  linePendingJob?: PendingJobState | null;
   [key: string]: unknown;
 }
 
@@ -264,17 +274,79 @@ async function extractJobDraft(text: string): Promise<JobDraft> {
   }
 }
 
-function formatJobDraft(draft: JobDraft): string {
-  const lines: string[] = [];
-  lines.push(`ชื่องาน: ${draft.name || '-'}`);
-  if (draft.client) lines.push(`ลูกค้า: ${draft.client}`);
-  if (draft.type) lines.push(`ประเภท: ${draft.type}`);
-  lines.push(`มูลค่า: ${draft.value != null ? formatCurrency(draft.value) : '-'}`);
-  lines.push(`เครดิตเทอม: ${draft.creditTerm != null ? `${draft.creditTerm} วัน` : 'ยังไม่ระบุ (จะถือว่าได้เงินทันที)'}`);
-  const statusLabel = draft.paymentStatus === 'paid' ? 'จ่ายครบแล้ว' : draft.paymentStatus === 'partial' ? `มัดจำ ${draft.receivedAmount ? formatCurrency(draft.receivedAmount) : ''}` : 'ยังไม่จ่าย';
-  lines.push(`สถานะจ่ายเงิน: ${statusLabel}`);
-  if (draft.note) lines.push(`โน้ต: ${draft.note}`);
-  return lines.join('\n');
+// Once a job draft is asking about a specific field, this reply is almost certainly the answer
+// to that field -- but stays a full extraction (not a plain string assignment) so a natural
+// reply like "เก็บครบแล้วครับ 5000" still gets read correctly instead of being taken literally.
+async function extractFollowUpAnswer(question: string, answerText: string): Promise<JobDraft> {
+  const ai = getGeminiClient();
+  if (!ai) return {};
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `กำลังบันทึกงานฟรีแลนซ์ในแชท คุณเพิ่งถามผู้ใช้ว่า: "${question}"
+ผู้ใช้ตอบว่า: "${answerText}"
+
+แยกข้อมูลที่เกี่ยวข้องออกมาเป็นฟิลด์ต่อไปนี้ (เว้นว่างถ้าคำตอบไม่ได้พูดถึงฟิลด์นั้นเลย ห้ามเดา):
+- client: ชื่อลูกค้าหรือแบรนด์
+- paymentStatus: "paid" ถ้าจ่ายครบแล้ว, "partial" ถ้ามัดจำบางส่วน, "pending" ถ้ายังไม่จ่าย
+- receivedAmount: จำนวนเงินที่ได้รับแล้วจริงเป็นบาท ถ้ามีพูดถึง
+- creditTerm: จำนวนวันเครดิตเทอม ถ้ามีพูดถึง (0 ถ้าได้เงินทันที)
+- name, type, value, note: เติมด้วยถ้าคำตอบบังเอิญพูดถึงเรื่องพวกนี้เพิ่มเติมมาด้วย`,
+            },
+          ],
+        },
+      ],
+      config: {
+        thinkingConfig: { thinkingBudget: 0 },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            name: { type: 'STRING' },
+            client: { type: 'STRING' },
+            type: { type: 'STRING' },
+            value: { type: 'NUMBER' },
+            creditTerm: { type: 'NUMBER' },
+            paymentStatus: { type: 'STRING' },
+            receivedAmount: { type: 'NUMBER' },
+            note: { type: 'STRING' },
+          },
+        },
+      },
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (err) {
+    console.error('extractFollowUpAnswer error:', err);
+    return {};
+  }
+}
+
+function mergeDraft(base: JobDraft, extra: JobDraft): JobDraft {
+  const merged: JobDraft = { ...base };
+  (Object.keys(extra) as (keyof JobDraft)[]).forEach((key) => {
+    const value = extra[key];
+    if (value !== undefined && value !== null && value !== ('' as unknown)) {
+      (merged as Record<string, unknown>)[key] = value;
+    }
+  });
+  return merged;
+}
+
+const FIELD_QUESTIONS: Record<MissingField, string> = {
+  client: 'ลูกค้าชื่ออะไรครับ',
+  paymentStatus: 'ได้รับเงินแล้วหรือยังครับ (จ่ายครบแล้ว / มัดจำบางส่วน / ยังไม่จ่าย)',
+};
+
+function missingRequiredFields(draft: JobDraft): MissingField[] {
+  const missing: MissingField[] = [];
+  if (!draft.client) missing.push('client');
+  if (!draft.paymentStatus) missing.push('paymentStatus');
+  return missing;
 }
 
 async function updateNotifSettings(userId: string, notifSettings: NotifSettingsRow): Promise<void> {
@@ -282,9 +354,9 @@ async function updateNotifSettings(userId: string, notifSettings: NotifSettingsR
   if (error) console.error('updateNotifSettings error:', error);
 }
 
-async function savePendingJob(user: UserRow, draft: JobDraft): Promise<void> {
+async function savePendingJob(user: UserRow, state: PendingJobState): Promise<void> {
   const notifSettings: NotifSettingsRow = user.notif_settings || {};
-  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingJob: draft });
+  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingJob: state });
 }
 
 async function clearPendingJob(user: UserRow): Promise<void> {
@@ -294,9 +366,8 @@ async function clearPendingJob(user: UserRow): Promise<void> {
 }
 
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
-// via chat, so it's left at 0 -- editable in-app afterward same as any other field) and
-// appends it to the account's jobs array.
-async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<string> {
+// via chat, so it's left at 0 -- editable in-app afterward same as any other field).
+function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; client: string; note: string; postDate: string; isPosted: boolean } {
   const today = (() => {
     const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
     return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
@@ -316,7 +387,7 @@ async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<string> {
   const pending = Math.max(0, valueNum - received);
   const payDate = calculatePayDate(today, creditTerm, false);
 
-  const newJob: JobRow & { id: string; client: string; note: string; postDate: string; isPosted: boolean } = {
+  return {
     id: `job-line-${Date.now()}`,
     name: draft.name || 'งานใหม่จาก LINE',
     type: draft.type || 'ยังไม่ระบุ',
@@ -331,25 +402,108 @@ async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<string> {
     payDate,
     note: draft.note || '',
   };
+}
 
-  const jobs = [...(user.jobs || []), newJob];
+async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraft>): Promise<boolean> {
+  const jobs = [...(user.jobs || []), job];
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ jobs }).eq('user_id', user.user_id);
   if (error) {
-    console.error('saveJobDraft error:', error);
-    return 'บันทึกงานไม่สำเร็จครับ ลองใหม่อีกครั้ง หรือบันทึกผ่านแอปแทนได้เลยครับ';
+    console.error('persistJob error:', error);
+    return false;
+  }
+  return true;
+}
+
+// Squirrel-branded Flex "receipt" card shown right after a job is saved -- reuses the app's
+// own warm cream/acorn-orange palette (src/index.css :root) so it reads as the same product.
+// Falls back to a plain-text summary when APP_URL isn't configured (no working deep link yet).
+function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
+  const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const appUrl = process.env.APP_URL;
+
+  if (!appUrl) {
+    const lines = [
+      'บันทึกงานสำเร็จแล้วครับ! ✅',
+      '',
+      `ชื่องาน: ${job.name}`,
+      ...(job.client ? [`ลูกค้า: ${job.client}`] : []),
+      `มูลค่า: ${formatCurrency(job.value)}`,
+      `สถานะ: ${statusLabel}`,
+      ...(job.pending > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending)}`] : []),
+    ];
+    return { type: 'text', text: lines.join('\n') };
   }
 
+  const rows: [string, string][] = [
+    ['ชื่องาน', job.name],
+    ...(job.client ? ([['ลูกค้า', job.client]] as [string, string][]) : []),
+    ['มูลค่า', formatCurrency(job.value)],
+    ['สถานะ', statusLabel],
+    ...(job.pending > 0 ? ([['ยอดค้างรับ', formatCurrency(job.pending)]] as [string, string][]) : []),
+  ];
+
+  const bodyContents = rows.map(([label, value]) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2 },
+      { type: 'text', text: value, size: 'sm', color: '#3D2314', flex: 3, wrap: true, weight: 'bold' },
+    ],
+  }));
+
+  const contents = {
+    type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#E65F2B',
+      paddingAll: '16px',
+      contents: [{ type: 'text', text: '🐿️ บันทึกงานสำเร็จ', color: '#FFFFFF', weight: 'bold', size: 'md' }],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#FBF2E4',
+      spacing: 'md',
+      paddingAll: '16px',
+      contents: bodyContents,
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '12px',
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          color: '#E65F2B',
+          action: { type: 'uri', label: 'เปิดดูในเว็บ', uri: `${appUrl.replace(/\/$/, '')}/?job=${encodeURIComponent(job.id)}` },
+        },
+      ],
+    },
+  };
+
+  return { type: 'flex', altText: `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
+}
+
+async function saveDraftNow(user: UserRow, draft: JobDraft): Promise<LineMessage> {
+  const job = buildJobFromDraft(draft);
+  const ok = await persistJob(user, job);
+  if (!ok) return { type: 'text', text: 'บันทึกงานไม่สำเร็จครับ ลองใหม่อีกครั้ง หรือบันทึกผ่านแอปแทนได้เลยครับ' };
   await clearPendingJob(user);
-  return `บันทึกงานสำเร็จแล้วครับ! ✅\n\n${formatJobDraft(draft)}`;
+  return buildJobSavedMessage(job);
 }
 
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
 
+const DECLINE_KEYWORDS = ['ไม่ต้องถาม', 'พอแล้ว', 'แค่นี้พอ', 'บันทึกเลย', 'ไม่ต้องละเอียด', 'เอาแค่นี้', 'ข้ามไป', 'ไม่ทราบ', 'ไม่รู้เหมือนกัน'];
+const CANCEL_KEYWORDS = ['ยกเลิก', 'cancel', 'ไม่เอาแล้ว', 'เริ่มใหม่'];
+
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
 // to any app account yet, so the caller can fall back to the link-code flow.
-export async function handleAssistantMessage(lineUserId: string, text: string): Promise<string | null> {
+export async function handleAssistantMessage(lineUserId: string, text: string): Promise<LineMessage | null> {
   const user = await findUserByLineId(lineUserId);
   if (!user) return null;
 
@@ -358,26 +512,50 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
   const lower = trimmed.toLowerCase();
 
   if (notifSettings.linePendingJob) {
-    const draft = notifSettings.linePendingJob;
-    if (['ยืนยัน', 'ยัน', 'yes', 'y', 'ok', 'โอเค', 'ตกลง'].some((k) => lower.includes(k))) {
-      return await saveJobDraft(user, draft);
-    }
-    if (['ยกเลิก', 'cancel', 'ไม่เอา', 'ไม่ใช่'].some((k) => lower.includes(k))) {
+    const pending = notifSettings.linePendingJob;
+
+    if (CANCEL_KEYWORDS.some((k) => lower.includes(k))) {
       await clearPendingJob(user);
-      return 'ยกเลิกการบันทึกงานแล้วครับ';
+      return { type: 'text', text: 'ยกเลิกการบันทึกงานแล้วครับ' };
     }
-    return `ยังมีงานค้างยืนยันอยู่ครับ:\n\n${formatJobDraft(draft)}\n\nพิมพ์ "ยืนยัน" เพื่อบันทึก หรือ "ยกเลิก" เพื่อเริ่มใหม่ครับ`;
+
+    if (DECLINE_KEYWORDS.some((k) => lower.includes(k))) {
+      return await saveDraftNow(user, pending.draft);
+    }
+
+    // Otherwise this message answers whatever field was last asked -- merge it in and either
+    // ask the next missing field or, once everything required is there, save immediately
+    // (no separate "confirm" step; the saved-job card itself is the receipt to review/edit).
+    const answered = pending.askedField ? await extractFollowUpAnswer(FIELD_QUESTIONS[pending.askedField], trimmed) : await extractJobDraft(trimmed);
+    const merged = mergeDraft(pending.draft, answered);
+    const stillMissing = missingRequiredFields(merged);
+
+    if (stillMissing.length === 0) {
+      return await saveDraftNow(user, merged);
+    }
+
+    const nextField = stillMissing[0];
+    await savePendingJob(user, { draft: merged, askedField: nextField });
+    return { type: 'text', text: FIELD_QUESTIONS[nextField] };
   }
 
   if (await isAddJobRequest(trimmed)) {
     const draft = await extractJobDraft(trimmed);
     if (!draft.name || draft.value == null) {
-      return 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"';
+      return { type: 'text', text: 'รบกวนบอกรายละเอียดเพิ่มอีกนิดครับ อย่างน้อยต้องมี "ชื่องาน" กับ "มูลค่างาน" เช่น\n"รับงานสปอนเซอร์จาก ABC 5000 บาท เครดิต 30 วัน"' };
     }
-    await savePendingJob(user, draft);
-    return `ตรวจสอบข้อมูลก่อนบันทึกครับ:\n\n${formatJobDraft(draft)}\n\nพิมพ์ "ยืนยัน" เพื่อบันทึก หรือ "ยกเลิก" เพื่อเริ่มใหม่ครับ`;
+
+    const missing = missingRequiredFields(draft);
+    if (missing.length === 0) {
+      return await saveDraftNow(user, draft);
+    }
+
+    const nextField = missing[0];
+    await savePendingJob(user, { draft, askedField: nextField });
+    return { type: 'text', text: FIELD_QUESTIONS[nextField] };
   }
 
   const snapshot = buildDataSnapshot(user);
-  return await answerFromData(trimmed, snapshot);
+  const answerText = await answerFromData(trimmed, snapshot);
+  return { type: 'text', text: answerText };
 }

@@ -1,5 +1,9 @@
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
+// Shared message shape for both push (this file) and reply (api/line-webhook.ts) --
+// lets the LINE assistant hand back a styled Flex "card" instead of only plain text.
+export type LineMessage = { type: 'text'; text: string } | { type: 'flex'; altText: string; contents: unknown };
+
 // Ad-hoc recipient list, for accounts that were never self-service linked: maps an app-user's
 // email straight to a LINE user ID via env var. Format: "email1:lineUserId1,email2:lineUserId2".
 // Kept as a fallback -- sendLineMessageToEmail below prefers a real linked lineUserId when the

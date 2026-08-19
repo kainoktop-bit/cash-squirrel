@@ -898,6 +898,20 @@ export default function App() {
   // same place instead of living in two disconnected tabs.
   const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
 
+  // Deep link from the LINE assistant's "เปิดดูในเว็บ" button (?job=<id>): once this user's data
+  // has loaded, jump straight to that job in the Jobs tab and strip the param from the URL.
+  useEffect(() => {
+    if (!(session?.user?.email && isLoadedForUser === session.user.email)) return;
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('job');
+    if (!jobId) return;
+    setJobIdToOpen(jobId);
+    setActiveTab('jobs');
+    params.delete('job');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
+  }, [session, isLoadedForUser]);
+
   // Custom Dialog state for elegant, non-blocking prompts/alerts
   const [dialog, setDialog] = useState<CustomDialogState>({
     isOpen: false,
