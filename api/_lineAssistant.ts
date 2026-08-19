@@ -373,6 +373,7 @@ export interface JobCardData {
   status?: string;
   whtRate?: number;
   whtAmount?: number;
+  isPosted?: boolean; // false = "สต็อกเตรียมผลิต" (WIP), same flag as JobsTab.tsx's formIsPosted
 }
 
 // Squirrel-branded Flex "receipt" card shown right after a job is saved -- styled like a bank
@@ -382,19 +383,24 @@ export interface JobCardData {
 // a running "คงเหลือเดือนนี้" line -- the same net-cash-flow figure MonthlyReportTab shows,
 // computed by the caller (see computeMonthlySummary) so this stays a pure display function.
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
-  const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const isWip = job.isPosted === false;
+  const statusLabel = isWip ? 'สต็อกเตรียมผลิต (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
+  // A WIP job hasn't actually been delivered/paid yet -- heading it "รับเงิน +value" like a
+  // completed transaction would be misleading, so it gets its own neutral (not green) framing.
+  const headerLabel = isWip ? 'เพิ่มงานใหม่ (สต็อก)' : 'รับเงิน';
+  const headerColor = isWip ? '#C17817' : '#0E9F6E';
 
   if (!appUrl) {
     const lines = [
-      'บันทึกงานสำเร็จแล้วครับ! ✅',
+      isWip ? '📦 บันทึกงานเข้าสต็อกแล้วครับ!' : 'บันทึกงานสำเร็จแล้วครับ! ✅',
       '',
       `ชื่องาน: ${job.name}`,
       ...(job.client ? [`ลูกค้า: ${job.client}`] : []),
       `มูลค่า: ${formatCurrency(job.value)}`,
       ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
       `สถานะ: ${statusLabel}`,
-      ...((job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
+      ...(!isWip && (job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
       ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(monthNet)}`] : []),
     ];
     return { type: 'text', text: lines.join('\n') };
@@ -409,13 +415,13 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       paddingAll: '20px',
       spacing: 'md',
       contents: [
-        buildStatementRow('รับเงิน', `+${formatCurrency(job.value)}`, { size: 'xxl', color: '#0E9F6E' }),
+        buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xxl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
         ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: '#C17817' })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
-        ...((job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
+        ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
         ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(monthNet), { color: monthNet >= 0 ? '#0E9F6E' : '#A63F1B' })] : []),
       ],
@@ -435,7 +441,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
     },
   };
 
-  return { type: 'flex', altText: `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
+  return { type: 'flex', altText: isWip ? `เพิ่มงาน "${job.name}" เข้าสต็อกแล้วครับ` : `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
 }
 
 async function saveDraftNow(user: UserRow, draft: JobDraft): Promise<LineMessage> {
