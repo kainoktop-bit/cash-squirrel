@@ -77,7 +77,7 @@ async function isAddJobRequest(text: string): Promise<boolean> {
   if (!ai) return false;
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
@@ -180,7 +180,7 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
@@ -218,7 +218,7 @@ async function extractJobDraft(text: string): Promise<JobDraft> {
   if (!ai) return {};
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
