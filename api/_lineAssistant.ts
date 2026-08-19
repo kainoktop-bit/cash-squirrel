@@ -185,6 +185,8 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
 // never touch the AI quota at all. Free-form typing still goes through classifyMessage as usual.
 const QUICK_REPLY: import('./_line.js').LineQuickReply = {
   items: [
+    { type: 'action', action: { type: 'message', label: '➕ เพิ่มงาน', text: 'เพิ่มงาน' } },
+    { type: 'action', action: { type: 'message', label: '➕ เพิ่มรายจ่าย', text: 'เพิ่มรายจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
     { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } },
@@ -223,6 +225,8 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
   งานค้างจ่าย: formatUnpaidQuickReply,
   สรุปเดือนนี้: formatThisMonthQuickReply,
   งานสต็อก: formatWipQuickReply,
+  เพิ่มงาน: () => '✍️ บอกรายละเอียดงานมาได้เลยครับ เช่น\n"รับงานถ่ายภาพจาก ABC 5000 บาท เครดิต 30 วัน"',
+  เพิ่มรายจ่าย: () => '✍️ บอกรายละเอียดรายจ่ายมาได้เลยครับ เช่น\n"จ่ายค่าซอฟต์แวร์ 500 บาท"',
 };
 
 // Combines what used to be several separate Gemini calls (intent gate + job/expense-field
