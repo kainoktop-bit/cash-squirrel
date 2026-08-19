@@ -909,20 +909,37 @@ export default function App() {
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
   const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
+  const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
   // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
   // same place instead of living in two disconnected tabs.
   const [recordMode, setRecordMode] = useState<'income' | 'expense'>('income');
 
-  // Deep link from the LINE assistant's "เปิดดูในเว็บ" button (?job=<id>): once this user's data
-  // has loaded, jump straight to that job in the Jobs tab and strip the param from the URL.
+  // Deep links from the LINE assistant's Quick Reply buttons: once this user's data has loaded,
+  // jump straight to the relevant spot in the Jobs tab and strip the param from the URL.
+  // ?job=<id> opens that job; ?openAddJob=1 / ?openAddExpense=1 pop the real add-job/add-expense
+  // form straight open (reusing the actual in-app modal, not a separate bare-bones page).
   useEffect(() => {
     if (!(session?.user?.email && isLoadedForUser === session.user.email)) return;
     const params = new URLSearchParams(window.location.search);
     const jobId = params.get('job');
-    if (!jobId) return;
-    setJobIdToOpen(jobId);
+    const openAddJob = params.get('openAddJob');
+    const openAddExpense = params.get('openAddExpense');
+    if (!jobId && !openAddJob && !openAddExpense) return;
+
+    if (jobId) setJobIdToOpen(jobId);
+    if (openAddJob) {
+      setRecordMode('income');
+      setIsAddJobOpen(true);
+    }
+    if (openAddExpense) {
+      setRecordMode('expense');
+      setAutoOpenAddExpense(true);
+    }
     setActiveTab('jobs');
+
     params.delete('job');
+    params.delete('openAddJob');
+    params.delete('openAddExpense');
     const newSearch = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
   }, [session, isLoadedForUser]);
@@ -2036,6 +2053,8 @@ export default function App() {
                       selectedMonth={selectedMonthKey}
                       triggerAlert={triggerAlert}
                       triggerConfirm={triggerConfirm}
+                      autoOpenAdd={autoOpenAddExpense}
+                      onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
                     />
                   )}
                 </div>

@@ -47,7 +47,7 @@ interface NotifSettingsRow {
   [key: string]: unknown;
 }
 
-export interface UserRow {
+interface UserRow {
   user_id: string;
   email?: string;
   jobs?: JobRow[];
@@ -58,7 +58,7 @@ export interface UserRow {
   notif_settings?: NotifSettingsRow;
 }
 
-export interface JobDraft {
+interface JobDraft {
   name?: string;
   client?: string;
   type?: string;
@@ -69,7 +69,7 @@ export interface JobDraft {
   note?: string;
 }
 
-export interface ExpenseDraft {
+interface ExpenseDraft {
   name?: string;
   category?: string;
   amount?: number;
@@ -93,7 +93,7 @@ const EXPENSE_CATEGORIES = [
 // linked" -- doing so once told an already-linked user their account wasn't found, which reads
 // as the bot lying). Only a real empty result means "not linked", so the caller can fall back
 // to the link-code flow.
-export async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
+async function findUserByLineId(lineUserId: string): Promise<UserRow | null> {
   const { data, error } = await supabaseAdmin
     .from('user_cashflow_data')
     .select('user_id, email, jobs, goals, settings, expenses, statuses, notif_settings')
@@ -161,14 +161,19 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
 }
 
 // Tappable shortcuts (LINE Quick Reply) -- every one of these is answered deterministically,
-// zero AI calls involved anywhere in this flow. The one-tap form button only appears once
-// LIFF_ID is configured (see api/liff-submit.ts) -- until then the chat questionnaire below is
-// the only way to add a record, which still works fine on its own.
+// zero AI calls involved anywhere in this flow. The two "เปิดฟอร์ม" buttons only appear once
+// APP_URL is configured -- they deep-link into the real web app's own add-job/add-expense
+// modal (src/App.tsx's ?openAddJob=1 / ?openAddExpense=1 handler) instead of a separate
+// bare-bones page, so the form looks and behaves exactly like the rest of the app.
 function getQuickReply(): import('./_line.js').LineQuickReply {
-  const liffId = process.env.LIFF_ID;
+  const appUrl = process.env.APP_URL;
   const items: import('./_line.js').LineQuickReply['items'] = [];
-  if (liffId) {
-    items.push({ type: 'action', action: { type: 'uri', label: '📝 ฟอร์มบันทึก', uri: `https://liff.line.me/${liffId}` } });
+  if (appUrl) {
+    const base = appUrl.replace(/\/$/, '');
+    items.push(
+      { type: 'action', action: { type: 'uri', label: '📝 เปิดฟอร์มเพิ่มงาน', uri: `${base}/?openAddJob=1` } },
+      { type: 'action', action: { type: 'uri', label: '📝 เปิดฟอร์มเพิ่มรายจ่าย', uri: `${base}/?openAddExpense=1` } }
+    );
   }
   items.push(
     { type: 'action', action: { type: 'message', label: '➕ เพิ่มงาน', text: 'เพิ่มงาน' } },
@@ -177,7 +182,7 @@ function getQuickReply(): import('./_line.js').LineQuickReply {
     { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
     { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } }
   );
-  return { items };
+  return { items: items.slice(0, 13) };
 }
 
 function withQuickReply(message: LineMessage): LineMessage {
@@ -279,7 +284,7 @@ async function clearPendingExpense(user: UserRow): Promise<void> {
 
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
 // via chat, so it's left at 0 -- editable in-app afterward same as any other field).
-export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; client: string; note: string; postDate: string; isPosted: boolean } {
+function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; client: string; note: string; postDate: string; isPosted: boolean } {
   const today = (() => {
     const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
     return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
@@ -316,7 +321,7 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
   };
 }
 
-export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraft>): Promise<boolean> {
+async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraft>): Promise<boolean> {
   const jobs = [...(user.jobs || []), job];
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ jobs }).eq('user_id', user.user_id);
   if (error) {
@@ -353,7 +358,7 @@ function buildStatementRow(label: string, value: string, opts?: { size?: string;
 // transfer notification (big amount up top, clean label/value rows below) since that's the
 // clearest, most familiar shape for this kind of confirmation. Falls back to a plain-text
 // summary when APP_URL isn't configured (no working deep link yet).
-export function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
+function buildJobSavedMessage(job: ReturnType<typeof buildJobFromDraft>): LineMessage {
   const statusLabel = job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
 
@@ -415,7 +420,7 @@ async function saveDraftNow(user: UserRow, draft: JobDraft): Promise<LineMessage
 }
 
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
-export function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
+function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
   const today = (() => {
     const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
     return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
@@ -431,7 +436,7 @@ export function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
   };
 }
 
-export async function persistExpense(user: UserRow, expense: Expense): Promise<boolean> {
+async function persistExpense(user: UserRow, expense: Expense): Promise<boolean> {
   const expenses = [...(user.expenses || []), expense];
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ expenses }).eq('user_id', user.user_id);
   if (error) {
@@ -445,7 +450,7 @@ export async function persistExpense(user: UserRow, expense: Expense): Promise<b
 // accent (--pink-acc in src/index.css) instead of acorn orange, so income vs expense reads apart
 // at a glance. No specific-record deep link yet (only jobs support ?job=<id> in App.tsx), so the
 // button just opens the app.
-export function buildExpenseSavedMessage(expense: Expense): LineMessage {
+function buildExpenseSavedMessage(expense: Expense): LineMessage {
   const appUrl = process.env.APP_URL;
 
   if (!appUrl) {
