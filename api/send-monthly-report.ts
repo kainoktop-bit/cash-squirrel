@@ -47,6 +47,7 @@ interface NotifSettingsRow {
   alertEmail?: string;
   monthlyReportEnabled?: boolean;
   lastMonthlyReportSentMonth?: string;
+  lineUserId?: string;
   [key: string]: unknown;
 }
 
@@ -351,7 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
         // email or a LINE API hiccup just means no LINE message this time.
         if (row.email) {
-          sendLineMessageToEmail(row.email, buildReportLineText(monthLabel, summary)).catch((err) =>
+          sendLineMessageToEmail(row.email, buildReportLineText(monthLabel, summary), notifSettings.lineUserId).catch((err) =>
             console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err)
           );
         }

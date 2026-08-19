@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, Goal, AppSettings, NotifSettings } from '../types';
-import { supabaseUrl, supabaseAnonKey } from '../supabaseClient';
+import { supabaseUrl, supabaseAnonKey, supabase } from '../supabaseClient';
 import { formatCurrency, getMonthKey, formatMonthKey, getRelativeDaysText } from '../utils';
 import { 
   BarChart, 
@@ -36,7 +36,9 @@ import {
   Plus,
   X,
   FileCheck,
-  ExternalLink
+  ExternalLink,
+  MessageCircle,
+  Copy
 } from 'lucide-react';
 import { TaxEvidence, WhtDocument, Expense } from '../types';
 import { Mascot } from './Mascot';
@@ -81,6 +83,49 @@ export default function MonthlyReportTab({
   const [localTemplateId, setLocalTemplateId] = useState(notifSettings.emailjsTemplateId || '');
   const [localPublicKey, setLocalPublicKey] = useState(notifSettings.emailjsPublicKey || '');
   const [isSavedText, setIsSavedText] = useState(false);
+
+  const [lineLinkCode, setLineLinkCode] = useState<string | null>(null);
+  const [isGeneratingLineCode, setIsGeneratingLineCode] = useState(false);
+  const [lineLinkCopied, setLineLinkCopied] = useState(false);
+
+  const handleGenerateLineCode = async () => {
+    setIsGeneratingLineCode(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('ไม่พบเซสชันผู้ใช้ กรุณาล็อกอินใหม่');
+
+      const res = await fetch('/api/line-link-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'สร้างรหัสเชื่อมต่อไม่สำเร็จ');
+      setLineLinkCode(json.code);
+    } catch (err: any) {
+      triggerAlert('สร้างรหัสเชื่อมต่อไม่สำเร็จ', err.message || 'ลองใหม่อีกครั้งครับ');
+    } finally {
+      setIsGeneratingLineCode(false);
+    }
+  };
+
+  const handleCopyLineCode = () => {
+    if (!lineLinkCode) return;
+    navigator.clipboard.writeText(lineLinkCode).then(() => {
+      setLineLinkCopied(true);
+      setTimeout(() => setLineLinkCopied(false), 2000);
+    });
+  };
+
+  const handleDisconnectLine = () => {
+    triggerConfirm(
+      'ยกเลิกการเชื่อมต่อ LINE',
+      'คุณต้องการยกเลิกการรับแจ้งเตือนผ่าน LINE ใช่หรือไม่? ยังรับแจ้งเตือนทางอีเมลได้ตามปกติ',
+      () => {
+        onUpdateNotifSettings({ ...notifSettings, lineUserId: undefined });
+      }
+    );
+  };
 
   const totalAllocatedPct = useMemo(() => {
     return goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
@@ -1124,6 +1169,87 @@ export default function MonthlyReportTab({
             />
           </div>
         </button>
+
+        {/* LINE notification linking -- reuses the same Pro gate as the email digest above,
+            since it's the same underlying notification feature. */}
+        <div className={`p-3 rounded-2xl border ${
+          notifSettings.lineUserId
+            ? 'bg-emerald-500/10 border-emerald-500/30'
+            : 'bg-brand-white dark:bg-stone-900 border-brand-border/40 dark:border-neutral-800'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <MessageCircle className="w-4 h-4 text-[#06C755] shrink-0" />
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
+                รับแจ้งเตือนผ่าน LINE
+                {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
+              </span>
+              <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
+                {notifSettings.lineUserId
+                  ? 'เชื่อมต่อแล้ว -- แจ้งเตือนเดียวกับอีเมลจะส่งเข้า LINE ด้วย'
+                  : isPro
+                  ? 'เชื่อมบัญชี LINE เพื่อรับแจ้งเตือนเดียวกับอีเมล เผื่อพลาดดูอีเมล'
+                  : 'ฟีเจอร์สำหรับสมาชิก Pro -- สมัครเพื่อเปิดใช้งาน'}
+              </p>
+            </div>
+            {notifSettings.lineUserId ? (
+              <button
+                type="button"
+                onClick={handleDisconnectLine}
+                className="shrink-0 text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 px-2.5 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPro) {
+                    onSwitchTab('plans');
+                    return;
+                  }
+                  handleGenerateLineCode();
+                }}
+                disabled={isGeneratingLineCode}
+                className="shrink-0 text-[10px] font-bold text-white bg-[#06C755] hover:bg-[#05B34C] px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isGeneratingLineCode ? 'กำลังสร้างรหัส...' : 'เชื่อมต่อ LINE'}
+              </button>
+            )}
+          </div>
+
+          {lineLinkCode && !notifSettings.lineUserId && (
+            <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-2.5">
+              <p className="text-[10px] text-brand-muted leading-relaxed">
+                1. แอดเพื่อน LINE OA <span className="font-bold text-brand-text dark:text-white">@859mlugf</span>{' '}
+                <a
+                  href="https://line.me/R/ti/p/@859mlugf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#06C755] font-bold inline-flex items-center gap-0.5 hover:underline"
+                >
+                  (เปิดลิงก์แอดเพื่อน <ExternalLink className="w-2.5 h-2.5" />)
+                </a>
+                <br />
+                2. พิมพ์รหัสด้านล่างส่งไปที่แชท เพื่อยืนยันว่าเป็นบัญชีนี้
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-brand-faint dark:bg-stone-850 rounded-xl px-3 py-2 text-center font-mono font-black text-sm tracking-widest text-brand-text dark:text-white">
+                  {lineLinkCode}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyLineCode}
+                  className="shrink-0 p-2 rounded-xl border border-brand-border/60 text-brand-muted hover:text-brand-text hover:bg-brand-faint dark:hover:bg-stone-850 transition-colors cursor-pointer"
+                  title="คัดลอกรหัส"
+                >
+                  {lineLinkCopied ? <IconCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[9px] text-brand-muted/80">รหัสนี้ใช้ได้ 15 นาที หมดอายุแล้วกดเชื่อมต่อใหม่ได้เลย</p>
+            </div>
+          )}
+        </div>
 
         {/* Due Lists */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

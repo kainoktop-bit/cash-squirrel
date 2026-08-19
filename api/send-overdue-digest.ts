@@ -29,6 +29,7 @@ interface NotifSettingsRow {
   dailyDigestEnabled?: boolean;
   lastDigestSentDate?: string;
   pendingQueue?: unknown[];
+  lineUserId?: string;
 }
 
 // Bangkok is UTC+7 with no DST; a fixed offset is enough to get "today" right locally.
@@ -272,7 +273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
         // email or a LINE API hiccup just means no LINE message this time.
         if (row.email) {
-          sendLineMessageToEmail(row.email, buildDigestLineText(attentionJobs)).catch((err) =>
+          sendLineMessageToEmail(row.email, buildDigestLineText(attentionJobs), notifSettings.lineUserId).catch((err) =>
             console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
           );
         }
