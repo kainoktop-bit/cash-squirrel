@@ -152,6 +152,50 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, totalPendingAllTime };
 }
 
+// Tappable shortcuts (LINE Quick Reply) for the questions people ask most -- these are answered
+// straight from buildDataSnapshot in plain JS with zero Gemini calls, so the busiest queries
+// never touch the AI quota at all. Free-form typing still goes through classifyMessage as usual.
+const QUICK_REPLY: import('./_line.js').LineQuickReply = {
+  items: [
+    { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
+    { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
+    { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } },
+  ],
+};
+
+function withQuickReply(message: LineMessage): LineMessage {
+  return { ...message, quickReply: QUICK_REPLY };
+}
+
+function formatUnpaidQuickReply(snapshot: DataSnapshot): string {
+  if (snapshot.unpaid.length === 0) return 'ตอนนี้ไม่มีงานค้างจ่ายเลยครับ 🎉';
+  const lines = snapshot.unpaid.map((j) => `• ${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}`);
+  return ['งานที่ยังไม่จ่ายทั้งหมด:', ...lines, '', `รวมค้างรับทั้งหมด: ${formatCurrency(snapshot.totalPendingAllTime)}`].join('\n');
+}
+
+function formatThisMonthQuickReply(snapshot: DataSnapshot): string {
+  const s = snapshot.thisMonth;
+  return [
+    `สรุปเดือนนี้ (${s.monthKey}):`,
+    `รับแล้วจริง: ${formatCurrency(s.received)}`,
+    `รายจ่ายรวม: ${formatCurrency(s.fixedExpenseCalculated + s.variableExpense)}`,
+    `กระแสเงินสดสุทธิ: ${formatCurrency(s.netFlow)}`,
+    `ยอดออมสะสมโดยประมาณ: ${formatCurrency(s.actualSavings)}`,
+  ].join('\n');
+}
+
+function formatWipQuickReply(snapshot: DataSnapshot): string {
+  if (snapshot.wip.length === 0) return 'ตอนนี้ไม่มีงานในสต็อก (ยังไม่โพสต์) เลยครับ';
+  const lines = snapshot.wip.map((j) => `• ${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`);
+  return ['งานที่ยังไม่โพสต์ (สต็อกงาน):', ...lines].join('\n');
+}
+
+const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
+  งานค้างจ่าย: formatUnpaidQuickReply,
+  สรุปเดือนนี้: formatThisMonthQuickReply,
+  งานสต็อก: formatWipQuickReply,
+};
+
 // Combines what used to be 2 separate Gemini calls (intent gate + job-field extraction, or
 // intent gate + grounded Q&A) into one -- cuts LINE-assistant API usage roughly in half per
 // message, which matters given the free-tier Gemini quota's per-minute rate limit (a real 429
@@ -479,8 +523,14 @@ const DECLINE_KEYWORDS = ['ไม่ต้องถาม', 'พอแล้ว'
 const CANCEL_KEYWORDS = ['ยกเลิก', 'cancel', 'ไม่เอาแล้ว', 'เริ่มใหม่'];
 
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
-// to any app account yet, so the caller can fall back to the link-code flow.
+// to any app account yet, so the caller can fall back to the link-code flow. Every non-null
+// reply gets the Quick Reply shortcuts attached so they're always one tap away.
 export async function handleAssistantMessage(lineUserId: string, text: string): Promise<LineMessage | null> {
+  const result = await handleAssistantMessageInner(lineUserId, text);
+  return result ? withQuickReply(result) : null;
+}
+
+async function handleAssistantMessageInner(lineUserId: string, text: string): Promise<LineMessage | null> {
   let user: UserRow | null;
   try {
     user = await findUserByLineId(lineUserId);
@@ -495,6 +545,11 @@ export async function handleAssistantMessage(lineUserId: string, text: string): 
   const notifSettings: NotifSettingsRow = user.notif_settings || {};
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
+
+  if (QUICK_ACTIONS[trimmed]) {
+    const snapshot = buildDataSnapshot(user);
+    return { type: 'text', text: QUICK_ACTIONS[trimmed](snapshot) };
+  }
 
   if (notifSettings.linePendingJob) {
     const pending = notifSettings.linePendingJob;
