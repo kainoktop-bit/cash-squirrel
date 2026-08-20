@@ -13,11 +13,10 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
-// No AI/Gemini calls anywhere in this file by design -- adding a job/expense is a fully
-// deterministic step-by-step questionnaire (one field at a time, simple keyword/number parsing),
-// and everything else is fixed Quick Reply commands. This traded away free-form natural-language
-// understanding on purpose: the Gemini free tier kept hitting rate limits under real testing, and
-// the user chose reliability over flexibility for now.
+// No AI/Gemini calls anywhere in this file by design, and no chat-based add-job/add-expense
+// questionnaire either -- that flow was removed in favor of the LIFF form (api/liff-submit.ts),
+// which has a proper multi-field UI and can't leave someone stuck mid-conversation answering the
+// wrong question. Everything here is either a fixed Quick Reply command or a friendly fallback.
 
 interface StatusRow {
   id: string;
@@ -25,25 +24,10 @@ interface StatusRow {
   behavior: 'done' | 'partial' | 'pending';
 }
 
-type JobStep = 'name' | 'client' | 'value' | 'creditTerm' | 'paymentStatus' | 'receivedAmount';
-type ExpenseStep = 'name' | 'category' | 'amount';
-
-interface PendingJobState {
-  draft: JobDraft;
-  step: JobStep;
-}
-
-interface PendingExpenseState {
-  draft: ExpenseDraft;
-  step: ExpenseStep;
-}
-
 interface NotifSettingsRow {
   lineUserId?: string;
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
-  linePendingJob?: PendingJobState | null;
-  linePendingExpense?: PendingExpenseState | null;
   [key: string]: unknown;
 }
 
@@ -76,19 +60,6 @@ export interface ExpenseDraft {
   amount?: number;
   note?: string;
 }
-
-// Mirrors ExpenseRecordView.tsx's EXPENSE_CATEGORIES -- kept in sync manually since one lives in
-// the web app's UI and the other is shown as a numbered pick-list in LINE.
-const EXPENSE_CATEGORIES = [
-  'ค่าอุปกรณ์/ซอฟต์แวร์',
-  'ค่าโฆษณา/ยิงแอด',
-  'ค่าเดินทาง/น้ำมัน',
-  'อาหาร/รับรองลูกค้า',
-  'จ้างงานต่อ (Outsource)',
-  'ภาษี/ธรรมเนียม',
-  'ค่าบริการ/สาธารณูปโภค',
-  'อื่นๆ',
-];
 
 // Throws on a genuine Supabase/query error (caller must not treat that the same as "not
 // linked" -- doing so once told an already-linked user their account wasn't found, which reads
@@ -175,8 +146,6 @@ function getQuickReply(): import('./_line.js').LineQuickReply {
     items.push({ type: 'action', action: { type: 'uri', label: '📝 ฟอร์มบันทึก', uri: `https://liff.line.me/${liffId}` } });
   }
   items.push(
-    { type: 'action', action: { type: 'message', label: '➕ เพิ่มงาน', text: 'เพิ่มงาน' } },
-    { type: 'action', action: { type: 'message', label: '➕ เพิ่มรายจ่าย', text: 'เพิ่มรายจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
     { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } }
@@ -218,68 +187,17 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
   งานสต็อก: formatWipQuickReply,
 };
 
+// Shown for literally anything that isn't one of the 3 Quick Reply query commands -- a greeting,
+// a random question, or anything else. Since there's no more pending chat flow to get stuck in,
+// this is always a safe, friendly fallback rather than a leftover mid-conversation prompt.
 const HELP_TEXT = [
-  '🐿️ ไม่เข้าใจคำสั่งนี้ครับ ลองกดปุ่มด้านล่าง หรือพิมพ์:',
-  '➕ "เพิ่มงาน" เพื่อบันทึกรายรับ',
-  '➕ "เพิ่มรายจ่าย" เพื่อบันทึกรายจ่าย',
-  '📋 "งานค้างจ่าย"',
-  '📊 "สรุปเดือนนี้"',
-  '📦 "งานสต็อก"',
+  '🐿️ สวัสดีครับ! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ',
+  'กดปุ่มด้านล่างได้เลย:',
+  '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
+  '📋 งานค้างจ่าย',
+  '📊 สรุปเดือนนี้',
+  '📦 งานสต็อก',
 ].join('\n');
-
-// Pulls the first number out of free text ("5000", "5,000 บาท", "ห้าพัน" -- no, just digits).
-function parseNumber(text: string): number | null {
-  const match = text.replace(/,/g, '').match(/-?\d+(\.\d+)?/);
-  if (!match) return null;
-  const n = parseFloat(match[0]);
-  return Number.isFinite(n) ? n : null;
-}
-
-const JOB_STEP_PROMPTS: Record<JobStep, string> = {
-  name: '📝 ชื่องาน/โปรเจกต์อะไรครับ',
-  client: '👤 ลูกค้าชื่ออะไรครับ (ถ้าไม่มีพิมพ์ "-")',
-  value: '💰 มูลค่างานเท่าไหร่ครับ (พิมพ์ตัวเลข เช่น 5000)',
-  creditTerm: '📅 เครดิตเทอมกี่วันครับ (พิมพ์ 0 ถ้าได้เงินทันที)',
-  paymentStatus: 'ได้รับเงินแล้วหรือยังครับ?\n1) จ่ายครบแล้ว\n2) มัดจำบางส่วน\n3) ยังไม่จ่าย\n(พิมพ์ 1, 2 หรือ 3)',
-  receivedAmount: '💵 มัดจำมาแล้วกี่บาทครับ',
-};
-
-const JOB_STEP_ORDER: JobStep[] = ['name', 'client', 'value', 'creditTerm', 'paymentStatus'];
-
-const EXPENSE_STEP_PROMPTS: Record<ExpenseStep, string> = {
-  name: '📝 ชื่อรายการรายจ่ายอะไรครับ',
-  category: `📂 เลือกหมวดหมู่ครับ (พิมพ์ตัวเลข)\n${EXPENSE_CATEGORIES.map((c, i) => `${i + 1}) ${c}`).join('\n')}`,
-  amount: '💰 จำนวนเงินเท่าไหร่ครับ (พิมพ์ตัวเลข)',
-};
-
-const EXPENSE_STEP_ORDER: ExpenseStep[] = ['name', 'category', 'amount'];
-
-async function updateNotifSettings(userId: string, notifSettings: NotifSettingsRow): Promise<void> {
-  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: notifSettings }).eq('user_id', userId);
-  if (error) console.error('updateNotifSettings error:', error);
-}
-
-async function savePendingJob(user: UserRow, state: PendingJobState): Promise<void> {
-  const notifSettings: NotifSettingsRow = user.notif_settings || {};
-  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingJob: state });
-}
-
-async function clearPendingJob(user: UserRow): Promise<void> {
-  const notifSettings: NotifSettingsRow = { ...(user.notif_settings || {}) };
-  delete notifSettings.linePendingJob;
-  await updateNotifSettings(user.user_id, notifSettings);
-}
-
-async function savePendingExpense(user: UserRow, state: PendingExpenseState): Promise<void> {
-  const notifSettings: NotifSettingsRow = user.notif_settings || {};
-  await updateNotifSettings(user.user_id, { ...notifSettings, linePendingExpense: state });
-}
-
-async function clearPendingExpense(user: UserRow): Promise<void> {
-  const notifSettings: NotifSettingsRow = { ...(user.notif_settings || {}) };
-  delete notifSettings.linePendingExpense;
-  await updateNotifSettings(user.user_id, notifSettings);
-}
 
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
 // via chat, so it's left at 0 -- editable in-app afterward same as any other field).
@@ -387,9 +305,10 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   const statusLabel = isWip ? 'สต็อกเตรียมผลิต (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
   // A WIP job hasn't actually been delivered/paid yet -- heading it "รับเงิน +value" like a
-  // completed transaction would be misleading, so it gets its own neutral (not green) framing.
+  // completed transaction would be misleading, so it gets its own indigo framing, clearly apart
+  // from both the green (income) and rust (expense) cards rather than reusing either palette.
   const headerLabel = isWip ? 'เพิ่มงานใหม่ (สต็อก)' : 'รับเงิน';
-  const headerColor = isWip ? '#C17817' : '#0E9F6E';
+  const headerColor = isWip ? '#4338CA' : '#0E9F6E';
 
   if (!appUrl) {
     const lines = [
@@ -442,14 +361,6 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   };
 
   return { type: 'flex', altText: isWip ? `เพิ่มงาน "${job.name}" เข้าสต็อกแล้วครับ` : `บันทึกงาน "${job.name}" สำเร็จแล้วครับ`, contents };
-}
-
-async function saveDraftNow(user: UserRow, draft: JobDraft): Promise<LineMessage> {
-  const job = buildJobFromDraft(draft);
-  const ok = await persistJob(user, job);
-  if (!ok) return { type: 'text', text: 'บันทึกงานไม่สำเร็จครับ ลองใหม่อีกครั้ง หรือบันทึกผ่านแอปแทนได้เลยครับ' };
-  await clearPendingJob(user);
-  return buildJobSavedMessage(job);
 }
 
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
@@ -534,97 +445,8 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
   return { type: 'flex', altText: `บันทึกรายจ่าย "${expense.name}" สำเร็จแล้วครับ`, contents };
 }
 
-async function saveExpenseDraftNow(user: UserRow, draft: ExpenseDraft): Promise<LineMessage> {
-  const expense = buildExpenseFromDraft(draft);
-  const ok = await persistExpense(user, expense);
-  if (!ok) return { type: 'text', text: 'บันทึกรายจ่ายไม่สำเร็จครับ ลองใหม่อีกครั้ง หรือบันทึกผ่านแอปแทนได้เลยครับ' };
-  await clearPendingExpense(user);
-  return buildExpenseSavedMessage(expense);
-}
-
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
-}
-
-const CANCEL_KEYWORDS = ['ยกเลิก', 'cancel', 'ไม่เอาแล้ว', 'เริ่มใหม่'];
-
-// Advances the job-entry questionnaire by exactly one step given the answer to the step it's
-// currently on. Returns either a follow-up prompt (still collecting) or the final saved message.
-async function advanceJobStep(user: UserRow, pending: PendingJobState, trimmed: string): Promise<LineMessage> {
-  const draft: JobDraft = { ...pending.draft };
-  const step = pending.step;
-
-  if (step === 'name') {
-    if (!trimmed) return { type: 'text', text: JOB_STEP_PROMPTS.name };
-    draft.name = trimmed;
-  } else if (step === 'client') {
-    draft.client = trimmed === '-' || /^(ไม่มี|ไม่ระบุ|ข้าม)$/.test(trimmed) ? '' : trimmed;
-  } else if (step === 'value') {
-    const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 5000 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
-    draft.value = n;
-  } else if (step === 'creditTerm') {
-    const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 0 หรือ 30 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
-    draft.creditTerm = n;
-  } else if (step === 'paymentStatus') {
-    if (/(^|\D)1(\D|$)|ครบ|จ่ายแล้ว|paid/i.test(trimmed)) {
-      draft.paymentStatus = 'paid';
-    } else if (/(^|\D)2(\D|$)|มัดจำ|บางส่วน|partial/i.test(trimmed)) {
-      draft.paymentStatus = 'partial';
-    } else if (/(^|\D)3(\D|$)|ยังไม่|ค้าง|pending/i.test(trimmed)) {
-      draft.paymentStatus = 'pending';
-    } else {
-      return { type: 'text', text: JOB_STEP_PROMPTS.paymentStatus };
-    }
-  } else if (step === 'receivedAmount') {
-    const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 1000 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
-    draft.receivedAmount = n;
-    return await saveDraftNow(user, draft);
-  }
-
-  if (step === 'paymentStatus' && draft.paymentStatus === 'partial') {
-    await savePendingJob(user, { draft, step: 'receivedAmount' });
-    return { type: 'text', text: JOB_STEP_PROMPTS.receivedAmount };
-  }
-  if (step === 'paymentStatus') {
-    return await saveDraftNow(user, draft);
-  }
-
-  const nextIdx = JOB_STEP_ORDER.indexOf(step) + 1;
-  const next = JOB_STEP_ORDER[nextIdx];
-  await savePendingJob(user, { draft, step: next });
-  return { type: 'text', text: JOB_STEP_PROMPTS[next] };
-}
-
-async function advanceExpenseStep(user: UserRow, pending: PendingExpenseState, trimmed: string): Promise<LineMessage> {
-  const draft: ExpenseDraft = { ...pending.draft };
-  const step = pending.step;
-
-  if (step === 'name') {
-    if (!trimmed) return { type: 'text', text: EXPENSE_STEP_PROMPTS.name };
-    draft.name = trimmed;
-  } else if (step === 'category') {
-    const n = parseInt(trimmed, 10);
-    if (Number.isInteger(n) && n >= 1 && n <= EXPENSE_CATEGORIES.length) {
-      draft.category = EXPENSE_CATEGORIES[n - 1];
-    } else if (trimmed) {
-      draft.category = trimmed;
-    } else {
-      return { type: 'text', text: EXPENSE_STEP_PROMPTS.category };
-    }
-  } else if (step === 'amount') {
-    const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 500 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
-    draft.amount = n;
-    return await saveExpenseDraftNow(user, draft);
-  }
-
-  const nextIdx = EXPENSE_STEP_ORDER.indexOf(step) + 1;
-  const next = EXPENSE_STEP_ORDER[nextIdx];
-  await savePendingExpense(user, { draft, step: next });
-  return { type: 'text', text: EXPENSE_STEP_PROMPTS[next] };
 }
 
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
@@ -647,39 +469,11 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   }
   if (!user) return null;
 
-  const notifSettings: NotifSettingsRow = user.notif_settings || {};
   const trimmed = text.trim();
-  const lower = trimmed.toLowerCase();
 
   if (QUICK_ACTIONS[trimmed]) {
     const snapshot = buildDataSnapshot(user);
     return { type: 'text', text: QUICK_ACTIONS[trimmed](snapshot) };
-  }
-
-  if (trimmed === 'เพิ่มงาน') {
-    await savePendingJob(user, { draft: {}, step: 'name' });
-    return { type: 'text', text: JOB_STEP_PROMPTS.name };
-  }
-
-  if (trimmed === 'เพิ่มรายจ่าย') {
-    await savePendingExpense(user, { draft: {}, step: 'name' });
-    return { type: 'text', text: EXPENSE_STEP_PROMPTS.name };
-  }
-
-  if (notifSettings.linePendingJob) {
-    if (CANCEL_KEYWORDS.some((k) => lower.includes(k))) {
-      await clearPendingJob(user);
-      return { type: 'text', text: 'ยกเลิกการบันทึกงานแล้วครับ' };
-    }
-    return await advanceJobStep(user, notifSettings.linePendingJob, trimmed);
-  }
-
-  if (notifSettings.linePendingExpense) {
-    if (CANCEL_KEYWORDS.some((k) => lower.includes(k))) {
-      await clearPendingExpense(user);
-      return { type: 'text', text: 'ยกเลิกการบันทึกรายจ่ายแล้วครับ' };
-    }
-    return await advanceExpenseStep(user, notifSettings.linePendingExpense, trimmed);
   }
 
   return { type: 'text', text: HELP_TEXT };
