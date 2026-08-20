@@ -7,8 +7,7 @@ import {
   TrendingUp, 
   Coins, 
   Layers, 
-  TrendingDown, 
-  Sparkles,
+  TrendingDown,
   ArrowRight,
   ShieldCheck,
   Zap,
@@ -743,7 +742,6 @@ export default function SplitTab({
           {/* 3. Net profit - HIGHLY PROMINENT */}
           <div className="flex flex-col items-center justify-center p-5 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 rounded-xl my-4 text-center">
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <Sparkles className="w-4 h-4 animate-pulse shrink-0" />
               <span className="text-xs font-black uppercase tracking-wider">กำไรสุทธิคงเหลือเพื่อจัดสรร</span>
             </div>
             <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
