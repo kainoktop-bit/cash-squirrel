@@ -196,26 +196,34 @@ function formatWipQuickReply(snapshot: DataSnapshot): string {
   return ['📦 งานที่ยังไม่โพสต์ (สต็อกงาน)', '', ...lines].join('\n');
 }
 
+// Grouped by status (unpaid / paid / stock) instead of one mixed list -- each job gets a single
+// short line, so the eye scans 3 clean buckets instead of parsing an icon+status on every line.
 function formatThisMonthJobsQuickReply(snapshot: DataSnapshot): string {
   const s = snapshot.thisMonth;
   if (snapshot.thisMonthJobs.length === 0) return `📅 เดือนนี้ (${s.monthKey}) ยังไม่มีงานเข้าเลยครับ`;
-  const lines = snapshot.thisMonthJobs.map((j) => {
-    const statusLabel = j.isPosted === false ? 'สต็อก (ยังไม่ส่งงาน)' : j.status === 'done' ? 'จ่ายครบแล้ว' : j.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
-    const pendingText = j.isUnpaid ? `\n   ค้างรับ ${formatCurrency(j.pending)}` : '';
-    return `${j.isUnpaid ? '💸' : '✅'} ${j.name}${j.client ? ` (${j.client})` : ''}\n   มูลค่า ${formatCurrency(j.value)} • ${statusLabel}${pendingText}`;
-  });
-  const unpaidThisMonth = snapshot.thisMonthJobs.filter((j) => j.isUnpaid);
-  const unpaidSum = unpaidThisMonth.reduce((sum, j) => sum + j.pending, 0);
-  return [
-    `📅 งานที่เข้าเดือนนี้ (${s.monthKey}) ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`,
-    '',
-    ...lines,
-    '',
-    `รวมมูลค่างานตามสัญญา: ${formatCurrency(s.income)}`,
-    unpaidThisMonth.length > 0
-      ? `⚠️ ยังไม่จ่ายเดือนนี้: ${unpaidThisMonth.length} งาน (ค้างรวม ${formatCurrency(unpaidSum)})`
-      : '🎉 เดือนนี้จ่ายครบทุกงานแล้ว',
-  ].join('\n');
+
+  const wip = snapshot.thisMonthJobs.filter((j) => j.isPosted === false);
+  const invoiced = snapshot.thisMonthJobs.filter((j) => j.isPosted !== false);
+  const unpaid = invoiced.filter((j) => j.isUnpaid);
+  const paid = invoiced.filter((j) => !j.isUnpaid);
+  const unpaidSum = unpaid.reduce((sum, j) => sum + j.pending, 0);
+  const jobLine = (j: DataSnapshot['thisMonthJobs'][number], amount: number) =>
+    `• ${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(amount)}`;
+
+  const out = [`📅 งานเดือนนี้ (${s.monthKey}) • ${snapshot.thisMonthJobs.length} งาน`];
+
+  if (unpaid.length > 0) {
+    out.push('', `💸 ยังไม่จ่าย (${unpaid.length} • ค้างรวม ${formatCurrency(unpaidSum)})`, ...unpaid.map((j) => jobLine(j, j.pending)));
+  }
+  if (paid.length > 0) {
+    out.push('', `✅ จ่ายแล้ว (${paid.length})`, ...paid.map((j) => jobLine(j, j.value)));
+  }
+  if (wip.length > 0) {
+    out.push('', `📦 ในสต็อก (${wip.length})`, ...wip.map((j) => jobLine(j, j.value)));
+  }
+
+  out.push('', `รวมมูลค่าทั้งหมด: ${formatCurrency(s.income)}`);
+  return out.join('\n');
 }
 
 const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
