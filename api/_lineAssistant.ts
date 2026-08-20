@@ -561,11 +561,11 @@ async function advanceJobStep(user: UserRow, pending: PendingJobState, trimmed: 
     draft.client = trimmed === '-' || /^(ไม่มี|ไม่ระบุ|ข้าม)$/.test(trimmed) ? '' : trimmed;
   } else if (step === 'value') {
     const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 5000' };
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 5000 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
     draft.value = n;
   } else if (step === 'creditTerm') {
     const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 0 หรือ 30' };
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 0 หรือ 30 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
     draft.creditTerm = n;
   } else if (step === 'paymentStatus') {
     if (/(^|\D)1(\D|$)|ครบ|จ่ายแล้ว|paid/i.test(trimmed)) {
@@ -579,7 +579,7 @@ async function advanceJobStep(user: UserRow, pending: PendingJobState, trimmed: 
     }
   } else if (step === 'receivedAmount') {
     const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 1000' };
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 1000 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
     draft.receivedAmount = n;
     return await saveDraftNow(user, draft);
   }
@@ -616,7 +616,7 @@ async function advanceExpenseStep(user: UserRow, pending: PendingExpenseState, t
     }
   } else if (step === 'amount') {
     const n = parseNumber(trimmed);
-    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 500' };
+    if (n == null) return { type: 'text', text: 'กรุณาพิมพ์เป็นตัวเลขครับ เช่น 500 (หรือพิมพ์ "ยกเลิก" เพื่อเริ่มใหม่)' };
     draft.amount = n;
     return await saveExpenseDraftNow(user, draft);
   }
