@@ -10,6 +10,7 @@ import {
   currentMonthKey,
   previousMonthKey,
   computeMonthlySummary,
+  jobsInMonth,
   formatCurrency,
 } from './_monthlySummary.js';
 
@@ -85,6 +86,7 @@ interface DataSnapshot {
   dueToday: { name: string; client: string; pending: number }[];
   thisMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   lastMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
+  thisMonthJobs: { name: string; client: string; value: number; status: string; isPosted?: boolean }[];
   totalPendingAllTime: number;
 }
 
@@ -127,9 +129,19 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   const thisMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, thisMonthKey), monthKey: thisMonthKey };
   const lastMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, lastMonthKey), monthKey: lastMonthKey };
 
+  // Scoped by payDate||postDate falling in this month -- same job set computeMonthlySummary
+  // itself sums for thisMonth's income/received, just kept as a list instead of a total.
+  const thisMonthJobs = jobsInMonth(jobs, thisMonthKey).map((j) => ({
+    name: j.name,
+    client: j.client || '',
+    value: j.value || 0,
+    status: j.status || '',
+    isPosted: j.isPosted,
+  }));
+
   const totalPendingAllTime = unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
 
-  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, totalPendingAllTime };
+  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, thisMonthJobs, totalPendingAllTime };
 }
 
 // Tappable shortcuts (LINE Quick Reply) -- every one of these is answered deterministically,
@@ -148,6 +160,7 @@ function getQuickReply(): import('./_line.js').LineQuickReply {
   items.push(
     { type: 'action', action: { type: 'message', label: '📋 งานค้างจ่าย', text: 'งานค้างจ่าย' } },
     { type: 'action', action: { type: 'message', label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
+    { type: 'action', action: { type: 'message', label: '📅 งานเดือนนี้', text: 'งานเดือนนี้' } },
     { type: 'action', action: { type: 'message', label: '📦 งานสต็อก', text: 'งานสต็อก' } }
   );
   return { items: items.slice(0, 13) };
@@ -181,10 +194,21 @@ function formatWipQuickReply(snapshot: DataSnapshot): string {
   return ['📦 งานที่ยังไม่โพสต์ (สต็อกงาน)', '', ...lines].join('\n');
 }
 
+function formatThisMonthJobsQuickReply(snapshot: DataSnapshot): string {
+  const s = snapshot.thisMonth;
+  if (snapshot.thisMonthJobs.length === 0) return `📅 เดือนนี้ (${s.monthKey}) ยังไม่มีงานเข้าเลยครับ`;
+  const lines = snapshot.thisMonthJobs.map((j) => {
+    const statusLabel = j.isPosted === false ? 'สต็อก (ยังไม่ส่งงาน)' : j.status === 'done' ? 'จ่ายครบแล้ว' : j.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+    return `🗂️ ${j.name}${j.client ? ` (${j.client})` : ''}\n   มูลค่า ${formatCurrency(j.value)} • ${statusLabel}`;
+  });
+  return [`📅 งานที่เข้าเดือนนี้ (${s.monthKey}) ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`, '', ...lines, '', `รวมมูลค่างานตามสัญญา: ${formatCurrency(s.income)}`].join('\n');
+}
+
 const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
   งานค้างจ่าย: formatUnpaidQuickReply,
   สรุปเดือนนี้: formatThisMonthQuickReply,
   งานสต็อก: formatWipQuickReply,
+  งานเดือนนี้: formatThisMonthJobsQuickReply,
 };
 
 // Shown for literally anything that isn't one of the 3 Quick Reply query commands -- a greeting,
@@ -196,6 +220,7 @@ const HELP_TEXT = [
   '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
   '📋 งานค้างจ่าย',
   '📊 สรุปเดือนนี้',
+  '📅 งานเดือนนี้',
   '📦 งานสต็อก',
 ].join('\n');
 
