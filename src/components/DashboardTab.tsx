@@ -593,6 +593,10 @@ export default function DashboardTab({
     .reduce((sum, e) => sum + e.amount, 0);
 
   const profit = totalReceived - settings.monthlyExpense - variableExpenseThisMonth;
+  // What's actually left in hand right now: money already received minus money already spent
+  // on logged variable expenses. Deliberately excludes the fixed-expense budget line (that's
+  // what `profit` above is for) since fixed bills haven't necessarily left the wallet yet.
+  const receivedAfterVariableExpense = Math.max(0, totalReceived - variableExpenseThisMonth);
 
   // Month-over-month comparison for the hero card
   const prevMonthKey = React.useMemo(() => {
@@ -703,12 +707,17 @@ export default function DashboardTab({
         }
       }
     });
+    const monthVariableExpense = expenses
+      .filter(e => getMonthKey(e.date) === monthKey)
+      .reduce((sum, e) => sum + e.amount, 0);
     const totalIncome = totalConfirmed + totalPending;
-    const isSufficient = totalIncome >= settings.monthlyExpense;
-    const balance = totalIncome - settings.monthlyExpense;
+    const totalExpense = settings.monthlyExpense + monthVariableExpense;
+    const isSufficient = totalIncome >= totalExpense;
+    const balance = totalIncome - totalExpense;
     return {
       monthKey,
       totalIncome,
+      totalExpense,
       isSufficient,
       balance,
     };
@@ -795,6 +804,11 @@ export default function DashboardTab({
               <p className="text-lg font-black font-mono text-white mt-0.5">
                 {formatCurrency(animatedReceived)}
               </p>
+              {variableExpenseThisMonth > 0 && (
+                <p className="text-[9px] font-bold text-white/50 mt-0.5" title="รับเงินแล้ว หักด้วยรายจ่ายผันแปรที่บันทึกไว้จริงในเดือนนี้">
+                  คงเหลือหลังหักรายจ่าย: {formatCurrency(receivedAfterVariableExpense)}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่ยังไม่ได้รับ">
@@ -929,13 +943,13 @@ export default function DashboardTab({
             className="pt-3 border-t border-brand-border/40 space-y-3"
           >
             <div className="flex justify-between items-center text-[10px] text-brand-muted">
-              <span>* เกณฑ์ประเมินอิงรายจ่ายคงที่: {formatCurrency(settings.monthlyExpense)} / เดือน</span>
+              <span>* เกณฑ์ประเมินอิงรายจ่ายคงที่ {formatCurrency(settings.monthlyExpense)} / เดือน บวกรายจ่ายผันแปรที่บันทึกไว้จริงของแต่ละเดือน</span>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {projectedMonthsData.map((m, idx) => {
                 const isCurrent = m.monthKey === currentMonthKey;
-                const fillPercentage = Math.min(100, (m.totalIncome / Math.max(1, settings.monthlyExpense)) * 100);
+                const fillPercentage = Math.min(100, (m.totalIncome / Math.max(1, m.totalExpense)) * 100);
                 
                 return (
                   <motion.div
