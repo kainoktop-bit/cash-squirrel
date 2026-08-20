@@ -811,6 +811,11 @@ export default function DashboardTab({
               <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B]">
                 {formatCurrency(animatedProfit)}
               </p>
+              {profit < 0 && (
+                <p className="text-[9px] font-bold text-rose-400 mt-0.5">
+                  ขาดอีก {formatCurrency(Math.abs(profit))}
+                </p>
+              )}
             </div>
           </div>
         </div>
