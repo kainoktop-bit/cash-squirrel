@@ -86,7 +86,7 @@ interface DataSnapshot {
   dueToday: { name: string; client: string; pending: number }[];
   thisMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   lastMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
-  thisMonthJobs: { name: string; client: string; value: number; status: string; isPosted?: boolean }[];
+  thisMonthJobs: { name: string; client: string; value: number; pending: number; status: string; isPosted?: boolean; isUnpaid: boolean }[];
   totalPendingAllTime: number;
 }
 
@@ -135,8 +135,10 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
     name: j.name,
     client: j.client || '',
     value: j.value || 0,
+    pending: j.pending || 0,
     status: j.status || '',
     isPosted: j.isPosted,
+    isUnpaid: (j.pending || 0) > 0 && isUnpaidBehavior(j.status || ''),
   }));
 
   const totalPendingAllTime = unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
@@ -199,9 +201,21 @@ function formatThisMonthJobsQuickReply(snapshot: DataSnapshot): string {
   if (snapshot.thisMonthJobs.length === 0) return `📅 เดือนนี้ (${s.monthKey}) ยังไม่มีงานเข้าเลยครับ`;
   const lines = snapshot.thisMonthJobs.map((j) => {
     const statusLabel = j.isPosted === false ? 'สต็อก (ยังไม่ส่งงาน)' : j.status === 'done' ? 'จ่ายครบแล้ว' : j.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
-    return `🗂️ ${j.name}${j.client ? ` (${j.client})` : ''}\n   มูลค่า ${formatCurrency(j.value)} • ${statusLabel}`;
+    const pendingText = j.isUnpaid ? `\n   ค้างรับ ${formatCurrency(j.pending)}` : '';
+    return `${j.isUnpaid ? '💸' : '✅'} ${j.name}${j.client ? ` (${j.client})` : ''}\n   มูลค่า ${formatCurrency(j.value)} • ${statusLabel}${pendingText}`;
   });
-  return [`📅 งานที่เข้าเดือนนี้ (${s.monthKey}) ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`, '', ...lines, '', `รวมมูลค่างานตามสัญญา: ${formatCurrency(s.income)}`].join('\n');
+  const unpaidThisMonth = snapshot.thisMonthJobs.filter((j) => j.isUnpaid);
+  const unpaidSum = unpaidThisMonth.reduce((sum, j) => sum + j.pending, 0);
+  return [
+    `📅 งานที่เข้าเดือนนี้ (${s.monthKey}) ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`,
+    '',
+    ...lines,
+    '',
+    `รวมมูลค่างานตามสัญญา: ${formatCurrency(s.income)}`,
+    unpaidThisMonth.length > 0
+      ? `⚠️ ยังไม่จ่ายเดือนนี้: ${unpaidThisMonth.length} งาน (ค้างรวม ${formatCurrency(unpaidSum)})`
+      : '🎉 เดือนนี้จ่ายครบทุกงานแล้ว',
+  ].join('\n');
 }
 
 const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
