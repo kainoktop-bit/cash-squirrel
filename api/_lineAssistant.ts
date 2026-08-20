@@ -298,8 +298,9 @@ export interface JobCardData {
 // transfer notification (big amount up top, clean label/value rows below) since that's the
 // clearest, most familiar shape for this kind of confirmation. Falls back to a plain-text
 // summary when APP_URL isn't configured (no working deep link yet). monthNet, when given, adds
-// a running "คงเหลือเดือนนี้" line -- the same net-cash-flow figure MonthlyReportTab shows,
-// computed by the caller (see computeMonthlySummary) so this stays a pure display function.
+// a running "คงเหลือเดือนนี้" line -- receivedAfterVariableExpense from computeMonthlySummary
+// (received minus already-logged variable expenses, not netFlow), matching the Dashboard's
+// "คงเหลือหลังหักรายจ่าย" figure. Computed by the caller so this stays a pure display function.
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
   const statusLabel = isWip ? 'สต็อกเตรียมผลิต (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
@@ -354,7 +355,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
           type: 'button',
           style: 'primary',
           color: '#E65F2B',
-          action: { type: 'uri', label: 'เปิดดูในเว็บ', uri: `${appUrl.replace(/\/$/, '')}/?job=${encodeURIComponent(job.id)}` },
+          action: { type: 'uri', label: 'เปิดแอป', uri: `${appUrl.replace(/\/$/, '')}/?job=${encodeURIComponent(job.id)}` },
         },
       ],
     },

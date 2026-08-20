@@ -1189,7 +1189,10 @@ export default function App() {
 
   // computeMonthlySummary is only for the LINE card's "คงเหลือเดือนนี้" line -- never let it (or
   // anything else) block the notify call itself, since a thrown error here would silently
-  // swallow the whole notification before the fetch even happens.
+  // swallow the whole notification before the fetch even happens. Uses receivedAfterVariableExpense
+  // (not netFlow) so this matches the Dashboard's "คงเหลือหลังหักรายจ่าย" figure the user actually
+  // watches -- netFlow also nets out the fixed-expense budget line, which isn't what "how much do
+  // I have left right now" means to them.
   const monthNetSafe = (extraJobs: Job[] = [], extraExpenses: Expense[] = []): number | undefined => {
     try {
       return computeMonthlySummary(
@@ -1198,7 +1201,7 @@ export default function App() {
         goals,
         settings,
         getCurrentMonthKeyBkk()
-      ).netFlow;
+      ).receivedAfterVariableExpense;
     } catch (err) {
       console.warn('computeMonthlySummary failed for LINE notify:', err);
       return undefined;
