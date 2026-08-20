@@ -109,7 +109,11 @@ export function computeMonthlySummary(
   const fixedExpense = settings.monthlyExpense || 0;
   const fixedExpenseCalculated = fixedExpense; // includeFullYearFixed = true (default)
   const netFlow = received - fixedExpenseCalculated - variableExpense;
-  const actualSavings = Math.round(received * (savingsPct / 100));
+  // Savings can only come out of money not already spent on logged variable expenses this
+  // month -- fixedExpense is excluded here since it's a recurring budget line (already reflected
+  // in netFlow's warning), not a dated transaction that's actually left the user's pocket yet.
+  const savingsBase = Math.max(0, received - variableExpense);
+  const actualSavings = Math.round(savingsBase * (savingsPct / 100));
 
   return { income, received, variableExpense, fixedExpenseCalculated, netFlow, actualSavings };
 }

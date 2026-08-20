@@ -463,7 +463,8 @@ export default function MonthlyReportTab({
     return Object.values(dataMap)
       .sort((a, b) => a.month.localeCompare(b.month))
       .map(item => {
-        const actualSavings = Math.round(item.received * (savingsPct / 100));
+        const savingsBase = Math.max(0, item.received - item.variableExpense);
+        const actualSavings = Math.round(savingsBase * (savingsPct / 100));
         const fixedExp = includeFullYearFixed 
           ? item.fixedExpense 
           : (item.received > 0 || item.variableExpense > 0 ? item.fixedExpense : 0);
