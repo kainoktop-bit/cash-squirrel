@@ -736,7 +736,7 @@ export default function DashboardTab({
   const animatedContractVal = useCountUp(totalContractVal);
   const animatedReceived = useCountUp(totalReceived);
   const animatedPending = useCountUp(totalPending);
-  const animatedProfit = useCountUp(profit);
+  const animatedProfit = useCountUp(Math.max(0, profit));
 
   return (
     <div id="dashboard-top" className="space-y-6 scroll-mt-6 text-brand-text">
@@ -808,7 +808,7 @@ export default function DashboardTab({
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
                 กำไรสุทธิ
               </p>
-              <p className={`text-lg font-black font-mono mt-0.5 ${profit >= 0 ? 'text-[#E65F2B]' : 'text-rose-400'}`}>
+              <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B]">
                 {formatCurrency(animatedProfit)}
               </p>
             </div>

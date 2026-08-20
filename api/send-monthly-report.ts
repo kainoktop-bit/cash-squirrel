@@ -54,7 +54,7 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
     </table>
     <div style="margin-top:12px;padding:16px;background:#EEF2FF;border-radius:12px;text-align:center;">
       <div style="font-size:11px;color:#4338CA;font-weight:bold;">กระแสเงินสดสุทธิคงเหลือ (NET CASH FLOW)</div>
-      <div style="font-size:26px;color:#3730A3;font-weight:900;margin-top:4px;">${formatCurrency(s.netFlow)}</div>
+      <div style="font-size:26px;color:#3730A3;font-weight:900;margin-top:4px;">${formatCurrency(Math.max(0, s.netFlow))}</div>
     </div>
     <div style="margin-top:20px;padding:16px;background:#FDF6EC;border-radius:12px;">
       <div style="font-size:12px;font-weight:bold;color:#3D2314;margin-bottom:8px;">รายละเอียดการเงินแยกตามส่วน</div>
@@ -78,7 +78,7 @@ function buildReportLineText(monthLabel: string, s: MonthlySummary): string {
     '',
     `รายรับจริง: ${formatCurrency(s.received)}`,
     `รายจ่ายจริง: ${formatCurrency(totalExpense)}`,
-    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(s.netFlow)}`,
+    `กระแสเงินสดสุทธิคงเหลือ: ${formatCurrency(Math.max(0, s.netFlow))}`,
     '',
     'รายละเอียด:',
     `• มูลค่ารวมสัญญาดีลทั้งหมด: ${formatCurrency(s.income)}`,
@@ -100,7 +100,7 @@ function buildMonthlyExcelBase64(monthLabel: string, s: MonthlySummary, jobs: Jo
     ['ยอดโอนรับแล้วจริง', s.received],
     ['หัก ค่าใช้จ่ายคงที่รายเดือน', s.fixedExpenseCalculated],
     ['ค่าใช้จ่ายผันแปร', s.variableExpense],
-    ['กระแสเงินสดสุทธิคงเหลือ', s.netFlow],
+    ['กระแสเงินสดสุทธิคงเหลือ', Math.max(0, s.netFlow)],
     ['ยอดออมสะสมโดยประมาณ', s.actualSavings]
   ];
 

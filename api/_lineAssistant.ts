@@ -170,7 +170,7 @@ function formatThisMonthQuickReply(snapshot: DataSnapshot): string {
     '',
     `💰 รับแล้วจริง: ${formatCurrency(s.received)}`,
     `💸 รายจ่ายรวม: ${formatCurrency(s.fixedExpenseCalculated + s.variableExpense)}`,
-    `📈 กระแสเงินสดสุทธิ: ${formatCurrency(s.netFlow)}`,
+    `📈 กระแสเงินสดสุทธิ: ${formatCurrency(Math.max(0, s.netFlow))}`,
     `🐿️ ยอดออมสะสมโดยประมาณ: ${formatCurrency(s.actualSavings)}`,
   ].join('\n');
 }
@@ -320,7 +320,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
       `สถานะ: ${statusLabel}`,
       ...(!isWip && (job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
-      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(monthNet)}`] : []),
+      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
     ];
     return { type: 'text', text: lines.join('\n') };
   }
@@ -342,7 +342,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
         ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
-        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(monthNet), { color: monthNet >= 0 ? '#0E9F6E' : '#A63F1B' })] : []),
+        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
       ],
     },
     footer: {
@@ -405,7 +405,7 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
       `หมวด: ${expense.category}`,
       `จำนวน: ${formatCurrency(expense.amount)}`,
       `วันที่: ${expense.date}`,
-      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(monthNet)}`] : []),
+      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
     ];
     return { type: 'text', text: lines.join('\n') };
   }
@@ -424,7 +424,7 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
-        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(monthNet), { color: monthNet >= 0 ? '#0E9F6E' : '#A63F1B' })] : []),
+        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
       ],
     },
     footer: {

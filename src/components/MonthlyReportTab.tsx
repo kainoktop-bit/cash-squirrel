@@ -981,33 +981,19 @@ export default function MonthlyReportTab({
           </div>
 
           {/* Card 3: Net Cash Balance */}
-          <div className={`relative overflow-hidden p-5 rounded-2xl flex flex-col justify-between min-h-[140px] border ${
-            annualMetrics.netAnnualBalance >= 0
-              ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30'
-              : 'bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30'
-          }`}>
+          <div className="relative overflow-hidden p-5 rounded-2xl flex flex-col justify-between min-h-[140px] border bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30">
             <div className="absolute top-[-10%] right-[-5%] w-24 h-24 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
             <div className="flex items-center justify-between">
-              <span className={`text-xs font-bold uppercase tracking-wider ${
-                annualMetrics.netAnnualBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-amber-700 dark:text-amber-400'
-              }`}>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
                 กระแสเงินสดสุทธิคงเหลือรวมปี
               </span>
-              <PiggyBank className={`w-4.5 h-4.5 ${
-                annualMetrics.netAnnualBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'
-              }`} />
+              <PiggyBank className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="mt-2">
-              <p className={`text-2xl font-black font-mono leading-none ${
-                annualMetrics.netAnnualBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-amber-700 dark:text-amber-400'
-              }`}>
-                {formatCurrency(annualMetrics.netAnnualBalance)}
+              <p className="text-2xl font-black font-mono leading-none text-blue-700 dark:text-blue-400">
+                {formatCurrency(Math.max(0, annualMetrics.netAnnualBalance))}
               </p>
-              <div className={`flex justify-between items-center mt-3 pt-2 border-t text-[10px] ${
-                annualMetrics.netAnnualBalance >= 0 
-                  ? 'border-blue-500/10 text-blue-700/80 dark:text-blue-400/80' 
-                  : 'border-amber-500/10 text-amber-700/80 dark:text-amber-400/80'
-              }`}>
+              <div className="flex justify-between items-center mt-3 pt-2 border-t text-[10px] border-blue-500/10 text-blue-700/80 dark:text-blue-400/80">
                 <span>คำนวณตลอดปี ค.ศ. {selectedYear}:</span>
                 <span className="font-bold">
                   {includeFullYearFixed ? 'เต็ม 12 เดือน' : `${annualMetrics.activeMonthsCount} เดือนที่มีบันทึก`}
@@ -1084,10 +1070,8 @@ export default function MonthlyReportTab({
                           <td className="py-2 px-3 text-right text-rose-600 dark:text-rose-400">
                             {formatCurrency(m.variableExpense)}
                           </td>
-                          <td className={`py-2 px-3 text-right font-extrabold ${
-                            m.netFlow >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'
-                          }`}>
-                            {formatCurrency(m.netFlow)}
+                          <td className="py-2 px-3 text-right font-extrabold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(Math.max(0, m.netFlow))}
                           </td>
                         </tr>
                       ))}
@@ -1099,10 +1083,8 @@ export default function MonthlyReportTab({
                         <td className="py-2.5 px-3 text-right text-emerald-700 dark:text-emerald-400 font-black">{formatCurrency(annualMetrics.annualReceivedValue)}</td>
                         <td className="py-2.5 px-3 text-right text-rose-700 dark:text-rose-400">{formatCurrency(annualMetrics.annualFixedExpenses)}</td>
                         <td className="py-2.5 px-3 text-right text-rose-700 dark:text-rose-400">{formatCurrency(annualMetrics.annualVariableExpenses)}</td>
-                        <td className={`py-2.5 px-3 text-right font-black ${
-                          annualMetrics.netAnnualBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-amber-700 dark:text-amber-400'
-                        }`}>
-                          {formatCurrency(annualMetrics.netAnnualBalance)}
+                        <td className="py-2.5 px-3 text-right font-black text-blue-700 dark:text-blue-400">
+                          {formatCurrency(Math.max(0, annualMetrics.netAnnualBalance))}
                         </td>
                       </tr>
                     </tfoot>
