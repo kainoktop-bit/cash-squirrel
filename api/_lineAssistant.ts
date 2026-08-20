@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { calculatePayDate, getRelativeDaysText, getThaiMonthName } from '../src/utils.js';
+import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey } from '../src/utils.js';
 import type { Expense } from '../src/types.js';
 import type { LineMessage } from './_line.js';
 import {
@@ -196,41 +196,86 @@ function formatWipQuickReply(snapshot: DataSnapshot): string {
   return ['📦 งานที่ยังไม่โพสต์ (สต็อกงาน)', '', ...lines].join('\n');
 }
 
-// Grouped by status (unpaid / paid / stock) instead of one mixed list -- each job gets a single
-// short line, so the eye scans 3 clean buckets instead of parsing an icon+status on every line.
-function formatThisMonthJobsQuickReply(snapshot: DataSnapshot): string {
+function buildSectionLabel(text: string, color: string) {
+  return { type: 'text', text, size: 'xs', weight: 'bold', color, margin: 'lg' };
+}
+
+// Flex "receipt" card version of the month's job list -- same cream/statement-row visual
+// language as buildJobSavedMessage, grouped into unpaid/paid/stock sections so it reads as a
+// clean report instead of a wall of plain-text lines.
+function buildThisMonthJobsMessage(snapshot: DataSnapshot): LineMessage {
   const s = snapshot.thisMonth;
-  if (snapshot.thisMonthJobs.length === 0) return `📅 เดือนนี้ (${s.monthKey}) ยังไม่มีงานเข้าเลยครับ`;
+  const monthLabel = formatMonthKey(s.monthKey);
+
+  if (snapshot.thisMonthJobs.length === 0) {
+    return { type: 'text', text: `📅 เดือนนี้ (${monthLabel}) ยังไม่มีงานเข้าเลยครับ` };
+  }
 
   const wip = snapshot.thisMonthJobs.filter((j) => j.isPosted === false);
   const invoiced = snapshot.thisMonthJobs.filter((j) => j.isPosted !== false);
   const unpaid = invoiced.filter((j) => j.isUnpaid);
   const paid = invoiced.filter((j) => !j.isUnpaid);
   const unpaidSum = unpaid.reduce((sum, j) => sum + j.pending, 0);
-  const jobLine = (j: DataSnapshot['thisMonthJobs'][number], amount: number) =>
-    `• ${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(amount)}`;
+  const jobRow = (j: DataSnapshot['thisMonthJobs'][number], amount: number, color: string) =>
+    buildStatementRow(j.name + (j.client ? ` (${j.client})` : ''), formatCurrency(amount), { bold: false, color });
 
-  const out = [`📅 งานเดือนนี้ (${s.monthKey}) • ${snapshot.thisMonthJobs.length} งาน`];
+  const bodyContents: any[] = [
+    buildStatementRow('งานเดือนนี้', monthLabel, { size: 'xl', color: '#3D2314' }),
+    { type: 'text', text: `ทั้งหมด ${snapshot.thisMonthJobs.length} งาน`, size: 'xs', color: '#A88A6E' },
+  ];
 
   if (unpaid.length > 0) {
-    out.push('', `💸 ยังไม่จ่าย (${unpaid.length} • ค้างรวม ${formatCurrency(unpaidSum)})`, ...unpaid.map((j) => jobLine(j, j.pending)));
+    bodyContents.push(
+      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+      buildSectionLabel(`💸 ยังไม่จ่าย (${unpaid.length} • ค้างรวม ${formatCurrency(unpaidSum)})`, '#A63F1B'),
+      ...unpaid.map((j) => jobRow(j, j.pending, '#A63F1B'))
+    );
   }
   if (paid.length > 0) {
-    out.push('', `✅ จ่ายแล้ว (${paid.length})`, ...paid.map((j) => jobLine(j, j.value)));
+    bodyContents.push(
+      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+      buildSectionLabel(`✅ จ่ายแล้ว (${paid.length})`, '#0E9F6E'),
+      ...paid.map((j) => jobRow(j, j.value, '#0E9F6E'))
+    );
   }
   if (wip.length > 0) {
-    out.push('', `📦 ในสต็อก (${wip.length})`, ...wip.map((j) => jobLine(j, j.value)));
+    bodyContents.push(
+      { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+      buildSectionLabel(`📦 ในสต็อก (${wip.length})`, '#4338CA'),
+      ...wip.map((j) => jobRow(j, j.value, '#4338CA'))
+    );
   }
 
-  out.push('', `รวมมูลค่าทั้งหมด: ${formatCurrency(s.income)}`);
-  return out.join('\n');
+  bodyContents.push(
+    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+    buildStatementRow('รวมมูลค่าทั้งหมด', formatCurrency(s.income), { color: '#3D2314' })
+  );
+
+  const contents: any = {
+    type: 'bubble',
+    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
+  };
+
+  const appUrl = process.env.APP_URL;
+  if (appUrl) {
+    contents.footer = {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '12px',
+      contents: [{ type: 'button', style: 'primary', color: '#E65F2B', action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
+    };
+  }
+
+  const altText = unpaid.length > 0
+    ? `งานเดือนนี้ (${monthLabel}) ${snapshot.thisMonthJobs.length} งาน • ยังไม่จ่าย ${unpaid.length} งาน ค้าง ${formatCurrency(unpaidSum)}`
+    : `งานเดือนนี้ (${monthLabel}) ${snapshot.thisMonthJobs.length} งาน`;
+  return { type: 'flex', altText, contents };
 }
 
 const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => string> = {
   งานค้างจ่าย: formatUnpaidQuickReply,
   สรุปเดือนนี้: formatThisMonthQuickReply,
   งานสต็อก: formatWipQuickReply,
-  งานเดือนนี้: formatThisMonthJobsQuickReply,
 };
 
 // Shown for literally anything that isn't one of the 3 Quick Reply query commands -- a greeting,
@@ -518,6 +563,10 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   if (!user) return null;
 
   const trimmed = text.trim();
+
+  if (trimmed === 'งานเดือนนี้') {
+    return buildThisMonthJobsMessage(buildDataSnapshot(user));
+  }
 
   if (QUICK_ACTIONS[trimmed]) {
     const snapshot = buildDataSnapshot(user);
