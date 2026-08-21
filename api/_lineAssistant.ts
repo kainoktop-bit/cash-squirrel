@@ -561,6 +561,20 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
   return { type: 'flex', altText: `บันทึกรายจ่าย "${expense.name}" สำเร็จแล้วครับ`, contents };
 }
 
+// LINE can't delete/unsend a message the bot already pushed -- there's no such API. This sends
+// a follow-up "ยกเลิกแล้ว" card instead, so the chat at least shows the job was voided rather
+// than leaving the original "บันทึกงานสำเร็จ" card looking like it's still active.
+export function buildJobDeletedMessage(job: { name: string; client?: string; value: number }): LineMessage {
+  const bodyContents = [
+    buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: '#78716C' }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('ชื่องาน', job.name, { bold: false }),
+    ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
+    buildStatementRow('วันที่ยกเลิก', formatThaiTimestamp(), { bold: false }),
+  ];
+  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
+}
+
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }

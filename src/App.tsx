@@ -1187,6 +1187,27 @@ export default function App() {
     })();
   };
 
+  // LINE has no API to delete/unsend a previously-sent message, so deleting a job here can't
+  // remove its old "บันทึกงานสำเร็จ" card from the chat -- this pushes a follow-up "ยกเลิกงาน"
+  // card instead, so the chat at least shows it was voided.
+  const notifyLineJobDeleted = (job: Job) => {
+    if (!session?.user?.email || session.isGuest) return;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        await fetch('/api/notify-record-deleted', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ job: { name: job.name, client: job.client, value: job.value } }),
+        });
+      } catch (err) {
+        console.warn('notifyLineJobDeleted failed:', err);
+      }
+    })();
+  };
+
   // computeMonthlySummary is only for the LINE card's "คงเหลือเดือนนี้" line -- never let it (or
   // anything else) block the notify call itself, since a thrown error here would silently
   // swallow the whole notification before the fetch even happens. Uses receivedAfterVariableExpense
@@ -1252,11 +1273,13 @@ export default function App() {
       'ยืนยันการลบงานดีล',
       'คุณแน่ใจหรือไม่ว่าต้องการลบดีลงานชิ้นนี้? ข้อมูลรายรับที่เกี่ยวข้องจะหายไปด้วย',
       () => {
+        const jobToDelete = jobs.find(j => j.id === id);
         setJobs(prev => prev.filter(j => j.id !== id));
         fireMascot({
           mood: 'alert',
           message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
         });
+        if (jobToDelete) notifyLineJobDeleted(jobToDelete);
       }
     );
   };
