@@ -43,23 +43,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (rowErr) throw rowErr;
 
-    if (!row) {
-      // Cloud sync hasn't saved anything for this account yet -- there's no row to attach the
-      // code to. Using the app for a moment (any auto-save) resolves this on its own.
-      res.status(409).json({ error: 'ยังไม่พบข้อมูลบัญชีของคุณในระบบคลาวด์ ลองใช้งานแอปสักครู่แล้วลองใหม่อีกครั้ง' });
-      return;
-    }
-
-    const notifSettings = row.notif_settings || {};
+    const notifSettings = row?.notif_settings || {};
     const code = generateCode();
     const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
 
+    // Upsert instead of update: the client's own cloud row is created lazily on its first
+    // autosave, so clicking "เชื่อมต่อ LINE" right after logging in (e.g. a fresh mobile session)
+    // can beat that autosave and find no row yet. Upserting here creates it on the spot instead
+    // of failing -- onConflict only touches the columns listed below, so it can't clobber jobs/
+    // goals/settings/etc. on an existing row.
     const { error: updateErr } = await supabaseAdmin
       .from('user_cashflow_data')
-      .update({
-        notif_settings: { ...notifSettings, lineLinkCode: code, lineLinkCodeExpiresAt: expiresAt },
-      })
-      .eq('user_id', userId);
+      .upsert(
+        {
+          user_id: userId,
+          email: userResult.user.email,
+          notif_settings: { ...notifSettings, lineLinkCode: code, lineLinkCodeExpiresAt: expiresAt },
+        },
+        { onConflict: 'user_id' }
+      );
     if (updateErr) throw updateErr;
 
     res.status(200).json({ code, expiresAt });
