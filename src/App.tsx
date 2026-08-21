@@ -29,6 +29,7 @@ import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
 import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { PremiumUpsell } from './components/PremiumUpsell';
+import { ProPromoModal } from './components/ProPromoModal';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
 import { IconCrown, IconSpark, IconPalette } from './components/icons';
@@ -504,6 +505,7 @@ export default function App() {
   // Cloud Sync states
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'pending' | 'failed' | 'not_setup'>('not_setup');
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [isProPromoOpen, setIsProPromoOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
     status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
@@ -888,6 +890,18 @@ export default function App() {
       setTourStep(null);
     }
   }, [isLoadedForUser, settings.profileSetupCompleted]);
+
+  // 🎉 Promote the Pro plan once per calendar day to logged-in, non-guest, non-Pro users after
+  // their data has loaded. Dismissible; marks today as "shown" the moment it opens so closing it
+  // (or just not acting on it) never brings it back again the same day.
+  useEffect(() => {
+    if (!isLoadedForUser || session?.isGuest || isPro) return;
+    const todayKey = new Date().toISOString().split('T')[0];
+    const storageKey = `cashflow_promo_last_shown_${isLoadedForUser}`;
+    if (localStorage.getItem(storageKey) === todayKey) return;
+    localStorage.setItem(storageKey, todayKey);
+    setIsProPromoOpen(true);
+  }, [isLoadedForUser, session?.isGuest, isPro]);
 
   // Sync statuses and jobTypes to LocalStorage
   useEffect(() => {
@@ -2312,6 +2326,19 @@ export default function App() {
           dialog={dialog}
           onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
         />
+
+        {/* 🎉 Pro plan promo, shown once/day to non-Pro users */}
+        <AnimatePresence>
+          {isProPromoOpen && (
+            <ProPromoModal
+              onUpgrade={() => {
+                setIsProPromoOpen(false);
+                handleUpgrade();
+              }}
+              onClose={() => setIsProPromoOpen(false)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* ☁️ Supabase Cloud Sync Setup Guide Modal */}
         <AnimatePresence>

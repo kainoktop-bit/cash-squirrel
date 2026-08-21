@@ -681,7 +681,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       ? `ใช้ได้ถึงวันที่ ${new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} — จ่ายรายเดือนด้วยตัวเอง (ไม่ตัดอัตโนมัติ)`
                       : isInFreeTrial && trialEndsAt
                       ? `กำลังทดลองใช้ฟรี ถึงวันที่ ${trialEndsAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} สมัครแพ็กเกจโปรก่อนหมดเวลาเพื่อใช้งานต่อเนื่องได้เลย`
-                      : 'แพ็กเกจโปร ฿39/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
+                      : 'แพ็กเกจโปร ฿149/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
                   </p>
 
                   <button

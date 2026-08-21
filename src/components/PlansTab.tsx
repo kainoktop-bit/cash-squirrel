@@ -86,7 +86,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
             </h3>
             <p className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473] mt-1">
-              ฿39<span className="text-xs text-brand-muted font-sans font-bold"> / เดือน</span>
+              ฿149<span className="text-xs text-brand-muted font-sans font-bold"> / เดือน</span>
             </p>
           </div>
           <ul className="space-y-2">
@@ -117,7 +117,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           onClick={onUpgrade}
           className="px-8 py-3 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-xs font-black cursor-pointer"
         >
-          {isPaidActive ? 'ต่ออายุแพ็กเกจโปร ฿39/เดือน' : 'สมัครแพ็กเกจโปร ฿39/เดือน'}
+          {isPaidActive ? 'ต่ออายุแพ็กเกจโปร ฿149/เดือน' : 'สมัครแพ็กเกจโปร ฿149/เดือน'}
         </button>
         <p className="text-[10px] text-brand-muted">ชำระเองทุกเดือน ไม่ตัดบัตรอัตโนมัติ</p>
       </div>
