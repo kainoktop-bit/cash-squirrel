@@ -149,13 +149,20 @@ body {
     padding: 0;
   }
   
-  /* Hide everything except the element with class .print-invoice-area */
-  body > *:not(.print-invoice-area) {
-    display: none !important;
+  /* Hide everything except the element with class .print-area. Uses visibility (not
+     display:none) on the ancestors -- display:none on an ancestor hides descendants no matter
+     what they set, which broke this for any print target nested under #root instead of being a
+     direct child of body (every print target in this app is nested, none are portaled to body). */
+  body * {
+    visibility: hidden;
   }
 
-  .print-invoice-area {
-    display: block !important;
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
     position: absolute;
     left: 0;
     top: 0;

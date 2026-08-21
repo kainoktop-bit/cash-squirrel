@@ -1052,7 +1052,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 </div>
 
                 {/* Print Sheet Paper (Formed to A4 style ratio) */}
-                <div className="bg-white text-black p-8 sm:p-12 border border-stone-200 shadow-xl rounded-3xl min-h-[850px] font-sans print-invoice-area relative overflow-hidden select-text text-[11px] leading-normal">
+                <div className="bg-white text-black p-8 sm:p-12 border border-stone-200 shadow-xl rounded-3xl min-h-[850px] font-sans print-area relative overflow-hidden select-text text-[11px] leading-normal">
                   
                   {/* Watermark branding header -- kept dark/neutral to read as an official
                       document rather than a branded marketing piece */}
