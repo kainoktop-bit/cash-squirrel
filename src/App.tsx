@@ -2221,7 +2221,6 @@ export default function App() {
                   onSwitchTab={setActiveTab}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
-                  isPro={isPro}
                 />
               )}
 
@@ -2276,6 +2275,9 @@ export default function App() {
                   isPaidActive={isPaidActive}
                   isInFreeTrial={isInFreeTrial}
                   trialEndsAt={trialEndsAt}
+                  notifSettings={notifSettings}
+                  onUpdateNotifSettings={setNotifSettings}
+                  isPro={isPro}
                 />
               )}
             </motion.div>
