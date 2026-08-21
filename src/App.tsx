@@ -1208,23 +1208,26 @@ export default function App() {
     })();
   };
 
-  // LINE has no API to delete/unsend a previously-sent message, so deleting a job here can't
-  // remove its old "บันทึกงานสำเร็จ" card from the chat -- this pushes a follow-up "ยกเลิกงาน"
-  // card instead, so the chat at least shows it was voided.
-  const notifyLineJobDeleted = (job: Job) => {
+  // LINE has no API to delete/unsend a previously-sent message, so deleting a job or expense
+  // here can't remove its old "บันทึกสำเร็จ" card from the chat -- this pushes a follow-up
+  // "ยกเลิก/ลบ" card instead, so the chat at least shows it was voided.
+  const notifyLineRecordDeleted = (kind: 'job' | 'expense', record: Job | Expense) => {
     if (!session?.user?.email || session.isGuest) return;
     (async () => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         if (!token) return;
+        const body = kind === 'job'
+          ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value } }
+          : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount } };
         await fetch('/api/notify-record-deleted', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ job: { name: job.name, client: job.client, value: job.value } }),
+          body: JSON.stringify(body),
         });
       } catch (err) {
-        console.warn('notifyLineJobDeleted failed:', err);
+        console.warn('notifyLineRecordDeleted failed:', err);
       }
     })();
   };
@@ -1300,7 +1303,7 @@ export default function App() {
           mood: 'alert',
           message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
         });
-        if (jobToDelete) notifyLineJobDeleted(jobToDelete);
+        if (jobToDelete) notifyLineRecordDeleted('job', jobToDelete);
       }
     );
   };
@@ -1515,7 +1518,9 @@ export default function App() {
   };
 
   const handleDeleteExpense = (id: string) => {
+    const expenseToDelete = expenses.find(e => e.id === id);
     setExpenses(prev => prev.filter(e => e.id !== id));
+    if (expenseToDelete) notifyLineRecordDeleted('expense', expenseToDelete);
   };
 
   const handleUpdateSettings = (newSettings: AppSettings) => {

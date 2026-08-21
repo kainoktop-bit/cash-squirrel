@@ -1,11 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { buildJobDeletedMessage } from './_lineAssistant.js';
+import { buildJobDeletedMessage, buildExpenseDeletedMessage } from './_lineAssistant.js';
 import { sendLineMessagePayload } from './_line.js';
 
-// Called from the web app (src/App.tsx's handleDeleteJob) right after a job is deleted. LINE
-// has no API to delete/unsend a message the bot already sent, so this pushes a "ยกเลิกงาน" card
-// instead -- mirrors api/notify-record-added.ts's shape. Silently no-ops (200, not an error)
+// Called from the web app (src/App.tsx's handleDeleteJob / handleDeleteExpense) right after a
+// job or expense is deleted -- covers WIP/stock jobs too, since those are just Job records with
+// isPosted:false and go through the same delete handler. LINE has no API to delete/unsend a
+// message the bot already sent, so this pushes a "ยกเลิก" card instead -- mirrors
+// api/notify-record-added.ts's { kind, record } shape. Silently no-ops (200, not an error)
 // whenever this account isn't LINE-linked, since that's an expected, common state.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -42,13 +44,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const job = (req.body || {}).job;
-    if (!job || typeof job.name !== 'string') {
+    const body = req.body || {};
+    let message;
+    if (body.kind === 'expense' && body.record && typeof body.record.name === 'string') {
+      message = buildExpenseDeletedMessage(body.record);
+    } else if (body.kind === 'job' && body.record && typeof body.record.name === 'string') {
+      message = buildJobDeletedMessage(body.record);
+    } else {
       res.status(400).json({ error: 'Invalid payload' });
       return;
     }
 
-    const message = buildJobDeletedMessage(job);
     const sent = await sendLineMessagePayload(lineUserId, message);
     res.status(200).json({ ok: sent });
   } catch (err: any) {

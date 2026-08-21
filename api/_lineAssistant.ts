@@ -575,6 +575,18 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
   return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
 }
 
+// Same idea as buildJobDeletedMessage, for a deleted variable expense.
+export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }): LineMessage {
+  const bodyContents = [
+    buildStatementRow('ลบรายจ่าย', formatCurrency(expense.amount), { size: 'xl', color: '#78716C' }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('รายการ', expense.name, { bold: false }),
+    ...(expense.category ? [buildStatementRow('หมวด', expense.category, { bold: false })] : []),
+    buildStatementRow('วันที่ลบ', formatThaiTimestamp(), { bold: false }),
+  ];
+  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
+}
+
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
