@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense } from './types';
-import { defaultSettings, defaultJobs, defaultGoals } from './sampleData';
+import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from './sampleData';
 import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
 
 import DashboardTab from './components/DashboardTab';
@@ -808,6 +808,36 @@ export default function App() {
       const email = session.user.email;
       if (isLoadedForUser === email) return;
 
+      if (session.isGuest) {
+        // "ทดลองใช้งานระบบฟรี" -- always seeds the same fresh sample scenario, never whatever a
+        // previous demo visit left behind. Nothing from a guest session is read from or written
+        // to localStorage (see the sync-to-localStorage effects below, which all exclude
+        // session.isGuest), so there's nothing stale to load here in the first place.
+        const sample = buildSampleData();
+        setJobs(cleanJobs(sample.jobs));
+        setGoals(sample.goals);
+        setSettings(sample.settings);
+        setExpenses(sample.expenses);
+        setNotifSettings({
+          enabled: true,
+          alertEmail: email,
+          serviceType: 'mailto',
+          emailjsServiceId: '',
+          emailjsTemplateId: '',
+          emailjsPublicKey: '',
+          pendingQueue: []
+        });
+        setStatuses([
+          { id: 'done', label: 'จ่ายเงินครบแล้ว', behavior: 'done' },
+          { id: 'partial', label: 'มัดจำแล้ว', behavior: 'partial' },
+          { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' },
+        ]);
+        setJobTypes(DEFAULT_JOB_TYPES);
+        setUserAvatar('');
+        setIsLoadedForUser(email);
+        return;
+      }
+
       const savedJobs = localStorage.getItem(`cashflow_jobs_${email}`);
       setJobs(cleanJobs(savedJobs ? JSON.parse(savedJobs) : defaultJobs));
 
@@ -910,21 +940,23 @@ export default function App() {
     setIsProPromoOpen(true);
   }, [isLoadedForUser, session?.isGuest, isPro]);
 
-  // Sync statuses and jobTypes to LocalStorage
+  // Sync statuses and jobTypes to LocalStorage. Guest/demo sessions are deliberately excluded --
+  // "ทดลองใช้งานระบบฟรี" is meant to reset to the same sample scenario on every fresh visit, so
+  // nothing from it should ever land in localStorage to persist across sessions.
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_statuses_${session.user.email}`, JSON.stringify(statuses));
     }
   }, [statuses, session, isLoadedForUser]);
 
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_job_types_${session.user.email}`, JSON.stringify(jobTypes));
     }
   }, [jobTypes, session, isLoadedForUser]);
 
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_expenses_${session.user.email}`, JSON.stringify(expenses));
     }
   }, [expenses, session, isLoadedForUser]);
@@ -1029,27 +1061,28 @@ export default function App() {
   };
 
 
-  // Sync state to LocalStorage
+  // Sync state to LocalStorage. Guest/demo sessions are excluded -- see the statuses/jobTypes/
+  // expenses effects above for why.
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_jobs_${session.user.email}`, JSON.stringify(jobs));
     }
   }, [jobs, session, isLoadedForUser]);
 
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_goals_${session.user.email}`, JSON.stringify(goals));
     }
   }, [goals, session, isLoadedForUser]);
 
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_settings_${session.user.email}`, JSON.stringify(settings));
     }
   }, [settings, session, isLoadedForUser]);
 
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email) {
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
       localStorage.setItem(`cashflow_notif_settings_${session.user.email}`, JSON.stringify(notifSettings));
     }
   }, [notifSettings, session, isLoadedForUser]);
