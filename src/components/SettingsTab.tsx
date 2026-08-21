@@ -137,7 +137,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     triggerConfirm(
       'ยกเลิกการเชื่อมต่อ LINE',
       'คุณต้องการยกเลิกการรับแจ้งเตือนผ่าน LINE ใช่หรือไม่? ยังรับแจ้งเตือนทางอีเมลได้ตามปกติ',
-      () => {
+      async () => {
+        // Tell them via LINE first -- once lineUserId is cleared there's no address left to
+        // reach them at. Best-effort: a failed notice shouldn't block the actual disconnect.
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const notifyToken = sessionData.session?.access_token;
+          if (notifyToken) {
+            await fetch('/api/notify-line-disconnected', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${notifyToken}` },
+            });
+          }
+        } catch (err) {
+          console.warn('notify-line-disconnected failed:', err);
+        }
+
         // lineUserId is deliberately excluded from the generic debounced/flush autosave (see
         // saveCloudData in App.tsx) since a stale in-memory copy would otherwise clobber a LINE
         // link the webhook just wrote from an entirely separate session. Disconnecting is the one
