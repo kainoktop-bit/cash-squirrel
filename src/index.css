@@ -180,5 +180,46 @@ body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* The tax report modal is sized/spaced for an on-screen dialog (generous padding, space-y
+     gaps, larger headings) -- left as-is it overflows onto several pages. Compact it down to fit
+     one A4 page by shrinking spacing/padding/headings, scoped to this modal only so the invoice
+     print view (which already fits) is untouched. */
+  #printable-tax-report-modal {
+    padding: 10px !important;
+  }
+  #printable-tax-report-modal h1 {
+    font-size: 15px !important;
+  }
+  #printable-tax-report-modal .space-y-6 > * + * {
+    margin-top: 6px !important;
+  }
+  #printable-tax-report-modal .space-y-4 > * + * {
+    margin-top: 4px !important;
+  }
+  #printable-tax-report-modal table th,
+  #printable-tax-report-modal table td {
+    padding: 2px 6px !important;
+  }
+  #printable-tax-report-modal .pb-5 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-4 {
+    padding-bottom: 6px !important;
+  }
+  #printable-tax-report-modal .pb-1 {
+    padding-bottom: 2px !important;
+  }
+  #printable-tax-report-modal .p-4 {
+    padding: 6px !important;
+  }
+  #printable-tax-report-modal .gap-6 {
+    gap: 8px !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
 }
 
