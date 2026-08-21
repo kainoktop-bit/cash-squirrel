@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppSettings, FixedExpenseItem, NotifSettings } from '../types';
 import { formatCurrency, sumFixedExpenseItems } from '../utils';
 import { supabase } from '../supabaseClient';
@@ -138,10 +138,46 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       'ยกเลิกการเชื่อมต่อ LINE',
       'คุณต้องการยกเลิกการรับแจ้งเตือนผ่าน LINE ใช่หรือไม่? ยังรับแจ้งเตือนทางอีเมลได้ตามปกติ',
       () => {
+        // lineUserId is deliberately excluded from the generic debounced/flush autosave (see
+        // saveCloudData in App.tsx) since a stale in-memory copy would otherwise clobber a LINE
+        // link the webhook just wrote from an entirely separate session. Disconnecting is the one
+        // legitimate client-initiated write to this field, so it goes straight to the same RPC
+        // immediately here, instead of waiting on that path.
         onUpdateNotifSettings({ ...notifSettings, lineUserId: null });
+        const userId = session?.user?.id;
+        if (userId) {
+          supabase.rpc('merge_notif_settings', { p_user_id: userId, p_patch: { lineUserId: null } })
+            .then(({ error }: { error: any }) => {
+              if (error) {
+                console.warn('handleDisconnectLine: merge_notif_settings failed:', error);
+                triggerAlert('ยกเลิกการเชื่อมต่อไม่สำเร็จ', 'ลองใหม่อีกครั้งครับ');
+              }
+            });
+        }
       }
     );
   };
+
+  // While a link code is showing, poll for the webhook having linked the account (it happens
+  // from an entirely separate LINE-app session, so there's no other signal this tab would get).
+  // Without this, the UI keeps showing "not connected" until a manual reload even though the
+  // link already succeeded server-side.
+  useEffect(() => {
+    if (!lineLinkCode || notifSettings.lineUserId) return;
+    const userId = session?.user?.id;
+    if (!userId) return;
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('user_cashflow_data')
+        .select('notif_settings')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error || !data?.notif_settings?.lineUserId) return;
+      setLineLinkCode(null);
+      onUpdateNotifSettings({ ...notifSettings, lineUserId: data.notif_settings.lineUserId });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [lineLinkCode, notifSettings.lineUserId, session?.user?.id]);
 
   const fixedExpenseItems = settings.fixedExpenseItems || [];
 
