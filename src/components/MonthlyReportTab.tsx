@@ -21,9 +21,8 @@ import {
   AlertCircle, 
   CheckCircle2, 
   TrendingUp, 
-  PiggyBank, 
-  Sparkles, 
-  Send, 
+  PiggyBank,
+  Send,
   ArrowRight, 
   ShieldCheck,
   Bell,
@@ -1260,7 +1259,6 @@ export default function MonthlyReportTab({
           
           <div className="mt-4 pt-3.5 border-t border-brand-border/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-brand-muted leading-relaxed">
             <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>คิดสัดส่วนเงินออม <span className="font-bold text-brand-text">{displaySavingsPercentage}%</span> จากรายรับที่โอนเข้าบัญชีสำเร็จแล้วเท่านั้น</span>
             </div>
             <button 

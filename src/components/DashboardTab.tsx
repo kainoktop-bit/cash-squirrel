@@ -14,8 +14,7 @@ import {
   CheckCircle2, 
   CheckCircle,
   ChevronRight, 
-  Plus, 
-  Sparkles,
+  Plus,
   Search,
   Check,
   Copy,
@@ -916,7 +915,6 @@ export default function DashboardTab({
           className="flex items-center justify-between cursor-pointer select-none"
         >
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#D98324] dark:text-[#F2B76B] animate-pulse" />
             <div>
               <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title="เรดาร์สแกนความอุดมสมบูรณ์โพรงไม้ 4 เดือนล่วงหน้า">
                 เรดาร์เสบียง 4 เดือน
@@ -1057,7 +1055,7 @@ export default function DashboardTab({
                   ) : g.emoji ? (
                     g.emoji
                   ) : (
-                    <Sparkles className="w-6 h-6 text-[#E65F2B]" />
+                    <IconCoin className="w-6 h-6 text-[#E65F2B]" />
                   )}
                 </div>
                 <h5 className="text-sm font-bold text-brand-text truncate">{g.name}</h5>

@@ -13,7 +13,6 @@ import {
   AlertCircle,
   PiggyBank,
   ChevronRight,
-  Sparkles,
   RefreshCw,
   Wallet,
   Briefcase,
@@ -682,7 +681,7 @@ export default function SummaryTab({
               </div>
               {metrics.totalReceived >= settings.monthlyRevenueGoal ? (
                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 pt-1">
-                  <Sparkles className="w-3.5 h-3.5 animate-bounce" /> ผ่านเกณฑ์เป้าหมายรายรับแล้ว ยอดเยี่ยมมาก!
+                  ผ่านเกณฑ์เป้าหมายรายรับแล้ว ยอดเยี่ยมมาก!
                 </p>
               ) : (
                 <p className="text-[10px] text-brand-muted dark:text-neutral-400 pt-1">
@@ -695,7 +694,7 @@ export default function SummaryTab({
           {/* Quick tips card */}
           <div className="bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100/20 dark:border-emerald-500/10 rounded-3xl p-5 space-y-3">
             <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> ข้อเสนอแนะทางการเงิน
+              ข้อเสนอแนะทางการเงิน
             </h4>
             <p className="text-xs text-brand-muted dark:text-neutral-400 leading-relaxed">
               {metrics.totalPending > 0 ? (

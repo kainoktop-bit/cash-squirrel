@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ShieldAlert, Sparkles } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ResetPasswordProps {
@@ -111,7 +111,6 @@ export default function ResetPassword({ darkMode, setDarkMode, onComplete }: Res
         >
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-extrabold text-sm text-brand-text flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               กำหนดรหัสผ่านความปลอดภัยสูง
             </h3>
             <span className="text-[10px] font-mono text-brand-muted bg-brand-faint px-2.5 py-1 rounded-md border border-brand-border/20">

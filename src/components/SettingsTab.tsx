@@ -20,8 +20,7 @@ import {
   Mail,
   MessageCircle,
   ExternalLink,
-  Copy,
-  Sparkles
+  Copy
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCrown, IconClose, IconCheck } from './icons';
@@ -406,9 +405,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    สรุปงบการเงินรายเดือนอัตโนมัติทางอีเมล
-                    {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
-                  </span>
+                    สรุปงบการเงินรายเดือนอัตโนมัติทางอีเมล                  </span>
                   <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
                     {isPro
                       ? 'ระบบส่งสรุปรายรับ-รายจ่ายของเดือนที่ผ่านมาให้อัตโนมัติทุกวันที่ 1'
@@ -451,9 +448,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    สรุปงานค้างชำระรายวันทางอีเมล
-                    {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
-                  </span>
+                    สรุปงานค้างชำระรายวันทางอีเมล                  </span>
                   <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
                     {isPro
                       ? 'ระบบส่งอีเมลสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ไม่ต้องเปิดแอปเอง'
@@ -485,7 +480,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <div className="min-w-0 flex-1">
                     <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
                       รับแจ้งเตือนผ่าน LINE
-                      {!isPro && <Sparkles className="w-3 h-3 text-[#E65F2B] dark:text-[#FFA473]" />}
                     </span>
                     <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
                       {notifSettings.lineUserId

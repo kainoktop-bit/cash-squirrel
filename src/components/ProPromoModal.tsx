@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCrown } from './icons';
 
@@ -37,7 +37,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ onUpgrade, onClose
         <div className="flex flex-col items-center text-center">
           <Mascot mood="proud" size={80} className="mb-3" />
           <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-[#E65F2B] bg-[#E65F2B]/10 px-2.5 py-0.5 rounded-full mb-2">
-            <Sparkles className="w-3 h-3" /> อัปเกรดเป็นสมาชิก
+            อัปเกรดเป็นสมาชิก
           </span>
           <h3 className="font-display font-black text-lg text-brand-text dark:text-white flex items-center gap-1.5">
             กระรอกตุนเงิน Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />

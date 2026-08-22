@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { IconCrown } from './icons';
 import { Mascot } from './Mascot';
 
@@ -104,7 +104,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             </span>
           ) : isInFreeTrial ? (
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full">
-              <Sparkles className="w-2.5 h-2.5" /> ทดลองใช้ฟรี
+              ทดลองใช้ฟรี
             </span>
           ) : null}
         </div>
