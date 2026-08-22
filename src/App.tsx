@@ -601,7 +601,7 @@ export default function App() {
 
   // Stripe Payment Link for the Pro subscription. Appending client_reference_id lets the
   // webhook know which app user just paid, without needing a server-created Checkout Session.
-  const PRO_PAYMENT_LINK = 'https://buy.stripe.com/6oUeVc8jj7KEgvP4XV5wI00';
+  const PRO_PAYMENT_LINK = 'https://buy.stripe.com/dRm9AS5776GAgvP61Z5wI02';
 
   // The webhook extends access by setting current_period_end to (now + 30 days) rather than
   // adding onto the existing period, since this is a manual monthly payment, not an auto-charging
