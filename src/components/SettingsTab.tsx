@@ -491,7 +491,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       {notifSettings.lineUserId
                         ? 'เชื่อมต่อแล้ว -- แจ้งเตือนเดียวกับอีเมลจะส่งเข้า LINE ด้วย'
                         : isPro
-                        ? 'เชื่อมบัญชี LINE เพื่อรับแจ้งเตือนเดียวกับอีเมล เผื่อพลาดดูอีเมล'
+                        ? 'เชื่อมบัญชี LINE เพื่อรับแจ้งเตือนเดียวกับอีเมล เผื่อพลาดดูอีเมล (ข้อมูลงาน/ยอดเงินจะปรากฏในแชท LINE)'
                         : 'ฟีเจอร์สำหรับสมาชิก Pro -- สมัครเพื่อเปิดใช้งาน'}
                     </p>
                   </div>
@@ -511,7 +511,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           onSwitchTab('plans');
                           return;
                         }
-                        handleGenerateLineCode();
+                        triggerConfirm(
+                          'ก่อนเชื่อมต่อ LINE',
+                          'เมื่อเชื่อมต่อแล้ว ข้อมูลที่คุณบันทึก (ชื่องาน ชื่อลูกค้า ยอดเงิน) จะถูกส่งเป็นข้อความแจ้งเตือนเข้าไปในแชท LINE ของคุณด้วย กรุณาตรวจสอบว่าไม่มีคนอื่นเข้าถึงแชท LINE นี้ได้ ต้องการเชื่อมต่อต่อหรือไม่?',
+                          () => handleGenerateLineCode()
+                        );
                       }}
                       disabled={isGeneratingLineCode}
                       className="shrink-0 text-[10px] font-bold text-white bg-[#06C755] hover:bg-[#05B34C] px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
