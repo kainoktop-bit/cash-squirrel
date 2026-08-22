@@ -32,7 +32,7 @@ import { PremiumUpsell } from './components/PremiumUpsell';
 import { ProPromoModal } from './components/ProPromoModal';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
-import { IconCrown, IconSpark, IconPalette } from './components/icons';
+import { IconCrown, IconPalette } from './components/icons';
 
 import { 
   Home, 
@@ -1749,7 +1749,7 @@ export default function App() {
               ) : isInFreeTrial ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี <IconSpark className="w-2.5 h-2.5" /></span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี</span>
                   {trialEndsAt && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
                       ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1915,7 +1915,7 @@ export default function App() {
                       ) : isInFreeTrial ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี <IconSpark className="w-2.5 h-2.5" /></span>
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี</span>
                           {trialEndsAt && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}

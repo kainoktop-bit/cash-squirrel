@@ -12,7 +12,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Mascot } from './Mascot';
-import { IconSpark, IconCoin, IconWarning, IconCheck } from './icons';
+import { IconCoin, IconWarning, IconCheck } from './icons';
 import { JobDetailModal } from './JobDetailModal';
 
 interface TimelineTabProps {
@@ -138,7 +138,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
       <div className="flex items-center justify-between px-1">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
-            กระแสเงินสดรายวัน/รายเดือน <IconSpark className="w-3 h-3" />
+            กระแสเงินสดรายวัน/รายเดือน
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
             ไทม์ไลน์รับเงิน

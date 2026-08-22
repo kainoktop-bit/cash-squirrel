@@ -36,7 +36,7 @@ import {
   IconTarget,
   IconWarning,
   IconAlertDot,
-  IconSpark,
+  IconGem,
   IconCoin,
   IconCoinOut,
   IconCheck,
@@ -647,7 +647,7 @@ export default function SplitTab({
       <div className="flex items-center justify-between px-1">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
-            ระบบจัดสรรเงินออมและเป้าหมายการเงิน <IconSpark className="w-3 h-3" />
+            ระบบจัดสรรเงินออมและเป้าหมายการเงิน
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
             จัดสรรเงิน & เป้าหมายออม
@@ -1450,7 +1450,7 @@ export default function SplitTab({
                   type="submit"
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
                 >
-                  บันทึกเป้าหมายการสะสม <IconSpark className="w-3.5 h-3.5" />
+                  บันทึกเป้าหมายการสะสม
                 </button>
               </form>
             </motion.div>
@@ -1718,7 +1718,7 @@ export default function SplitTab({
                   type="submit"
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all cursor-pointer border-none flex items-center justify-center gap-1.5"
                 >
-                  บันทึกการแก้ไขข้อมูลเป้าหมาย <IconSpark className="w-3.5 h-3.5" />
+                  บันทึกการแก้ไขข้อมูลเป้าหมาย
                 </button>
               </form>
             </motion.div>
@@ -2195,7 +2195,7 @@ export default function SplitTab({
                       ? [
                           { icon: IconCoin, label: 'ฝากประจำเดือน' },
                           { icon: IconGift, label: 'รายได้สปอนเซอร์' },
-                          { icon: IconSpark, label: 'เงินโบนัส/ทิป' },
+                          { icon: IconGem, label: 'เงินโบนัส/ทิป' },
                           { icon: IconBolt, label: 'จัดสรรกำไรสุทธิ' },
                         ]
                       : [
