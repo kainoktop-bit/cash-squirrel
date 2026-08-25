@@ -1,6 +1,5 @@
 import React from 'react';
 import { Check } from 'lucide-react';
-import { IconCrown } from './icons';
 import { Mascot } from './Mascot';
 
 interface PlansTabProps {
@@ -84,7 +83,7 @@ export const PlansTab: React.FC<PlansTabProps> = ({
         >
           <div>
             <h3 className="font-display font-black text-base text-brand-text dark:text-white flex items-center gap-1.5">
-              Pro <IconCrown className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473]" />
+              Pro
             </h3>
             <p className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473] mt-1">
               ฿149<span className="text-xs text-brand-muted font-sans font-bold"> / เดือน</span>
