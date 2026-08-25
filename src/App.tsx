@@ -1739,7 +1739,7 @@ export default function App() {
               {isPaidActive ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO <IconCrown className="w-2.5 h-2.5" /></span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
                   {subscription?.currentPeriodEnd && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
                       ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
@@ -1905,7 +1905,7 @@ export default function App() {
                       {isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO <IconCrown className="w-2.5 h-2.5" /></span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
                           {subscription?.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
