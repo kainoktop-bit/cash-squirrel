@@ -62,9 +62,11 @@ export async function sendLineMessage(lineUserId: string, text: string): Promise
 
 // Resolves a LINE user ID for the given email -- a self-service linked lineUserId takes
 // priority, falling back to the ad-hoc LINE_RECIPIENTS env var mapping for accounts that were
-// never linked (e.g. this app's own personal setup before the linking flow existed).
-export async function sendLineMessageToEmail(email: string, text: string, linkedLineUserId?: string | null): Promise<boolean> {
+// never linked (e.g. this app's own personal setup before the linking flow existed). Takes any
+// LineMessage (not just plain text) so callers can push a styled Flex card, same as the direct
+// sendLineMessagePayload path.
+export async function sendLineMessageToEmail(email: string, message: LineMessage, linkedLineUserId?: string | null): Promise<boolean> {
   const lineUserId = linkedLineUserId || getLineRecipients()[email.toLowerCase()];
   if (!lineUserId) return false;
-  return sendLineMessage(lineUserId, text);
+  return sendLineMessagePayload(lineUserId, message);
 }

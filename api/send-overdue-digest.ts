@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { sendGmailEmail } from './_gmail.js';
 import { sendLineMessageToEmail } from './_line.js';
+import type { LineMessage } from './_line.js';
 
 const FREE_TRIAL_DAYS = 30;
 
@@ -137,29 +138,86 @@ function buildDigestHtml(jobs: JobWithDiff[]): string {
   </div>`;
 }
 
-// Condensed plain-text version for LINE -- same info as the email, no HTML.
-function buildDigestLineText(jobs: JobWithDiff[]): string {
+// Flex "card" version for LINE, styled to match the email's own layout/colors (red OVERDUE
+// badge, orange header, per-section color coding, cream tip box) instead of a plain-text wall.
+function buildJobRowFlex(job: JobWithDiff, dateColor: string) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    margin: 'md',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: job.client || 'ไม่ระบุ', size: 'xs', weight: 'bold', color: '#3D2314', flex: 3, wrap: true },
+          { type: 'text', text: `฿${job.pending.toLocaleString('th-TH')}`, size: 'xs', weight: 'bold', color: '#3D2314', flex: 2, align: 'end' },
+        ],
+      },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: job.name, size: 'xxs', color: '#7A5C43', flex: 3, wrap: true },
+          { type: 'text', text: dueLabel(job.diffDays), size: 'xxs', weight: 'bold', color: dateColor, flex: 2, align: 'end' },
+        ],
+      },
+    ],
+  };
+}
+
+function buildSectionFlex(title: string, badgeColor: string, jobs: JobWithDiff[], dateColor: string): any[] {
+  if (jobs.length === 0) return [];
+  return [
+    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+    { type: 'text', text: `${title} (${jobs.length} รายการ)`, size: 'xs', weight: 'bold', color: badgeColor, margin: 'lg', wrap: true },
+    ...jobs.map((j) => buildJobRowFlex(j, dateColor)),
+  ];
+}
+
+function buildDigestFlexMessage(jobs: JobWithDiff[]): LineMessage {
   const overdue = jobs.filter((j) => j.diffDays < 0);
   const dueToday = jobs.filter((j) => j.diffDays === 0);
   const dueSoon = jobs.filter((j) => j.diffDays > 0);
 
-  const lines: string[] = ['🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม', ''];
+  const bodyContents: any[] = [
+    { type: 'text', text: 'OVERDUE CREDIT ALERT', size: 'xxs', weight: 'bold', color: '#DC2626' },
+    { type: 'text', text: '🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม', size: 'md', weight: 'bold', color: '#E65F2B', wrap: true, margin: 'sm' },
+    ...buildSectionFlex('⚠️ เกินกำหนดชำระเงินแล้ว', '#DC2626', overdue, '#DC2626'),
+    ...buildSectionFlex('⏰ ครบกำหนดวันนี้', '#B45309', dueToday, '#B45309'),
+    ...buildSectionFlex('📅 ใกล้ครบกำหนด (1-2 วัน)', '#4338CA', dueSoon, '#4338CA'),
+    { type: 'separator', margin: 'lg', color: '#E8DFD3' },
+    { type: 'text', text: '💡 คำแนะนำในการดำเนินการทวงถาม', size: 'xs', weight: 'bold', color: '#3D2314', margin: 'lg' },
+    {
+      type: 'text',
+      text: '1. เช็คสเตทเมนต์ธนาคารว่ายังไม่มียอดเข้าจริง\n2. ทักไปทวงถามลูกค้าอย่างสุภาพ พร้อมแนบใบแจ้งหนี้\n3. บันทึกในแอปทันทีที่ได้รับเงิน',
+      size: 'xxs',
+      color: '#7A5C43',
+      wrap: true,
+      margin: 'sm',
+    },
+  ];
 
-  const addSection = (title: string, section: JobWithDiff[]) => {
-    if (section.length === 0) return;
-    lines.push(`${title} (${section.length} รายการ)`);
-    for (const j of section) {
-      lines.push(`• ${j.client || 'ไม่ระบุ'} - ${j.name} - ฿${j.pending.toLocaleString('th-TH')} (${dueLabel(j.diffDays)})`);
-    }
-    lines.push('');
+  const contents: any = {
+    type: 'bubble',
+    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'xs', contents: bodyContents },
   };
 
-  addSection('⚠️ เกินกำหนดชำระเงินแล้ว', overdue);
-  addSection('⏰ ครบกำหนดวันนี้', dueToday);
-  addSection('📅 ใกล้ครบกำหนด (1-2 วัน)', dueSoon);
+  const appUrl = process.env.APP_URL;
+  if (appUrl) {
+    contents.footer = {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '12px',
+      contents: [{ type: 'button', style: 'primary', color: '#E65F2B', action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
+    };
+  }
 
-  lines.push('เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียด');
-  return lines.join('\n');
+  const altText = overdue.length > 0
+    ? `แจ้งเตือนดีลค้างชำระเลยกำหนด ${overdue.length} รายการ`
+    : `สรุปดีลใกล้ครบกำหนดชำระ ${jobs.length} รายการ`;
+  return { type: 'flex', altText, contents };
 }
 
 function escapeHtml(s: string): string {
@@ -273,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
         // email or a LINE API hiccup just means no LINE message this time.
         if (row.email) {
-          sendLineMessageToEmail(row.email, buildDigestLineText(attentionJobs), notifSettings.lineUserId).catch((err) =>
+          sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) =>
             console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
           );
         }
