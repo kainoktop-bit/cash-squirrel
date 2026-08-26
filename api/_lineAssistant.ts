@@ -1,17 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey } from '../src/utils.js';
-import type { Expense } from '../src/types.js';
+import type { Expense, Goal } from '../src/types.js';
 import type { LineMessage } from './_line.js';
 import {
   JobRow,
   ExpenseRow,
-  GoalRow,
   SettingsRow,
   currentMonthKey,
   previousMonthKey,
   computeMonthlySummary,
   jobsInMonth,
+  dateKeyInMonth,
   formatCurrency,
 } from './_monthlySummary.js';
 
@@ -40,7 +40,7 @@ export interface UserRow {
   user_id: string;
   email?: string;
   jobs?: JobRow[];
-  goals?: GoalRow[];
+  goals?: Goal[];
   settings?: SettingsRow;
   expenses?: ExpenseRow[];
   statuses?: StatusRow[];
@@ -107,13 +107,21 @@ async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
 
 interface DataSnapshot {
   wip: { name: string; client: string; value: number }[];
-  unpaid: { name: string; client: string; pending: number; dueText: string }[];
+  unpaid: { name: string; client: string; pending: number; dueDate: string | null; dueText: string }[];
   overdue: { name: string; client: string; pending: number; overdueText: string }[];
   dueToday: { name: string; client: string; pending: number }[];
   thisMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   lastMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   thisMonthJobs: { name: string; client: string; value: number; pending: number; status: string; isPosted?: boolean; isUnpaid: boolean }[];
+  upcomingForecast: { monthKey: string; expectedIncome: number }[];
+  goals: { name: string; type: string; target: number; current: number; deadline: string; allocatedPercentage?: number }[];
   totalPendingAllTime: number;
+}
+
+function addMonthsToKey(monthKey: string, n: number): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 // All the deterministic math lives here in plain JS -- matches the app's own formulas exactly
@@ -130,7 +138,7 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   const unpaidJobs = jobs.filter((j) => (j.pending || 0) > 0 && isUnpaidBehavior(j.status || ''));
   const unpaid = unpaidJobs.map((j) => {
     const dateStr = j.dueDate || j.payDate;
-    return { name: j.name, client: j.client || '', pending: j.pending || 0, dueText: dateStr ? getRelativeDaysText(dateStr).text : 'ไม่ระบุวันครบกำหนด' };
+    return { name: j.name, client: j.client || '', pending: j.pending || 0, dueDate: dateStr || null, dueText: dateStr ? getRelativeDaysText(dateStr).text : 'ไม่ระบุวันครบกำหนด' };
   });
 
   const overdue = unpaidJobs
@@ -169,7 +177,31 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
 
   const totalPendingAllTime = unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
 
-  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, thisMonthJobs, totalPendingAllTime };
+  // Same idea as the Dashboard's 4-month "เรดาร์เสบียง" forecast: for each of the next 3 months,
+  // sum already-confirmed received amounts plus pending amounts for jobs that have actually been
+  // posted (skips WIP jobs with no real due date yet) whose payDate/postDate falls in that month.
+  const upcomingForecast = [1, 2, 3].map((n) => {
+    const monthKey = addMonthsToKey(thisMonthKey, n);
+    const expectedIncome = jobs.reduce((sum, j) => {
+      const dateKey = j.payDate || j.postDate;
+      if (!dateKeyInMonth(dateKey, monthKey)) return sum;
+      if ((j.received || 0) > 0) return sum + (j.received || 0);
+      if ((j.pending || 0) > 0 && j.isPosted !== false) return sum + (j.pending || 0);
+      return sum;
+    }, 0);
+    return { monthKey, expectedIncome };
+  });
+
+  const goals = (user.goals || []).map((g) => ({
+    name: g.name,
+    type: g.type,
+    target: g.target,
+    current: g.current,
+    deadline: g.deadline,
+    allocatedPercentage: g.allocatedPercentage,
+  }));
+
+  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
 }
 
 // Free-form Q&A, grounded strictly in this user's real data -- never lets Gemini invent numbers
@@ -195,13 +227,15 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
 
   const formatted = {
     งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
-    งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}`),
+    งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}${j.dueDate ? ` (วันที่ ${j.dueDate}, เดือน ${j.dueDate.slice(0, 7)})` : ''}`),
     งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
     งานที่ครบกำหนดชำระวันนี้: snapshot.dueToday.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(j.pending)}`),
     งานที่เข้าเดือนนี้: snapshot.thisMonthJobs.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)} ${j.isUnpaid ? `(ค้าง ${formatCurrency(j.pending)})` : j.isPosted === false ? '(ในสต็อก)' : '(จ่ายแล้ว)'}`),
     ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
     สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายรวม: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
     สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายรวม: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated + snapshot.lastMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.lastMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.lastMonth.actualSavings) },
+    พยากรณ์รายรับเดือนถัดไป_3เดือน: snapshot.upcomingForecast.map((f) => `${formatMonthKey(f.monthKey)} (เดือน ${f.monthKey}): คาดว่าจะได้รับ ${formatCurrency(f.expectedIncome)} (รวมยอดที่รับแล้ว+ยอดค้างรับของงานที่ส่งมอบแล้วซึ่งมีกำหนดชำระในเดือนนี้ ไม่รวมงานสต็อกที่ยังไม่ส่งมอบเพราะยังไม่รู้วันชำระแน่นอน)`),
+    เป้าหมายออม: snapshot.goals.map((g) => `${g.name} เป้าหมาย ${formatCurrency(g.target)} สะสมแล้ว ${formatCurrency(g.current)} (${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%) กำหนดเสร็จ ${g.deadline}${g.allocatedPercentage ? ` แบ่งจากกำไรอัตโนมัติ ${g.allocatedPercentage}%` : ''}`),
   };
 
   try {
@@ -231,6 +265,8 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
 - "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) และไม่ติดลบต่ำกว่า 0 ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
 - ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
 - ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
+- ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 งานสต็อก" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
+- ถ้าคำถามถามถึงอนาคต (เดือนหน้า เดือนถัดไป หรือเดือนที่ระบุชื่อ) ให้เช็คจาก "พยากรณ์รายรับเดือนถัดไป_3เดือน" และ "งานที่ยังไม่จ่ายเงิน" (ที่มีระบุเดือนกำกับไว้) ก่อนเสมอ ห้ามบอกว่าไม่มีข้อมูลทั้งที่จริงมีอยู่ในสองส่วนนี้
 
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
