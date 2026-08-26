@@ -1,3 +1,4 @@
+import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey } from '../src/utils.js';
 import type { Expense } from '../src/types.js';
@@ -14,10 +15,13 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
-// No AI/Gemini calls anywhere in this file by design, and no chat-based add-job/add-expense
-// questionnaire either -- that flow was removed in favor of the LIFF form (api/liff-submit.ts),
-// which has a proper multi-field UI and can't leave someone stuck mid-conversation answering the
-// wrong question. Everything here is either a fixed Quick Reply command or a friendly fallback.
+// No chat-based add-job/add-expense questionnaire -- that flow was removed in favor of the LIFF
+// form (api/liff-submit.ts), which has a proper multi-field UI and can't leave someone stuck
+// mid-conversation answering the wrong question. Everything here is either a fixed Quick Reply
+// command (zero AI cost) or, for anything else, a Gemini-answered question grounded in the
+// user's real data -- with a static fallback (HELP_TEXT) if Gemini is unconfigured or errors
+// (e.g. free-tier quota), so a Gemini outage degrades to "here are the buttons" instead of
+// a raw error or a stuck conversation.
 
 interface StatusRow {
   id: string;
@@ -77,6 +81,28 @@ export async function findUserByLineId(lineUserId: string): Promise<UserRow | nu
     throw new Error(`findUserByLineId: ${error.message}`);
   }
   return (data as UserRow) || null;
+}
+
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
+
+// The free-tier Gemini quota returns HTTP 429 under bursts -- one short retry smooths that over
+// without adding much latency to a chat reply.
+async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const isRateLimited = message.includes('"code":429') || message.includes('RESOURCE_EXHAUSTED');
+    if (isRateLimited && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      return callWithRetry(fn, attempt + 1);
+    }
+    throw err;
+  }
 }
 
 interface DataSnapshot {
@@ -144,6 +170,66 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   const totalPendingAllTime = unpaidJobs.reduce((sum, j) => sum + (j.pending || 0), 0);
 
   return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, thisMonthJobs, totalPendingAllTime };
+}
+
+// Free-form Q&A, grounded strictly in this user's real data -- never lets Gemini invent numbers
+// or line items that aren't in the snapshot. Returns null (not an error string) whenever Gemini
+// is unconfigured or the call fails for any reason (including a 429 after the retry above is
+// exhausted), so the caller can fall back to the static HELP_TEXT greeting instead of showing a
+// raw "couldn't answer" message or leaving the user stuck.
+async function answerFromData(text: string, snapshot: DataSnapshot): Promise<string | null> {
+  const ai = getGeminiClient();
+  if (!ai) return null;
+
+  const formatted = {
+    งานที่ยังไม่โพสต์_สต็อกงาน: snapshot.wip.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)}`),
+    งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}`),
+    งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
+    งานที่ครบกำหนดชำระวันนี้: snapshot.dueToday.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(j.pending)}`),
+    งานที่เข้าเดือนนี้: snapshot.thisMonthJobs.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)} ${j.isUnpaid ? `(ค้าง ${formatCurrency(j.pending)})` : j.isPosted === false ? '(ในสต็อก)' : '(จ่ายแล้ว)'}`),
+    ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
+    สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายรวม: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
+    สรุปเดือนที่แล้ว: { เดือน: snapshot.lastMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.lastMonth.received), รายจ่ายรวม: formatCurrency(snapshot.lastMonth.fixedExpenseCalculated + snapshot.lastMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.lastMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.lastMonth.actualSavings) },
+  };
+
+  try {
+    const response = await callWithRetry(() =>
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `คุณเป็นผู้ช่วยของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
+
+กฎสำคัญ:
+- ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
+- ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
+- ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
+- ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
+- "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) และไม่ติดลบต่ำกว่า 0 ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
+- ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
+- ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
+
+ข้อมูลบัญชีจริง (JSON):
+${JSON.stringify(formatted, null, 2)}
+
+คำถามจากผู้ใช้: "${text}"`,
+              },
+            ],
+          },
+        ],
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      })
+    );
+    return response.text?.trim() || null;
+  } catch (err) {
+    console.error('answerFromData error:', err);
+    return null;
+  }
 }
 
 // Tappable shortcuts (LINE Quick Reply) -- every one of these is answered deterministically,
@@ -301,9 +387,10 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
   งานเดือนนี้: buildThisMonthJobsMessage,
 };
 
-// Shown for literally anything that isn't one of the 3 Quick Reply query commands -- a greeting,
-// a random question, or anything else. Since there's no more pending chat flow to get stuck in,
-// this is always a safe, friendly fallback rather than a leftover mid-conversation prompt.
+// Fallback for anything that isn't a Quick Reply command AND Gemini couldn't answer (unconfigured
+// or erroring, e.g. quota) -- a greeting, a random question, or anything else. Since there's no
+// pending chat flow to get stuck in, this is always a safe, friendly fallback rather than a
+// leftover mid-conversation prompt.
 const HELP_TEXT = [
   '🐿️ สวัสดีครับ! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ',
   'กดปุ่มด้านล่างได้เลย:',
@@ -615,6 +702,15 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
 
   if (QUICK_ACTIONS[trimmed]) {
     return QUICK_ACTIONS[trimmed](buildDataSnapshot(user));
+  }
+
+  // Anything else is a free-form question -- try Gemini grounded in this user's real data.
+  // answerFromData returns null (not an error string) whenever Gemini is unconfigured or the
+  // call fails (including a 429 the retry couldn't clear), so an outage degrades to the same
+  // friendly greeting/buttons a brand-new user sees, instead of a raw error.
+  const aiAnswer = await answerFromData(trimmed, buildDataSnapshot(user));
+  if (aiAnswer) {
+    return { type: 'text', text: aiAnswer };
   }
 
   return { type: 'text', text: HELP_TEXT };
