@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense } from './types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from './sampleData';
 import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
@@ -505,6 +505,14 @@ export default function App() {
   // Cloud Sync states
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'pending' | 'failed' | 'not_setup'>('not_setup');
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+
+  // Jobs/expenses this tab has explicitly deleted this session -- see saveCloudData's merge step
+  // for why: a job/expense added from another channel (LINE chat-add, the LIFF form) while this
+  // tab is open wouldn't be in its in-memory `jobs`/`expenses`, so a blind overwrite on the next
+  // autosave would silently erase it. The merge step re-adds anything present server-side but
+  // missing locally -- except ids in these sets, which really were deleted on purpose.
+  const deletedJobIdsRef = useRef<Set<string>>(new Set());
+  const deletedExpenseIdsRef = useRef<Set<string>>(new Set());
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
@@ -753,6 +761,38 @@ export default function App() {
     }
 
     try {
+      // jobs/expenses can now also be written server-side, from an entirely different session,
+      // by the LINE chat-add feature and the LIFF form -- a job added there while this tab is
+      // open wouldn't exist in this tab's in-memory jobs/expenses, so blindly overwriting with
+      // just this tab's copy would silently erase it the next time this tab autosaves. Fetch
+      // what's actually on the server right now and carry forward anything present there but
+      // missing here, unless this tab itself deleted that id on purpose.
+      let mergedJobs = payload.jobs || [];
+      let mergedExpenses = payload.expenses || [];
+      const { data: currentRow } = await supabase
+        .from('user_cashflow_data')
+        .select('jobs, expenses')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      if (currentRow) {
+        const localJobIds = new Set((payload.jobs || []).map((j: Job) => j.id));
+        const localExpenseIds = new Set((payload.expenses || []).map((e: Expense) => e.id));
+        const survivingServerJobs = (currentRow.jobs || []).filter(
+          (j: Job) => !localJobIds.has(j.id) && !deletedJobIdsRef.current.has(j.id)
+        );
+        const survivingServerExpenses = (currentRow.expenses || []).filter(
+          (e: Expense) => !localExpenseIds.has(e.id) && !deletedExpenseIdsRef.current.has(e.id)
+        );
+        if (survivingServerJobs.length > 0) {
+          mergedJobs = [...mergedJobs, ...survivingServerJobs];
+          setJobs((prev) => (prev === payload.jobs ? mergedJobs : prev));
+        }
+        if (survivingServerExpenses.length > 0) {
+          mergedExpenses = [...mergedExpenses, ...survivingServerExpenses];
+          setExpenses((prev) => (prev === payload.expenses ? mergedExpenses : prev));
+        }
+      }
+
       // notif_settings is intentionally left out of this upsert and merged separately below --
       // several of its keys (lineUserId, lineLinkCode, linePendingJob, lastDigestSentDate,
       // lastMonthlyReportSentMonth, ...) are written server-side by the LINE webhook/assistant
@@ -762,12 +802,12 @@ export default function App() {
       const upsertData = {
         user_id: currentUser.id,
         email: email,
-        jobs: payload.jobs || [],
+        jobs: mergedJobs,
         goals: payload.goals || [],
         statuses: payload.statuses || [],
         job_types: payload.jobTypes || [],
         settings: payload.settings || {},
-        expenses: payload.expenses || [],
+        expenses: mergedExpenses,
         updated_at: new Date().toISOString()
       };
 
@@ -1331,6 +1371,7 @@ export default function App() {
       'คุณแน่ใจหรือไม่ว่าต้องการลบดีลงานชิ้นนี้? ข้อมูลรายรับที่เกี่ยวข้องจะหายไปด้วย',
       () => {
         const jobToDelete = jobs.find(j => j.id === id);
+        deletedJobIdsRef.current.add(id);
         setJobs(prev => prev.filter(j => j.id !== id));
         fireMascot({
           mood: 'alert',
@@ -1552,6 +1593,7 @@ export default function App() {
 
   const handleDeleteExpense = (id: string) => {
     const expenseToDelete = expenses.find(e => e.id === id);
+    deletedExpenseIdsRef.current.add(id);
     setExpenses(prev => prev.filter(e => e.id !== id));
     if (expenseToDelete) notifyLineRecordDeleted('expense', expenseToDelete);
   };
