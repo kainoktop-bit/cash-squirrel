@@ -110,6 +110,7 @@ interface DataSnapshot {
   unpaid: { name: string; client: string; pending: number; dueDate: string | null; dueText: string }[];
   overdue: { name: string; client: string; pending: number; overdueText: string }[];
   dueToday: { name: string; client: string; pending: number }[];
+  dueSoon: { name: string; client: string; pending: number; dueText: string; daysCount: number }[];
   thisMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   lastMonth: ReturnType<typeof computeMonthlySummary> & { monthKey: string };
   thisMonthJobs: { name: string; client: string; value: number; pending: number; status: string; isPosted?: boolean; isUnpaid: boolean }[];
@@ -158,6 +159,21 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
     })
     .map((j) => ({ name: j.name, client: j.client || '', pending: j.pending || 0 }));
 
+  // "เร็วๆ นี้" / "ใกล้ครบกำหนด" in conversation means within about 10 days (confirmed with the
+  // user) -- a separate, tighter bucket than the full unpaid list so free-form Q&A about what's
+  // due soon doesn't dump every unpaid job regardless of how far out it is. Sorted nearest-first;
+  // jobs with no due date at all are excluded since they can't be "soon" by definition.
+  const dueSoon = unpaidJobs
+    .map((j) => {
+      const dateStr = j.dueDate || j.payDate;
+      if (!dateStr) return null;
+      const rel = getRelativeDaysText(dateStr);
+      if (rel.daysCount > 10) return null;
+      return { name: j.name, client: j.client || '', pending: j.pending || 0, dueText: rel.text, daysCount: rel.daysCount };
+    })
+    .filter((j): j is { name: string; client: string; pending: number; dueText: string; daysCount: number } => j !== null)
+    .sort((a, b) => a.daysCount - b.daysCount);
+
   const thisMonthKey = currentMonthKey();
   const lastMonthKey = previousMonthKey();
   const thisMonth = { ...computeMonthlySummary(jobs, user.expenses || [], user.goals || [], user.settings || {}, thisMonthKey), monthKey: thisMonthKey };
@@ -201,7 +217,7 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
     allocatedPercentage: g.allocatedPercentage,
   }));
 
-  return { wip, unpaid, overdue, dueToday, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
+  return { wip, unpaid, overdue, dueToday, dueSoon, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
 }
 
 // Free-form Q&A, grounded strictly in this user's real data -- never lets Gemini invent numbers
@@ -230,6 +246,7 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
     งานที่ยังไม่จ่ายเงิน: snapshot.unpaid.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} กำหนดชำระ ${j.dueText}${j.dueDate ? ` (วันที่ ${j.dueDate}, เดือน ${j.dueDate.slice(0, 7)})` : ''}`),
     งานที่เลยกำหนดชำระแล้ว: snapshot.overdue.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.overdueText})`),
     งานที่ครบกำหนดชำระวันนี้: snapshot.dueToday.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ${formatCurrency(j.pending)}`),
+    งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน: snapshot.dueSoon.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} ค้าง ${formatCurrency(j.pending)} (${j.dueText})`),
     งานที่เข้าเดือนนี้: snapshot.thisMonthJobs.map((j) => `${j.name}${j.client ? ` (${j.client})` : ''} มูลค่า ${formatCurrency(j.value)} ${j.isUnpaid ? `(ค้าง ${formatCurrency(j.pending)})` : j.isPosted === false ? '(ในสต็อก)' : '(จ่ายแล้ว)'}`),
     ยอดค้างรับทั้งหมดรวมทุกงาน: formatCurrency(snapshot.totalPendingAllTime),
     สรุปเดือนนี้: { เดือน: snapshot.thisMonth.monthKey, รับแล้วจริง: formatCurrency(snapshot.thisMonth.received), รายจ่ายรวม: formatCurrency(snapshot.thisMonth.fixedExpenseCalculated + snapshot.thisMonth.variableExpense), กระแสเงินสดสุทธิ: formatCurrency(Math.max(0, snapshot.thisMonth.netFlow)), ยอดออมสะสมโดยประมาณ: formatCurrency(snapshot.thisMonth.actualSavings) },
@@ -267,6 +284,7 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
 - ถ้าคำถามเกี่ยวกับการเพิ่ม/แก้ไข/ลบข้อมูล ให้แนะนำให้กดปุ่ม "📝 ฟอร์มบันทึก" แทน เพราะที่นี่ตอบได้แค่คำถาม แก้ไขข้อมูลไม่ได้
 - ปุ่มลัดที่มีอยู่จริงในแชทมีแค่นี้เท่านั้น: "📝 ฟอร์มบันทึก", "📋 งานค้างจ่าย", "📊 สรุปเดือนนี้", "📅 งานเดือนนี้", "📦 งานสต็อก" ห้ามอ้างถึงหรือแนะนำปุ่มชื่ออื่นที่ไม่มีอยู่ในรายการนี้เด็ดขาด (เช่นห้ามพูดถึงปุ่ม "สรุปรายรับ" เพราะไม่มีจริง)
 - ถ้าคำถามถามถึงอนาคต (เดือนหน้า เดือนถัดไป หรือเดือนที่ระบุชื่อ) ให้เช็คจาก "พยากรณ์รายรับเดือนถัดไป_3เดือน" และ "งานที่ยังไม่จ่ายเงิน" (ที่มีระบุเดือนกำกับไว้) ก่อนเสมอ ห้ามบอกว่าไม่มีข้อมูลทั้งที่จริงมีอยู่ในสองส่วนนี้
+- ถ้าคำถามใช้คำว่า "เร็วๆ นี้"/"ใกล้ครบกำหนด"/"อีกไม่นาน" หรือถามแบบไม่ระบุช่วงเวลาชัดเจนว่างานไหนใกล้ถึงกำหนดชำระ ให้ตอบจาก "งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน" เท่านั้น (ที่คัดมาแล้วว่าใกล้จริงๆ ภายใน 10 วัน) ห้ามเอารายการทั้งหมดจาก "งานที่ยังไม่จ่ายเงิน" มาตอบเพราะจะเยอะเกินไปจนไม่เห็นภาพว่าอันไหนด่วนจริง ถ้ารายการนี้ว่างเปล่าให้บอกว่าไม่มีงานไหนใกล้ครบกำหนดในเร็วๆ นี้
 
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
