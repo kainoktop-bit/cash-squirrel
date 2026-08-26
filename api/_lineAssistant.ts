@@ -177,6 +177,18 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
 // is unconfigured or the call fails for any reason (including a 429 after the retry above is
 // exhausted), so the caller can fall back to the static HELP_TEXT greeting instead of showing a
 // raw "couldn't answer" message or leaving the user stuck.
+
+// LINE's chat UI renders plain text only -- markdown shows up as literal asterisks/hashes, which
+// reads as an obviously-AI-generated wall of symbols. The prompt already says not to use it, but
+// that's not 100% reliable, so strip the common cases as a backstop.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^[*-]\s+/gm, '');
+}
+
 async function answerFromData(text: string, snapshot: DataSnapshot): Promise<string | null> {
   const ai = getGeminiClient();
   if (!ai) return null;
@@ -204,13 +216,14 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
                 text: `คุณคือ "พี่กระรอก" มาสคอตของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
 
 บุคลิก:
-- อบอุ่น ใจดี ห่วงใยเหมือนพี่ที่คอยช่วยดูแลเรื่องเงินให้ ไม่ใช่หุ่นยนต์เป็นทางการ
-- พูดจาเป็นกันเอง สุภาพอ่อนโยน ลงท้ายด้วย "ครับ"/"นะครับ" ได้ตามธรรมชาติ
+- เป็นเพื่อนสนิทที่คอยช่วยดูแลเรื่องเงินให้ พูดจาแบบกันเองสุดๆ เหมือนแชทคุยกับเพื่อน ไม่ใช่ผู้ช่วย AI ที่เป็นทางการ
+- ใช้ภาษาพูดธรรมดาแบบคนไทยคุยกันจริงๆ ไม่ต้องเกร็งหรือดูเป็นทางการ จะใช้ "ครับ" บ้างก็ได้แต่ไม่ต้องทุกประโยค เน้นความเป็นธรรมชาติเป็นหลัก
 - แซวหรือเปรียบเทียบธีมกระรอก/เก็บเสบียง/โพรงไม้ได้บ้างเป็นครั้งคราวให้ดูมีคาแรคเตอร์ แต่อย่าใส่ทุกประโยคจนดูฝืน
 - ถ้าข่าวไม่ดี (เช่น มีงานค้างจ่าย เกินกำหนด) ให้บอกตรงไปตรงมาด้วยความเข้าใจและให้กำลังใจ ไม่ตำหนิหรือทำให้รู้สึกแย่
-- ความน่ารักต้องไม่ทำให้คำตอบยืดยาวหรือคลุมเครือ -- ยังต้องตอบสั้น กระชับ ตรงประเด็นตามกฎด้านล่างเสมอ
+- ความเป็นกันเองต้องไม่ทำให้คำตอบยืดยาวหรือคลุมเครือ -- ยังต้องตอบสั้น กระชับ ตรงประเด็นตามกฎด้านล่างเสมอ
 
 กฎสำคัญ:
+- ห้ามใช้สัญลักษณ์จัดรูปแบบแบบ markdown เด็ดขาด (ห้ามใช้ ** ทำตัวหนา, ห้ามใช้ # หัวข้อ, ห้ามใช้ * หรือ - นำหน้าเป็น bullet) เพราะแชท LINE ไม่รองรับ markdown จะเห็นเป็นสัญลักษณ์ดิบๆ แทน ให้เขียนเป็นข้อความธรรมดาล้วนๆ ใช้การขึ้นบรรทัดใหม่แทนถ้าต้องแยกรายการ
 - ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
 - ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
 - ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
@@ -232,7 +245,8 @@ ${JSON.stringify(formatted, null, 2)}
         },
       })
     );
-    return response.text?.trim() || null;
+    const raw = response.text?.trim();
+    return raw ? stripMarkdown(raw) : null;
   } catch (err) {
     console.error('answerFromData error:', err);
     return null;
