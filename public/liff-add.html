@@ -98,7 +98,7 @@
     padding: 12px 14px;
     margin-bottom: 18px;
   }
-  .tip-box .avatar { font-size: 20px; line-height: 1; }
+  .tip-box .avatar { width: 24px; height: 24px; flex-shrink: 0; }
   .tip-box .tip-title { color: var(--tip-text); font-weight: 700; font-size: 12.5px; margin: 0 0 3px; }
   .tip-box .tip-text { color: var(--text); font-size: 12.5px; line-height: 1.5; margin: 0; opacity: 0.9; }
 
@@ -172,7 +172,7 @@
   }
 
   .status { text-align: center; padding: 70px 16px; }
-  .status .emoji { font-size: 44px; margin-bottom: 14px; }
+  .status .emoji { width: 56px; height: 56px; margin: 0 auto 14px; }
   .status h2 { margin: 0 0 8px; font-size: 18px; }
   .status p { color: var(--muted); font-size: 14px; margin: 0; }
   .status button {
@@ -210,7 +210,7 @@
     <div class="steps-row" id="job-steps-row"></div>
 
     <div class="tip-box">
-      <span class="avatar">🐿️</span>
+      <img class="avatar" src="/favicon.svg" alt="กระรอกตุนเงิน" />
       <div>
         <p class="tip-title">คำแนะนำจากกระรอก</p>
         <p class="tip-text" id="job-tip-text">กรอก "ชื่องาน" แล้วเลือก "ประเภทงาน" ด้านล่างได้เลยนะ เปลี่ยนทีหลังได้เสมอ</p>
@@ -288,7 +288,7 @@
     </div>
 
     <div class="tip-box">
-      <span class="avatar">🐿️</span>
+      <img class="avatar" src="/favicon.svg" alt="กระรอกตุนเงิน" />
       <div>
         <p class="tip-title">คำแนะนำจากกระรอก</p>
         <p class="tip-text">กรอกชื่อรายการ เลือกหมวดหมู่ แล้วใส่จำนวนเงินได้เลยครับ</p>
@@ -366,7 +366,7 @@
     document.getElementById('job-step-eyebrow').textContent = 'ขั้นตอน ' + jobStep + ' จาก 3';
     document.getElementById('job-tip-text').textContent = JOB_TIPS[jobStep];
     document.getElementById('job-back-btn').classList.toggle('hidden', jobStep === 1);
-    document.getElementById('job-next-btn').textContent = jobStep === 3 ? 'บันทึกข้อมูลดีลงาน ✨' : 'ขั้นตอนถัดไป →';
+    document.getElementById('job-next-btn').textContent = jobStep === 3 ? 'บันทึกข้อมูลดีลงาน' : 'ขั้นตอนถัดไป →';
     renderStepsRow();
     updateReceipt();
   }
@@ -435,12 +435,12 @@
     submitJob();
   }
 
-  function showStatus(emoji, title, message, showCloseButton) {
+  function showStatus(title, message, showCloseButton) {
     document.getElementById('form-view').classList.add('hidden');
     var view = document.getElementById('status-view');
     view.classList.remove('hidden');
     view.innerHTML =
-      '<div class="emoji">' + emoji + '</div>' +
+      '<img class="emoji" src="/favicon.svg" alt="กระรอกตุนเงิน" />' +
       '<h2>' + title + '</h2>' +
       '<p>' + message + '</p>' +
       (showCloseButton ? '<button onclick="closeLiff()">ปิดหน้าต่าง</button>' : '');
@@ -483,7 +483,7 @@
         btn.textContent = originalText;
         return;
       }
-      showStatus('✅', 'บันทึกสำเร็จ!', 'ระบบส่งการ์ดสรุปกลับไปในแชทให้แล้วครับ', true);
+      showStatus('บันทึกสำเร็จ!', 'ระบบส่งการ์ดสรุปกลับไปในแชทให้แล้วครับ', true);
     } catch (err) {
       document.getElementById(errorBoxId).textContent = 'เกิดข้อผิดพลาด ลองใหม่อีกครั้งครับ';
       document.getElementById(errorBoxId).style.display = 'block';
@@ -534,7 +534,7 @@
       var configRes = await fetch('/api/liff-config');
       var config = await configRes.json();
       if (!config.liffId) {
-        showStatus('⚠️', 'ยังไม่พร้อมใช้งาน', 'ฟอร์มนี้ยังไม่ได้ตั้งค่า LIFF_ID ครับ', false);
+        showStatus('ยังไม่พร้อมใช้งาน', 'ฟอร์มนี้ยังไม่ได้ตั้งค่า LIFF_ID ครับ', false);
         return;
       }
       await liff.init({ liffId: config.liffId });
@@ -542,7 +542,7 @@
         liff.login();
       }
     } catch (err) {
-      showStatus('⚠️', 'เปิดฟอร์มไม่สำเร็จ', 'ลองเปิดใหม่จากปุ่มในแชท LINE อีกครั้งครับ', false);
+      showStatus('เปิดฟอร์มไม่สำเร็จ', 'ลองเปิดใหม่จากปุ่มในแชท LINE อีกครั้งครับ', false);
     }
   })();
 </script>
