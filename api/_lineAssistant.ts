@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey } from '../src/utils.js';
+import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey, DEFAULT_JOB_TYPES } from '../src/utils.js';
 import type { Expense, Goal } from '../src/types.js';
 import type { LineMessage } from './_line.js';
 import {
@@ -15,13 +15,15 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
-// No chat-based add-job/add-expense questionnaire -- that flow was removed in favor of the LIFF
-// form (api/liff-submit.ts), which has a proper multi-field UI and can't leave someone stuck
-// mid-conversation answering the wrong question. Everything here is either a fixed Quick Reply
-// command (zero AI cost) or, for anything else, a Gemini-answered question grounded in the
-// user's real data -- with a static fallback (HELP_TEXT) if Gemini is unconfigured or errors
-// (e.g. free-tier quota), so a Gemini outage degrades to "here are the buttons" instead of
-// a raw error or a stuck conversation.
+// No multi-turn chat wizard for adding a job/expense -- that flow was removed for leaving people
+// stuck mid-conversation answering the wrong follow-up question. What replaced it: the LIFF form
+// (api/liff-submit.ts) for a proper multi-field UI, and -- back again here -- single-shot
+// natural-language add-job/add-expense (classifyMessage extracts everything from one message and
+// saves immediately, no pending/waiting state stored at all, so there's nothing to get stuck in).
+// Everything else is either a fixed Quick Reply command (zero AI cost) or a Gemini-answered
+// question grounded in the user's real data -- with a static fallback (HELP_TEXT) if Gemini is
+// unconfigured or errors (e.g. free-tier quota), so a Gemini outage degrades to "here are the
+// buttons" instead of a raw error or a stuck conversation.
 
 interface StatusRow {
   id: string;
@@ -220,12 +222,6 @@ function buildDataSnapshot(user: UserRow): DataSnapshot {
   return { wip, unpaid, overdue, dueToday, dueSoon, thisMonth, lastMonth, thisMonthJobs, upcomingForecast, goals, totalPendingAllTime };
 }
 
-// Free-form Q&A, grounded strictly in this user's real data -- never lets Gemini invent numbers
-// or line items that aren't in the snapshot. Returns null (not an error string) whenever Gemini
-// is unconfigured or the call fails for any reason (including a 429 after the retry above is
-// exhausted), so the caller can fall back to the static HELP_TEXT greeting instead of showing a
-// raw "couldn't answer" message or leaving the user stuck.
-
 // LINE's chat UI renders plain text only -- markdown shows up as literal asterisks/hashes, which
 // reads as an obviously-AI-generated wall of symbols. The prompt already says not to use it, but
 // that's not 100% reliable, so strip the common cases as a backstop.
@@ -237,7 +233,33 @@ function stripMarkdown(text: string): string {
     .replace(/^[*-]\s+/gm, '');
 }
 
-async function answerFromData(text: string, snapshot: DataSnapshot): Promise<string | null> {
+const EXPENSE_CATEGORIES = ['ค่าอุปกรณ์/ซอฟต์แวร์', 'ค่าโฆษณา/ยิงแอด', 'ค่าเดินทาง/น้ำมัน', 'อาหาร/รับรองลูกค้า', 'จ้างงานต่อ (Outsource)', 'ภาษี/ธรรมเนียม', 'ค่าบริการ/สาธารณูปโภค', 'อื่นๆ'];
+
+export interface ClassifyResult {
+  intent: 'add_job' | 'add_expense' | 'question' | 'other';
+  jobName?: string;
+  jobClient?: string;
+  jobType?: string;
+  jobValue?: number;
+  jobCreditTerm?: number;
+  jobPaymentStatus?: 'paid' | 'partial' | 'pending';
+  jobReceivedAmount?: number;
+  jobWhtRate?: number;
+  expenseName?: string;
+  expenseCategory?: string;
+  expenseAmount?: number;
+  answer?: string;
+}
+
+// Single Gemini call handles three things at once (question answering, add-job extraction,
+// add-expense extraction) -- merging call sites is what fixed the free-tier 429 rate limit
+// before (see git history), so this stays one call rather than three. Strictly single-shot: no
+// pending/waiting state is ever stored, so there's nothing to leave a user stuck answering the
+// wrong follow-up question (the exact bug class the old multi-turn chat wizard had, which is why
+// it was removed in favor of the LIFF form). If required fields are missing from one message,
+// the caller just asks the user to resend with more detail -- never a stored "still waiting for
+// field X" state.
+async function classifyMessage(text: string, snapshot: DataSnapshot): Promise<ClassifyResult | null> {
   const ai = getGeminiClient();
   if (!ai) return null;
 
@@ -286,23 +308,60 @@ async function answerFromData(text: string, snapshot: DataSnapshot): Promise<str
 - ถ้าคำถามถามถึงอนาคต (เดือนหน้า เดือนถัดไป หรือเดือนที่ระบุชื่อ) ให้เช็คจาก "พยากรณ์รายรับเดือนถัดไป_3เดือน" และ "งานที่ยังไม่จ่ายเงิน" (ที่มีระบุเดือนกำกับไว้) ก่อนเสมอ ห้ามบอกว่าไม่มีข้อมูลทั้งที่จริงมีอยู่ในสองส่วนนี้
 - ถ้าคำถามใช้คำว่า "เร็วๆ นี้"/"ใกล้ครบกำหนด"/"อีกไม่นาน" หรือถามแบบไม่ระบุช่วงเวลาชัดเจนว่างานไหนใกล้ถึงกำหนดชำระ ให้ตอบจาก "งานที่ใกล้ครบกำหนด_ภายใน10วัน_เรียงใกล้สุดก่อน" เท่านั้น (ที่คัดมาแล้วว่าใกล้จริงๆ ภายใน 10 วัน) ห้ามเอารายการทั้งหมดจาก "งานที่ยังไม่จ่ายเงิน" มาตอบเพราะจะเยอะเกินไปจนไม่เห็นภาพว่าอันไหนด่วนจริง ถ้ารายการนี้ว่างเปล่าให้บอกว่าไม่มีงานไหนใกล้ครบกำหนดในเร็วๆ นี้
 
+วิธีตัดสินใจ intent ของข้อความ:
+- ถ้าข้อความบรรยายว่าเพิ่งรับงาน/ดีลใหม่เข้ามา (บอกว่าทำงานอะไร ได้ค่าจ้างเท่าไหร่ ขอให้บันทึกเป็นรายรับ) ให้ intent = "add_job" แล้วแยกข้อมูลใส่ฟิลด์ job* ทั้งหมดเท่าที่จับใจความได้:
+  - jobName (บังคับ): ชื่องานสั้นๆ
+  - jobValue (บังคับ): มูลค่างานเต็มเป็นตัวเลขล้วน ไม่ใส่หน่วย ห้ามเดาถ้าข้อความไม่ได้ระบุจำนวนเงินชัดเจน
+  - jobType: เลือกจากนี้เท่านั้น "${DEFAULT_JOB_TYPES.join('", "')}" ถ้าไม่แน่ใจใช้ "${DEFAULT_JOB_TYPES[DEFAULT_JOB_TYPES.length - 1]}"
+  - jobPaymentStatus: "paid" ถ้าบอกว่าได้รับเงินครบแล้ว, "partial" ถ้าได้แค่มัดจำบางส่วน (ต้องระบุ jobReceivedAmount ด้วย), "pending" ถ้ายังไม่ได้รับเลยหรือไม่ได้พูดถึง (ค่าเริ่มต้น)
+  - jobCreditTerm: จำนวนวันที่ลูกค้าจะโอนหลังส่งงาน ถ้าไม่พูดถึงใส่ 0 (ได้เงินทันที)
+  - jobWhtRate: % หัก ณ ที่จ่ายถ้าพูดถึง (0, 1, 3, หรือ 5) ไม่พูดถึงใส่ 0
+- ถ้าข้อความบรรยายว่าเพิ่งจ่ายรายจ่าย/ค่าใช้จ่ายออกไป (ไม่ใช่รายรับ) ให้ intent = "add_expense" แล้วแยกใส่:
+  - expenseName (บังคับ): ชื่อรายการสั้นๆ
+  - expenseAmount (บังคับ): จำนวนเงินเป็นตัวเลขล้วน ห้ามเดาถ้าไม่ได้ระบุชัดเจน
+  - expenseCategory: เลือกจากนี้เท่านั้น "${EXPENSE_CATEGORIES.join('", "')}" ถ้าไม่แน่ใจใช้ "อื่นๆ"
+- ถ้าข้อความเป็นคำถาม/สอบถามข้อมูล ให้ intent = "question" แล้วตอบใส่ช่อง answer ตามกฎด้านบนทั้งหมด
+- ถ้า intent = "add_job" แต่ไม่มี jobName หรือ jobValue หรือ intent = "add_expense" แต่ไม่มี expenseName หรือ expenseAmount ให้ยังคง intent นั้นไว้ แต่ใส่คำตอบในช่อง answer บอกสิ่งที่ขาดไปแบบเป็นมิตร ชวนพิมพ์มาใหม่พร้อมข้อมูลที่ขาด หรือกดปุ่ม "📝 ฟอร์มบันทึก" แทนก็ได้
+- ถ้าข้อความไม่เข้าเงื่อนไขไหนเลย (เช่นทักทายเฉยๆ ไม่รู้เรื่อง) ให้ intent = "other"
+
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
 
-คำถามจากผู้ใช้: "${text}"`,
+ข้อความจากผู้ใช้: "${text}"`,
               },
             ],
           },
         ],
         config: {
           thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              intent: { type: 'STRING', enum: ['add_job', 'add_expense', 'question', 'other'] },
+              jobName: { type: 'STRING' },
+              jobClient: { type: 'STRING' },
+              jobType: { type: 'STRING' },
+              jobValue: { type: 'NUMBER' },
+              jobCreditTerm: { type: 'NUMBER' },
+              jobPaymentStatus: { type: 'STRING', enum: ['paid', 'partial', 'pending'] },
+              jobReceivedAmount: { type: 'NUMBER' },
+              jobWhtRate: { type: 'NUMBER' },
+              expenseName: { type: 'STRING' },
+              expenseCategory: { type: 'STRING' },
+              expenseAmount: { type: 'NUMBER' },
+              answer: { type: 'STRING' },
+            },
+            required: ['intent'],
+          },
         },
       })
     );
-    const raw = response.text?.trim();
-    return raw ? stripMarkdown(raw) : null;
+    const parsed = JSON.parse(response.text || '{}') as ClassifyResult;
+    if (parsed.answer) parsed.answer = stripMarkdown(parsed.answer.trim());
+    return parsed.intent ? parsed : null;
   } catch (err) {
-    console.error('answerFromData error:', err);
+    console.error('classifyMessage error:', err);
     return null;
   }
 }
@@ -468,6 +527,7 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
 // leftover mid-conversation prompt.
 const HELP_TEXT = [
   '🐿️ สวัสดีครับ! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ',
+  'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้',
   'กดปุ่มด้านล่างได้เลย:',
   '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
   '📋 งานค้างจ่าย',
@@ -779,13 +839,56 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     return QUICK_ACTIONS[trimmed](buildDataSnapshot(user));
   }
 
-  // Anything else is a free-form question -- try Gemini grounded in this user's real data.
-  // answerFromData returns null (not an error string) whenever Gemini is unconfigured or the
-  // call fails (including a 429 the retry couldn't clear), so an outage degrades to the same
-  // friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const aiAnswer = await answerFromData(trimmed, buildDataSnapshot(user));
-  if (aiAnswer) {
-    return { type: 'text', text: aiAnswer };
+  // Anything else goes through one combined Gemini call -- could be a question, or a natural-
+  // language "just add this job/expense" message. classifyMessage returns null whenever Gemini
+  // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
+  // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
+  const result = await classifyMessage(trimmed, buildDataSnapshot(user));
+  if (!result) {
+    return { type: 'text', text: HELP_TEXT };
+  }
+
+  if (result.intent === 'add_job') {
+    if (result.jobName && result.jobValue) {
+      const draft: JobDraft = {
+        name: result.jobName,
+        client: result.jobClient,
+        type: result.jobType,
+        value: result.jobValue,
+        creditTerm: result.jobCreditTerm || 0,
+        paymentStatus: result.jobPaymentStatus || 'pending',
+        receivedAmount: result.jobReceivedAmount,
+        whtRate: result.jobWhtRate || 0,
+      };
+      const job = buildJobFromDraft(draft);
+      const ok = await persistJob(user, job);
+      if (!ok) {
+        return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
+      }
+      return buildJobSavedMessage(job);
+    }
+    return { type: 'text', text: result.answer || 'ขอชื่องานกับมูลค่างานด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
+  }
+
+  if (result.intent === 'add_expense') {
+    if (result.expenseName && result.expenseAmount) {
+      const draft: ExpenseDraft = {
+        name: result.expenseName,
+        category: result.expenseCategory,
+        amount: result.expenseAmount,
+      };
+      const expense = buildExpenseFromDraft(draft);
+      const ok = await persistExpense(user, expense);
+      if (!ok) {
+        return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
+      }
+      return buildExpenseSavedMessage(expense);
+    }
+    return { type: 'text', text: result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
+  }
+
+  if (result.intent === 'question' && result.answer) {
+    return { type: 'text', text: result.answer };
   }
 
   return { type: 'text', text: HELP_TEXT };
