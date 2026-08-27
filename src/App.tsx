@@ -1284,7 +1284,7 @@ export default function App() {
   // LINE has no API to delete/unsend a previously-sent message, so deleting a job or expense
   // here can't remove its old "บันทึกสำเร็จ" card from the chat -- this pushes a follow-up
   // "ยกเลิก/ลบ" card instead, so the chat at least shows it was voided.
-  const notifyLineRecordDeleted = (kind: 'job' | 'expense', record: Job | Expense) => {
+  const notifyLineRecordDeleted = (kind: 'job' | 'expense', record: Job | Expense, monthNet: number | undefined) => {
     if (!session?.user?.email || session.isGuest) return;
     (async () => {
       try {
@@ -1292,8 +1292,8 @@ export default function App() {
         const token = sessionData.session?.access_token;
         if (!token) return;
         const body = kind === 'job'
-          ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value } }
-          : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount } };
+          ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value, isPosted: (record as Job).isPosted }, monthNet }
+          : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount }, monthNet };
         await fetch('/api/notify-record-deleted', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -1386,9 +1386,25 @@ export default function App() {
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
       // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
       // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
-      // monthNet is skipped here (not worth the extra bookkeeping to correct for the pre-edit
-      // stale jobs array this closure still holds) -- buildJobSavedMessage treats it as optional.
-      if (oldJob) notifyLineRecordAdded('job', { ...oldJob, ...updated }, undefined);
+      // monthNet can't reuse monthNetSafe's "prepend a new job" shape here since this job already
+      // exists in `jobs` with its pre-edit values -- replace it in place instead, or it'd be
+      // double-counted (once stale, once as the "extra").
+      if (oldJob) {
+        const mergedJob = { ...oldJob, ...updated };
+        let monthNet: number | undefined;
+        try {
+          monthNet = computeMonthlySummary(
+            jobs.map(j => j.id === id ? mergedJob : j),
+            expenses,
+            goals,
+            settings,
+            getCurrentMonthKeyBkk()
+          ).receivedAfterVariableExpense;
+        } catch (err) {
+          console.warn('computeMonthlySummary failed for LINE notify:', err);
+        }
+        notifyLineRecordAdded('job', mergedJob, monthNet);
+      }
     } else {
       fireMascot({
         mood: 'happy',
@@ -1409,7 +1425,21 @@ export default function App() {
           mood: 'alert',
           message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
         });
-        if (jobToDelete) notifyLineRecordDeleted('job', jobToDelete);
+        if (jobToDelete) {
+          let monthNet: number | undefined;
+          try {
+            monthNet = computeMonthlySummary(
+              jobs.filter(j => j.id !== id),
+              expenses,
+              goals,
+              settings,
+              getCurrentMonthKeyBkk()
+            ).receivedAfterVariableExpense;
+          } catch (err) {
+            console.warn('computeMonthlySummary failed for LINE notify:', err);
+          }
+          notifyLineRecordDeleted('job', jobToDelete, monthNet);
+        }
       }
     );
   };
@@ -1629,7 +1659,21 @@ export default function App() {
     const expenseToDelete = expenses.find(e => e.id === id);
     deletedExpenseIdsRef.current.add(id);
     setExpenses(prev => prev.filter(e => e.id !== id));
-    if (expenseToDelete) notifyLineRecordDeleted('expense', expenseToDelete);
+    if (expenseToDelete) {
+      let monthNet: number | undefined;
+      try {
+        monthNet = computeMonthlySummary(
+          jobs,
+          expenses.filter(e => e.id !== id),
+          goals,
+          settings,
+          getCurrentMonthKeyBkk()
+        ).receivedAfterVariableExpense;
+      } catch (err) {
+        console.warn('computeMonthlySummary failed for LINE notify:', err);
+      }
+      notifyLineRecordDeleted('expense', expenseToDelete, monthNet);
+    }
   };
 
   const handleUpdateSettings = (newSettings: AppSettings) => {

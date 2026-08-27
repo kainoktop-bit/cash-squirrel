@@ -658,7 +658,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       ...(job.whtRate ? [`หัก ณ ที่จ่าย ${job.whtRate}%: -${formatCurrency(job.whtAmount || 0)}`] : []),
       `สถานะ: ${statusLabel}`,
       ...(!isWip && (job.pending || 0) > 0 ? [`ยอดค้างรับ: ${formatCurrency(job.pending || 0)}`] : []),
-      ...(monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
+      ...(!isWip && monthNet != null ? [`คงเหลือเดือนนี้: ${formatCurrency(Math.max(0, monthNet))}`] : []),
     ];
     return { type: 'text', text: lines.join('\n') };
   }
@@ -680,7 +680,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
         ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
         buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
-        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
+        ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
       ],
     },
     footer: {
@@ -726,6 +726,22 @@ export async function persistExpense(user: UserRow, expense: Expense): Promise<b
     return false;
   }
   return true;
+}
+
+// "คงเหลือเดือนนี้" for the job/expense-saved cards, computed server-side (LINE chat-add and the
+// LIFF form both persist straight to Supabase with no client-side app state to read it from).
+// extraJob/extraExpense is the record that was JUST persisted -- user.jobs/user.expenses here is
+// the snapshot fetched before that write, so it has to be prepended, same as the client's own
+// monthNetSafe([newRecord]) pattern in App.tsx.
+export function computeMonthNetForUser(user: UserRow, extraJob?: JobRow, extraExpense?: ExpenseRow): number | undefined {
+  try {
+    const jobs = extraJob ? [extraJob, ...(user.jobs || [])] : (user.jobs || []);
+    const expenses = extraExpense ? [extraExpense, ...(user.expenses || [])] : (user.expenses || []);
+    return computeMonthlySummary(jobs, expenses, user.goals || [], user.settings || {}, currentMonthKey()).receivedAfterVariableExpense;
+  } catch (err) {
+    console.error('computeMonthNetForUser error:', err);
+    return undefined;
+  }
 }
 
 // Same squirrel-branded Flex "receipt" style as the job-saved card, but in the app's rust/clay
@@ -786,25 +802,28 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
 // LINE can't delete/unsend a message the bot already pushed -- there's no such API. This sends
 // a follow-up "ยกเลิกแล้ว" card instead, so the chat at least shows the job was voided rather
 // than leaving the original "บันทึกงานสำเร็จ" card looking like it's still active.
-export function buildJobDeletedMessage(job: { name: string; client?: string; value: number }): LineMessage {
+export function buildJobDeletedMessage(job: { name: string; client?: string; value: number; isPosted?: boolean }, monthNet?: number): LineMessage {
+  const isWip = job.isPosted === false;
   const bodyContents = [
     buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: '#78716C' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
     buildStatementRow('วันที่ยกเลิก', formatThaiTimestamp(), { bold: false }),
+    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
   return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
 }
 
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
-export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }): LineMessage {
+export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }, monthNet?: number): LineMessage {
   const bodyContents = [
     buildStatementRow('ลบรายจ่าย', formatCurrency(expense.amount), { size: 'xl', color: '#78716C' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('รายการ', expense.name, { bold: false }),
     ...(expense.category ? [buildStatementRow('หมวด', expense.category, { bold: false })] : []),
     buildStatementRow('วันที่ลบ', formatThaiTimestamp(), { bold: false }),
+    ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
   return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
 }
@@ -897,7 +916,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       if (!ok) {
         return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
       }
-      return buildJobSavedMessage(job);
+      return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
     }
     return { type: 'text', text: result.answer || 'ขอชื่องานกับมูลค่างานด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
   }
@@ -914,7 +933,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       if (!ok) {
         return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
       }
-      return buildExpenseSavedMessage(expense);
+      return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
     }
     return { type: 'text', text: result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
   }

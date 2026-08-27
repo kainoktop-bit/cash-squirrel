@@ -45,11 +45,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const body = req.body || {};
+    const monthNet = typeof body.monthNet === 'number' ? body.monthNet : undefined;
     let message;
     if (body.kind === 'expense' && body.record && typeof body.record.name === 'string') {
-      message = buildExpenseDeletedMessage(body.record);
+      message = buildExpenseDeletedMessage(body.record, monthNet);
     } else if (body.kind === 'job' && body.record && typeof body.record.name === 'string') {
-      message = buildJobDeletedMessage(body.record);
+      message = buildJobDeletedMessage(body.record, monthNet);
     } else {
       res.status(400).json({ error: 'Invalid payload' });
       return;

@@ -7,6 +7,7 @@ import {
   buildExpenseFromDraft,
   persistExpense,
   buildExpenseSavedMessage,
+  computeMonthNetForUser,
   JobDraft,
   ExpenseDraft,
 } from './_lineAssistant.js';
@@ -87,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
         return;
       }
-      await sendLineMessagePayload(lineUserId, buildExpenseSavedMessage(expense));
+      await sendLineMessagePayload(lineUserId, buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense)));
       res.status(200).json({ ok: true });
       return;
     }
@@ -112,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
       return;
     }
-    await sendLineMessagePayload(lineUserId, buildJobSavedMessage(job));
+    await sendLineMessagePayload(lineUserId, buildJobSavedMessage(job, computeMonthNetForUser(user, job)));
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('liff-submit handler error:', err);
