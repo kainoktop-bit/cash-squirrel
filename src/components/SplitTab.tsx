@@ -2144,9 +2144,20 @@ export default function SplitTab({
 
                 {/* Amount input */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
-                    จำนวนเงิน (บาท) <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-brand-muted uppercase tracking-wider block">
+                      จำนวนเงิน (บาท) <span className="text-rose-500">*</span>
+                    </label>
+                    {txType === 'withdraw' && txGoal.current > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setTxAmount(String(txGoal.current))}
+                        className="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer whitespace-nowrap"
+                      >
+                        ดึงออกทั้งหมด 100% ({formatCurrency(txGoal.current)})
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <input
                       type="number"
