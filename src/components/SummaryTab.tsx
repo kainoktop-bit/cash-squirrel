@@ -338,7 +338,7 @@ export default function SummaryTab({
       {/* 1. Header Bar with dynamic month switch */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-md">
+          <span className="text-[10px] uppercase font-bold tracking-widest text-green-acc bg-green-bg px-2.5 py-1 rounded-md">
             FINANCIAL REPORT
           </span>
           <h2 className="text-2xl font-black font-display text-brand-text dark:text-white mt-2 tracking-tight flex items-center gap-2">
@@ -352,7 +352,7 @@ export default function SummaryTab({
 
         {/* Month Selector dropdown */}
         <div className="flex items-center gap-2 bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 p-2 rounded-2xl shadow-2xs self-start md:self-auto min-w-[220px]">
-          <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 ml-1.5" />
+          <Calendar className="w-4 h-4 text-green-acc ml-1.5" />
           <select
             value={selectedMonth}
             onChange={(e) => onSelectMonth(e.target.value)}
@@ -368,9 +368,9 @@ export default function SummaryTab({
       </div>
 
       {/* 1.5 Backup & Export banner */}
-      <div className="bg-emerald-50/60 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-green-bg border border-green-acc/15 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-green-bg text-green-acc flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5" />
           </div>
           <div>
@@ -383,13 +383,13 @@ export default function SummaryTab({
         <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={onExportData}
-            className="w-full sm:w-auto px-4 py-2.5 bg-white dark:bg-neutral-900 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/20 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 bg-brand-white dark:bg-neutral-900 hover:bg-green-bg text-green-acc border border-green-acc/20 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" /> สำรองข้อมูล (.json)
           </button>
           <button
             onClick={handleExportCSV}
-            className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="w-full sm:w-auto px-4 py-2.5 bg-green-acc hover:bg-green-acc/90 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" /> Export เป็น Excel (.csv)
           </button>
@@ -408,13 +408,13 @@ export default function SummaryTab({
             <span className="text-[10px] font-black tracking-wider text-brand-muted dark:text-neutral-400 uppercase">
               ยอดรายรับที่ได้จริงแล้ว
             </span>
-            <span className="text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full">
+            <span className="text-[10px] font-extrabold bg-green-bg text-green-acc px-2.5 py-1 rounded-full">
               เงินเข้ากระเป๋าจริง
             </span>
           </div>
 
           <div className="my-auto">
-            <h3 className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+            <h3 className="text-2xl font-extrabold font-mono text-green-acc tracking-tight">
               {formatCurrency(metrics.totalReceived)}
             </h3>
             <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-1.5 flex items-center gap-1.5">
@@ -424,7 +424,7 @@ export default function SummaryTab({
 
           <div className="w-full bg-brand-faint dark:bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
             <div 
-              className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+              className="bg-green-acc h-full rounded-full transition-all duration-500"
               style={{ width: `${metrics.totalContractVal > 0 ? (metrics.totalReceived / metrics.totalContractVal) * 100 : 0}%` }}
             />
           </div>
@@ -439,13 +439,13 @@ export default function SummaryTab({
             <span className="text-[10px] font-black tracking-wider text-brand-muted dark:text-neutral-400 uppercase">
               ยอดคงเหลือค้างรับ
             </span>
-            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${metrics.totalPending > 0 ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'}`}>
+            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${metrics.totalPending > 0 ? 'bg-pink-bg text-pink-acc' : 'bg-green-bg text-green-acc'}`}>
               {metrics.totalPending > 0 ? 'เหลือต้องตามเก็บ' : 'รับครบหมดแล้ว!'}
             </span>
           </div>
 
           <div className="my-auto">
-            <h3 className={`text-2xl font-extrabold font-mono tracking-tight ${metrics.totalPending > 0 ? 'text-amber-600 dark:text-yellow-400' : 'text-brand-text dark:text-neutral-300'}`}>
+            <h3 className={`text-2xl font-extrabold font-mono tracking-tight ${metrics.totalPending > 0 ? 'text-yellow-acc' : 'text-brand-text dark:text-neutral-300'}`}>
               {formatCurrency(metrics.totalPending)}
             </h3>
             <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-1.5">
@@ -455,7 +455,7 @@ export default function SummaryTab({
 
           <div className="w-full bg-brand-faint dark:bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
             <div 
-              className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+              className="bg-yellow-acc h-full rounded-full transition-all duration-500"
               style={{ width: `${metrics.totalContractVal > 0 ? (metrics.totalPending / metrics.totalContractVal) * 100 : 0}%` }}
             />
           </div>
@@ -470,13 +470,13 @@ export default function SummaryTab({
             <span className="text-[10px] font-black tracking-wider text-brand-muted dark:text-neutral-400 uppercase">
               รายจ่ายแปรผันเดือนนี้
             </span>
-            <span className="text-[10px] font-extrabold bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 px-2.5 py-1 rounded-full">
+            <span className="text-[10px] font-extrabold bg-blue-bg text-blue-acc px-2.5 py-1 rounded-full">
               แปรผันตามจริง
             </span>
           </div>
 
           <div className="my-auto">
-            <h3 className="text-2xl font-extrabold font-mono text-orange-600 dark:text-orange-400 tracking-tight">
+            <h3 className="text-2xl font-extrabold font-mono text-blue-acc tracking-tight">
               {formatCurrency(metrics.totalVariableExpense)}
             </h3>
             <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-1.5">
@@ -486,7 +486,7 @@ export default function SummaryTab({
 
           <div className="w-full bg-brand-faint dark:bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
             <div 
-              className="bg-orange-500 h-full rounded-full transition-all duration-500" 
+              className="bg-blue-acc h-full rounded-full transition-all duration-500"
               style={{ width: `${(metrics.fixedExpense + metrics.totalVariableExpense) > 0 ? (metrics.totalVariableExpense / (metrics.fixedExpense + metrics.totalVariableExpense)) * 100 : 0}%` }}
             />
           </div>
@@ -501,13 +501,13 @@ export default function SummaryTab({
             <span className="text-[10px] font-black tracking-wider text-brand-muted dark:text-neutral-400 uppercase">
               ภาษีหัก ณ ที่จ่ายสะสม
             </span>
-            <span className="text-[10px] font-extrabold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full">
+            <span className="text-[10px] font-extrabold bg-yellow-bg text-yellow-acc px-2.5 py-1 rounded-full">
               ขอคืนเครดิตภาษีได้
             </span>
           </div>
 
           <div className="my-auto">
-            <h3 className="text-2xl font-extrabold font-mono text-amber-600 dark:text-amber-400 tracking-tight">
+            <h3 className="text-2xl font-extrabold font-mono text-yellow-acc tracking-tight">
               {formatCurrency(metrics.totalWht)}
             </h3>
             <p className="text-[10px] text-brand-muted dark:text-neutral-400 mt-1.5">
@@ -517,7 +517,7 @@ export default function SummaryTab({
 
           <div className="w-full bg-brand-faint dark:bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
             <div 
-              className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+              className="bg-yellow-acc h-full rounded-full transition-all duration-500"
               style={{ width: `${metrics.totalContractVal > 0 ? (metrics.totalWht / metrics.totalContractVal) * 100 : 0}%` }}
             />
           </div>
@@ -531,7 +531,7 @@ export default function SummaryTab({
         <div className="lg:col-span-7 bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xs space-y-6">
           <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
             <div className="flex items-center gap-2">
-              <FileText className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+              <FileText className="w-4.5 h-4.5 text-green-acc" />
               <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
                 รายละเอียดเงินออมและยอดคงเหลือประจำรอบเดือน
               </h3>
@@ -548,30 +548,30 @@ export default function SummaryTab({
             <div className="flex justify-between items-start">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="w-2 h-2 rounded-full bg-green-acc" />
                   <span className="text-xs font-bold text-brand-text dark:text-neutral-200">1. ยอดรายรับที่โอนเข้ากระเป๋าจริง</span>
                 </div>
                 <p className="text-[10px] text-brand-muted dark:text-neutral-400 ml-3.5">
                   เงินส่วนที่ลูกค้าชำระมาแล้ว (เงินมัดจำ/เงินก้อนเต็ม)
                 </p>
               </div>
-              <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              <span className="text-xs font-bold font-mono text-green-acc">
                 +{formatCurrency(metrics.totalReceived)}
               </span>
             </div>
 
             {/* Step 2: Total Expenses (Combined in summary as per user feedback, but with separate fields below) */}
-            <div className="flex justify-between items-start pl-2 border-l-2 border-rose-200 dark:border-rose-900/40 ml-1 py-1">
+            <div className="flex justify-between items-start pl-2 border-l-2 border-pink-acc/20 ml-1 py-1">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span className="w-2 h-2 rounded-full bg-pink-acc" />
                   <span className="text-xs font-bold text-brand-text dark:text-neutral-200">2. หัก รายจ่ายทั้งหมดในรอบเดือน (รวมคงที่และแปรผัน)</span>
                 </div>
                 <p className="text-[10px] text-brand-muted dark:text-neutral-400 ml-3.5">
                   รวมภาระค่าใช้จ่ายคงที่ประจำเดือน และค่าใช้จ่ายผันแปรเสริมทั้งหมด
                 </p>
               </div>
-              <span className="text-xs font-black font-mono text-rose-600 dark:text-rose-400">
+              <span className="text-xs font-black font-mono text-pink-acc">
                 -{formatCurrency(metrics.fixedExpense + metrics.totalVariableExpense)}
               </span>
             </div>
@@ -596,10 +596,10 @@ export default function SummaryTab({
               {/* Variable Portion (Always shown as a separate channel/field!) */}
               <div className="space-y-0.5 pl-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-blue-acc uppercase tracking-wider">
                     รายจ่ายแปรผัน
                   </span>
-                  <span className="text-xs font-black font-mono text-orange-600 dark:text-orange-400">
+                  <span className="text-xs font-black font-mono text-blue-acc">
                     -{formatCurrency(metrics.totalVariableExpense)}
                   </span>
                 </div>
@@ -612,16 +612,16 @@ export default function SummaryTab({
             <div className="h-px bg-brand-border/40 dark:bg-neutral-800 my-2" />
 
             {/* Final Outcome: Spending Cash in hand */}
-            <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-500/10 p-4 rounded-2xl border border-blue-100/20">
+            <div className="flex justify-between items-center bg-purple-bg p-4 rounded-2xl border border-purple-acc/15">
               <div className="space-y-0.5">
-                <span className="text-xs font-black text-blue-900 dark:text-blue-300 block">
+                <span className="text-xs font-black text-purple-acc block">
                   คงเหลือเงินสดสุทธิ (กำไรสะสมพร้อมใช้จ่ายหรือออมอิสระ)
                 </span>
-                <span className="text-[10px] text-blue-700 dark:text-blue-400 block">
+                <span className="text-[10px] text-purple-acc/80 block">
                   นี่คือเงินสดส่วนเกินที่แท้จริงหลังจากหักรายจ่ายคงที่และรายจ่ายผันแปรทั้งหมดแล้ว!
                 </span>
               </div>
-              <span className={`text-base font-black font-mono ${metrics.netCashReceived >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'} shrink-0`}>
+              <span className={`text-base font-black font-mono ${metrics.netCashReceived >= 0 ? 'text-green-acc' : 'text-pink-acc'} shrink-0`}>
                 {formatCurrency(metrics.netCashReceived)}
               </span>
             </div>
@@ -633,7 +633,7 @@ export default function SummaryTab({
               onClick={() => onSwitchTab('split')}
               className="w-full py-3 bg-brand-faint hover:bg-brand-border/40 text-brand-text dark:bg-neutral-800 dark:text-neutral-200 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
-              <PiggyBank className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> ไปห้องแบ่งเงินออมเข้าสู่กระเป๋าเป้าหมาย <ArrowRight className="w-4 h-4" />
+              <PiggyBank className="w-4 h-4 text-green-acc" /> ไปห้องแบ่งเงินออมเข้าสู่กระเป๋าเป้าหมาย <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -647,7 +647,7 @@ export default function SummaryTab({
               <span className="text-[10px] font-black tracking-wider text-brand-muted dark:text-neutral-400 uppercase">
                 เป้าหมายรายรับออมรายเดือน
               </span>
-              <span className="text-[10px] bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md">
+              <span className="text-[10px] bg-yellow-bg text-yellow-acc font-bold px-2 py-0.5 rounded-md">
                 Settings
               </span>
             </div>
@@ -659,7 +659,7 @@ export default function SummaryTab({
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-brand-muted dark:text-neutral-400">รายรับจริงขณะนี้:</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(metrics.totalReceived)}</span>
+                <span className="font-extrabold text-green-acc font-mono">{formatCurrency(metrics.totalReceived)}</span>
               </div>
             </div>
 
@@ -672,15 +672,15 @@ export default function SummaryTab({
               <div className="w-full bg-brand-faint dark:bg-neutral-800 h-2.5 rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-700 ${
-                    metrics.totalReceived >= settings.monthlyRevenueGoal 
-                      ? 'bg-emerald-500' 
-                      : 'bg-amber-500'
+                    metrics.totalReceived >= settings.monthlyRevenueGoal
+                      ? 'bg-green-acc'
+                      : 'bg-yellow-acc'
                   }`}
                   style={{ width: `${Math.min(100, (metrics.totalReceived / settings.monthlyRevenueGoal) * 100 || 0)}%` }}
                 />
               </div>
               {metrics.totalReceived >= settings.monthlyRevenueGoal ? (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 pt-1">
+                <p className="text-[10px] text-green-acc font-bold flex items-center gap-1 pt-1">
                   ผ่านเกณฑ์เป้าหมายรายรับแล้ว ยอดเยี่ยมมาก!
                 </p>
               ) : (
@@ -692,8 +692,8 @@ export default function SummaryTab({
           </div>
 
           {/* Quick tips card */}
-          <div className="bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100/20 dark:border-emerald-500/10 rounded-3xl p-5 space-y-3">
-            <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
+          <div className="bg-green-bg border border-green-acc/15 rounded-3xl p-5 space-y-3">
+            <h4 className="text-xs font-black text-green-acc uppercase tracking-wide flex items-center gap-1.5">
               ข้อเสนอแนะทางการเงิน
             </h4>
             <p className="text-xs text-brand-muted dark:text-neutral-400 leading-relaxed">
@@ -712,7 +712,7 @@ export default function SummaryTab({
       <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
           <div className="flex items-center gap-2">
-            <Clock className="w-4.5 h-4.5 text-amber-500" />
+            <Clock className="w-4.5 h-4.5 text-yellow-acc" />
             <div>
               <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
                 งานดีลที่ค้างชำระ & ติดตามยอด ({metrics.pendingJobs.length} งาน)
@@ -723,14 +723,14 @@ export default function SummaryTab({
             </div>
           </div>
 
-          <span className="text-[10px] font-black text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-2.5 py-1 rounded-md">
+          <span className="text-[10px] font-black text-yellow-acc bg-yellow-bg px-2.5 py-1 rounded-md">
             ค้างรวม {formatCurrency(metrics.totalPending)}
           </span>
         </div>
 
         {metrics.pendingJobs.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+            <CheckCircle2 className="w-10 h-10 text-green-acc mx-auto" />
             <h4 className="text-xs font-extrabold text-brand-text dark:text-neutral-200">ไม่มีดีลงานค้างชำระแล้ว!</h4>
             <p className="text-[10px] text-brand-muted dark:text-neutral-400">
               ทุกงานดีลของรอบเดือน {formatMonthKey(selectedMonth)} ชำระเงินมัดจำ/ยอดเต็มครบถ้วนเรียบร้อยแล้ว
@@ -751,8 +751,8 @@ export default function SummaryTab({
                     </div>
                     <div className="flex items-center gap-4 text-[10px] text-brand-muted dark:text-neutral-400">
                       <span>มูลค่าดีล: <strong className="text-brand-text dark:text-neutral-300 font-mono">{formatCurrency(j.value)}</strong></span>
-                      <span>รับมาแล้ว: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(j.received)}</strong></span>
-                      <span>ค้างจ่ายอยู่: <strong className="text-rose-600 font-mono">{formatCurrency(j.pending)}</strong></span>
+                      <span>รับมาแล้ว: <strong className="text-green-acc font-mono">{formatCurrency(j.received)}</strong></span>
+                      <span>ค้างจ่ายอยู่: <strong className="text-pink-acc font-mono">{formatCurrency(j.pending)}</strong></span>
                     </div>
                   </div>
 
@@ -769,7 +769,7 @@ export default function SummaryTab({
                       />
                       <button
                         onClick={() => handleUpdatePartial(j, parseFloat(inputVal) || 0)}
-                        className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                        className="px-2.5 py-1.5 bg-green-acc/10 hover:bg-green-acc/20 text-green-acc rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                       >
                         บันทึกยอด
                       </button>
@@ -777,7 +777,7 @@ export default function SummaryTab({
 
                     <button
                       onClick={() => handleCollectPending(j)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-green-acc hover:bg-green-acc/90 text-white rounded-lg text-[10px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3 h-3" /> รับเงินครบแล้ว
                     </button>
@@ -793,7 +793,7 @@ export default function SummaryTab({
       <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+            <TrendingUp className="w-4.5 h-4.5 text-green-acc" />
             <div>
               <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
                 ประวัติสรุปยอดรายรับรายเดือนย้อนหลัง
@@ -823,13 +823,13 @@ export default function SummaryTab({
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className={`border rounded-[var(--radius-lg)] p-4 transition-all cursor-pointer relative overflow-hidden ${
-                  isSelected 
-                    ? 'border-emerald-500 dark:border-emerald-500 shadow-md ring-1 ring-emerald-500/20 bg-emerald-50/5 dark:bg-emerald-500/5' 
+                  isSelected
+                    ? 'border-green-acc shadow-md ring-1 ring-green-acc/20 bg-green-bg'
                     : 'border-brand-border dark:border-stone-800 hover:border-brand-border/80 dark:hover:border-stone-700 shadow-2xs'
                 }`}
               >
                 {summary.isCurrent && (
-                  <div className="absolute top-0 right-0 bg-emerald-600 text-white font-black text-[8px] uppercase tracking-wider px-2 py-1 rounded-bl-lg">
+                  <div className="absolute top-0 right-0 bg-green-acc text-white font-black text-[8px] uppercase tracking-wider px-2 py-1 rounded-bl-lg">
                     เดือนปัจจุบัน
                   </div>
                 )}
@@ -847,17 +847,17 @@ export default function SummaryTab({
                     
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
                       {isShortfall ? (
-                        <span className="text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-55/10 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/15">
+                        <span className="text-[9px] font-black text-pink-acc bg-pink-bg px-2 py-0.5 rounded-md border border-pink-acc/15">
                           ยังไม่พอค่าใช้จ่ายคงที่
                         </span>
                       ) : (
-                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-55/10 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-100/15">
+                        <span className="text-[9px] font-black text-green-acc bg-green-bg px-2 py-0.5 rounded-md border border-green-acc/15">
                           ผ่านค่าใช้จ่ายคงที่ (+{formatCurrency(summary.profit)})
                         </span>
                       )}
 
                       {metGoal && (
-                        <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-55/10 dark:bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-100/15">
+                        <span className="text-[9px] font-black text-yellow-acc bg-yellow-bg px-2 py-0.5 rounded-md border border-yellow-acc/15">
                           ผ่านเป้าหมายรายได้ยอดออม!
                         </span>
                       )}
@@ -871,11 +871,11 @@ export default function SummaryTab({
                     </div>
                     <div>
                       <span className="text-[9px] text-brand-muted dark:text-neutral-400 block uppercase tracking-wider font-semibold">รับแล้วจริง</span>
-                      <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalReceived)}</span>
+                      <span className="text-xs font-bold font-mono text-green-acc">{formatCurrency(summary.totalReceived)}</span>
                     </div>
                     <div>
                       <span className="text-[9px] text-brand-muted dark:text-neutral-400 block uppercase tracking-wider font-semibold">ค้างรับ</span>
-                      <span className="text-xs font-bold font-mono text-amber-600">{formatCurrency(summary.totalPending)}</span>
+                      <span className="text-xs font-bold font-mono text-yellow-acc">{formatCurrency(summary.totalPending)}</span>
                     </div>
                   </div>
                 </div>
@@ -885,7 +885,7 @@ export default function SummaryTab({
                     {isSelected ? <IconCheck className="w-2.5 h-2.5" /> : <IconArrowUp className="w-2.5 h-2.5" />}
                     {isSelected ? 'กำลังเลือกแสดงรายละเอียดรายงานของเดือนนี้ด้านบน' : 'คลิกเพื่อดึงยอดและดูสรุปโดยละเอียดของรอบเดือนนี้'}
                   </span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-extrabold flex items-center gap-0.5">
+                  <span className="text-purple-acc font-extrabold flex items-center gap-0.5">
                     {isSelected ? 'เลือกอยู่' : <>สลับข้อมูลเดือนนี้ <IconArrowRight className="w-2.5 h-2.5" /></>}
                   </span>
                 </div>

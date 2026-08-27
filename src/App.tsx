@@ -23,7 +23,7 @@ import { supabase } from './supabaseClient';
 // down, computed from local machine time) -- importing the same name here would silently shadow
 // it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
 // that made the LINE-notify balance figure fail (found via a decoded production sourcemap).
-import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk } from './monthlySummary';
+import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInBangkok } from './monthlySummary';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
@@ -314,6 +314,34 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Auto-switch to dark mode ("โหมดตอนเย็น") in the evening and back to light in the morning,
+  // Bangkok time. Boundaries are 12-hour blocks starting 06:00 (light) / 18:00 (dark), tracked as
+  // a period id so a manual toggle mid-period is respected until the next boundary is crossed.
+  useEffect(() => {
+    const getAutoThemePeriod = () => {
+      const bkkMs = nowInBangkok().getTime();
+      const sixAmEpochMs = Date.UTC(1970, 0, 1, 6, 0, 0, 0);
+      const periodId = Math.floor((bkkMs - sixAmEpochMs) / (12 * 60 * 60 * 1000));
+      return { isDark: periodId % 2 !== 0, periodId };
+    };
+    const applyAutoThemeIfNeeded = () => {
+      const { isDark, periodId } = getAutoThemePeriod();
+      const lastAppliedRaw = localStorage.getItem('cashflow_theme_auto_period');
+      const lastApplied = lastAppliedRaw !== null ? Number(lastAppliedRaw) : null;
+      if (lastApplied !== periodId) {
+        localStorage.setItem('cashflow_theme_auto_period', String(periodId));
+        setDarkMode(isDark);
+      }
+    };
+    applyAutoThemeIfNeeded();
+    const interval = setInterval(applyAutoThemeIfNeeded, 60 * 1000);
+    document.addEventListener('visibilitychange', applyAutoThemeIfNeeded);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', applyAutoThemeIfNeeded);
+    };
+  }, []);
 
   // Auth session listener
   useEffect(() => {
