@@ -1305,6 +1305,33 @@ export default function App() {
     })();
   };
 
+  // Same best-effort push pattern for savings-goal events -- creating a goal, or a deposit/
+  // withdraw transaction against one (mirrors handleAddGoal / handleUpdateGoalProgress).
+  const notifyLineGoalEvent = (
+    kind: 'created' | 'deposit' | 'withdraw',
+    goal: { name: string; target: number; current: number; deadline?: string },
+    tx?: { amount: number; reason: string }
+  ) => {
+    if (!session?.user?.email || session.isGuest) return;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        const body = kind === 'created'
+          ? { kind, goal: { name: goal.name, target: goal.target, deadline: goal.deadline } }
+          : { kind, goal: { name: goal.name, target: goal.target, current: goal.current }, tx };
+        await fetch('/api/notify-goal-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        });
+      } catch (err) {
+        console.warn('notifyLineGoalEvent failed:', err);
+      }
+    })();
+  };
+
   // computeMonthlySummary is only for the LINE card's "คงเหลือเดือนนี้" line -- never let it (or
   // anything else) block the notify call itself, since a thrown error here would silently
   // swallow the whole notification before the fetch even happens. Uses receivedAfterVariableExpense
@@ -1389,6 +1416,7 @@ export default function App() {
     };
     setGoals(prev => [...prev, goalWithId]);
     leafBus.trigger({ count: 12, type: 'mixed', durationMs: 3000 });
+    notifyLineGoalEvent('created', goalWithId);
   };
 
   const handleDeleteGoal = (id: string) => {
@@ -1422,8 +1450,9 @@ export default function App() {
           // Saving money, drop some green leaves!
           leafBus.trigger({ count: 10, type: 'green', durationMs: 2500 });
         }
-        return { 
-          ...g, 
+        notifyLineGoalEvent(newTx.type, { name: g.name, target: g.target, current: nextVal }, { amount: newTx.amount, reason: newTx.reason });
+        return {
+          ...g,
           current: nextVal,
           history: [newTx, ...(g.history || [])]
         };

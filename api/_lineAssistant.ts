@@ -809,6 +809,38 @@ export function buildExpenseDeletedMessage(expense: { name: string; category?: s
   return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
 }
 
+export function buildGoalCreatedMessage(goal: { name: string; target: number; deadline?: string }): LineMessage {
+  const bodyContents = [
+    buildStatementRow('สร้างเป้าหมายใหม่', goal.name, { size: 'xl', color: '#2563EB' }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
+    ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
+    buildStatementRow('วันที่สร้าง', formatThaiTimestamp(), { bold: false }),
+  ];
+  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`);
+}
+
+// Covers both deposit (ฝากเงินเพิ่ม) and withdraw (ดึงเงินออก) -- same card shape, colored and
+// signed differently, so it's always obvious at a glance which direction the money moved and
+// which goal it was into/out of.
+export function buildGoalTransactionMessage(
+  goal: { name: string; target: number; current: number },
+  tx: { type: 'deposit' | 'withdraw'; amount: number; reason: string }
+): LineMessage {
+  const isDeposit = tx.type === 'deposit';
+  const headerLabel = isDeposit ? 'ฝากเข้าเป้าหมาย' : 'ดึงเงินออกจากเป้าหมาย';
+  const headerColor = isDeposit ? '#0E9F6E' : '#A63F1B';
+  const bodyContents = [
+    buildStatementRow(headerLabel, `${isDeposit ? '+' : '-'}${formatCurrency(tx.amount)}`, { size: 'xl', color: headerColor }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
+    ...(tx.reason ? [buildStatementRow('เหตุผล', tx.reason, { bold: false })] : []),
+    buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
+    buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
+  ];
+  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+}
+
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }
