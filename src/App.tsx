@@ -1373,17 +1373,22 @@ export default function App() {
   const handleEditJob = (id: string, updated: Partial<Job>) => {
     const oldJob = jobs.find(j => j.id === id);
     setJobs(prev => prev.map(j => j.id === id ? { ...j, ...updated } : j));
-    
+
     // If job was completed or fully paid, trigger a massive celebration!
-    const wasCompleted = (updated.status === 'done' && oldJob?.status !== 'done') || 
+    const wasCompleted = (updated.status === 'done' && oldJob?.status !== 'done') ||
                          (updated.paymentStatus === 'paid' && oldJob?.paymentStatus !== 'paid');
-    
+
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
         message: `ยินดีด้วยค้าบ! งานนี้ปิดดีลรับเงินเข้าคลังกระรอกเรียบร้อยแล้ว! อู้ฟู่สุดๆ!`
       });
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
+      // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
+      // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
+      // monthNet is skipped here (not worth the extra bookkeeping to correct for the pre-edit
+      // stale jobs array this closure still holds) -- buildJobSavedMessage treats it as optional.
+      if (oldJob) notifyLineRecordAdded('job', { ...oldJob, ...updated }, undefined);
     } else {
       fireMascot({
         mood: 'happy',
