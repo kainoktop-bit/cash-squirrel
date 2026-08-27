@@ -971,14 +971,27 @@ export default function App() {
   // 🎉 Promote the Pro plan once per calendar day to logged-in, non-guest, non-Pro users after
   // their data has loaded. Dismissible; marks today as "shown" the moment it opens so closing it
   // (or just not acting on it) never brings it back again the same day.
+  //
+  // Gated on `subscription !== null`, not just isLoadedForUser: isPro depends on subscription
+  // state, which starts null and is only set once loadSubscriptionData's async fetch resolves.
+  // isLoadedForUser can go true first, so without this, a real Pro user briefly reads as
+  // isPro:false during that load window and gets shown this popup incorrectly (confirmed --
+  // that stale false also leaked into every other isPro-gated UI element until a full reload).
   useEffect(() => {
-    if (!isLoadedForUser || session?.isGuest || isPro) return;
+    if (!isLoadedForUser || session?.isGuest || subscription === null || isPro) return;
     const todayKey = new Date().toISOString().split('T')[0];
     const storageKey = `cashflow_promo_last_shown_${isLoadedForUser}`;
     if (localStorage.getItem(storageKey) === todayKey) return;
     localStorage.setItem(storageKey, todayKey);
     setIsProPromoOpen(true);
-  }, [isLoadedForUser, session?.isGuest, isPro]);
+  }, [isLoadedForUser, session?.isGuest, subscription, isPro]);
+
+  // Safety net regardless of the above: if isPro ever flips true while the promo is open (this
+  // race condition or any other), close it immediately rather than leaving a Pro user stuck
+  // looking at an upgrade prompt for a plan they already have.
+  useEffect(() => {
+    if (isPro && isProPromoOpen) setIsProPromoOpen(false);
+  }, [isPro, isProPromoOpen]);
 
   // Sync statuses and jobTypes to LocalStorage. Guest/demo sessions are deliberately excluded --
   // "ทดลองใช้งานระบบฟรี" is meant to reset to the same sample scenario on every fresh visit, so
