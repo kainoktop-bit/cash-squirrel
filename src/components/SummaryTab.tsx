@@ -162,15 +162,10 @@ export default function SummaryTab({
 
   // Calculations for selected month
   const metrics = useMemo(() => {
-    const totalReceived = monthJobs.reduce((sum, j) => {
-      const isPaid = j.status === 'done' || 
-                     j.paymentStatus === 'paid' || 
-                     statuses.find(s => s.id === j.status)?.behavior === 'done';
-      const effectiveReceived = isPaid 
-        ? (j.received || Math.max(0, j.value - Math.round(j.value * ((j.whtRate || 0) / 100))))
-        : j.received;
-      return sum + effectiveReceived;
-    }, 0);
+    // Trust the recorded `received` field as-is -- never assume a "done" job's full value was
+    // received when that field is still 0/unset, since that shows phantom income the user never
+    // actually got and disagrees with the Timeline tab, which only counts received > 0.
+    const totalReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
 
     const totalPending = monthJobs.reduce((sum, j) => {
       const isPaid = j.status === 'done' || 
@@ -243,15 +238,7 @@ export default function SummaryTab({
       .map(monthKey => {
         const monthJobs = jobs.filter(j => getMonthKey(j.payDate || j.postDate) === monthKey);
         
-        const mReceived = monthJobs.reduce((sum, j) => {
-          const isPaid = j.status === 'done' || 
-                         j.paymentStatus === 'paid' || 
-                         statuses.find(s => s.id === j.status)?.behavior === 'done';
-          const effectiveReceived = isPaid 
-            ? (j.received || Math.max(0, j.value - Math.round(j.value * ((j.whtRate || 0) / 100))))
-            : j.received;
-          return sum + effectiveReceived;
-        }, 0);
+        const mReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
 
         const mPending = monthJobs.reduce((sum, j) => {
           const isPaid = j.status === 'done' || 
