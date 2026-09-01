@@ -564,13 +564,16 @@ export default function DashboardTab({
   // actually got and disagrees with the Timeline tab, which only counts received > 0.
   const totalReceived = selectedMonthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
 
+  // Trust the recorded `pending` field as-is, the same way totalReceived trusts `received` --
+  // don't also gate on isPaid. A properly-saved "done" job already has pending forced to 0
+  // (see JobsTab's save/quick-collect handlers), so this isPaid check was always redundant for
+  // well-formed data and actively hid money for any job whose paid flag and pending amount had
+  // drifted out of sync, disagreeing with the Timeline tab (which never checks isPaid here) and
+  // making dashboard money vanish from both totals at once.
   const totalPending = selectedMonthJobs.reduce((sum, j) => {
-    const isPaid = j.status === 'done' ||
-                    j.paymentStatus === 'paid' ||
-                    statuses.find(s => s.id === j.status)?.behavior === 'done';
     // WIP jobs (not yet posted/delivered) aren't expected income yet, so they don't count
     // toward the pending-receivable total shown on the dashboard.
-    if (isPaid || j.isPosted === false) return sum;
+    if (j.isPosted === false) return sum;
     return sum + j.pending;
   }, 0);
 

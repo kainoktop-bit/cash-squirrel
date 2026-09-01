@@ -167,12 +167,10 @@ export default function SummaryTab({
     // actually got and disagrees with the Timeline tab, which only counts received > 0.
     const totalReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
 
-    const totalPending = monthJobs.reduce((sum, j) => {
-      const isPaid = j.status === 'done' || 
-                     j.paymentStatus === 'paid' || 
-                     statuses.find(s => s.id === j.status)?.behavior === 'done';
-      return sum + (isPaid ? 0 : j.pending);
-    }, 0);
+    // Trust the recorded `pending` field as-is, same reasoning as totalReceived above -- a
+    // properly-saved "done" job already has pending forced to 0, so gating on isPaid here was
+    // redundant and hid money for any job whose paid flag and pending amount had drifted apart.
+    const totalPending = monthJobs.reduce((sum, j) => sum + j.pending, 0);
 
     const totalContractVal = monthJobs.reduce((sum, j) => {
       const isPaid = j.status === 'done' || 
@@ -240,12 +238,7 @@ export default function SummaryTab({
         
         const mReceived = monthJobs.reduce((sum, j) => sum + (j.received || 0), 0);
 
-        const mPending = monthJobs.reduce((sum, j) => {
-          const isPaid = j.status === 'done' || 
-                         j.paymentStatus === 'paid' || 
-                         statuses.find(s => s.id === j.status)?.behavior === 'done';
-          return sum + (isPaid ? 0 : j.pending);
-        }, 0);
+        const mPending = monthJobs.reduce((sum, j) => sum + j.pending, 0);
 
         const mContract = monthJobs.reduce((sum, j) => {
           const isPaid = j.status === 'done' || 
