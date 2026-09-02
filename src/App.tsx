@@ -1846,11 +1846,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg flex lg:flex-row flex-col">
-      
-      {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) */}
-      <aside className="hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative">
-        <div className="flex items-center gap-2.5 mb-8 px-2">
+    <div className="h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">
+
+      {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) -- own scroll region so
+          it stays put while the main content (e.g. a 100-job list) scrolls independently */}
+      <aside className="hidden lg:flex flex-col w-68 bg-brand-white border-r border-brand-border/40 shrink-0 select-none p-6 relative overflow-y-auto no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setActiveTab('dashboard')}
+          className="flex items-center gap-2.5 mb-8 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
+          title="กลับไปหน้าภาพรวมกระแสเงินสด"
+        >
           <div className="shrink-0">
             <Mascot mood="happy" size={36} />
           </div>
@@ -1862,7 +1868,7 @@ export default function App() {
               คลังกระรอกตุนเสบียง
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Desktop Sidebar Navigation List */}
         <nav className="space-y-1.5 flex-1">
@@ -2007,7 +2013,15 @@ export default function App() {
               <div className="space-y-6">
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between pb-4 border-b border-brand-border/20">
-                  <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('dashboard');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 cursor-pointer text-left"
+                    title="กลับไปหน้าภาพรวมกระแสเงินสด"
+                  >
                     <div className="shrink-0">
                       <Mascot mood="happy" size={36} />
                     </div>
@@ -2019,7 +2033,7 @@ export default function App() {
                         คลังกระรอกตุนเสบียง
                       </p>
                     </div>
-                  </div>
+                  </button>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer"
@@ -2161,7 +2175,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* 📱 / 💻 Main Section: Handles responsive paddings & maximum constraints */}
-      <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
+      <div className="flex-1 flex flex-col h-screen relative overflow-hidden bg-brand-bg pb-6 lg:pb-6">
         
         {/* Top Header Bar with branding & Dark Mode toggle (Sticky on mobile, simple title on desktop) */}
         <div className="flex justify-between items-center px-5 py-4 bg-brand-white border-b border-brand-border/40 select-none shrink-0 lg:px-8">
