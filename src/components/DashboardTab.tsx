@@ -1,7 +1,8 @@
 import React from 'react';
 import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '../types';
 import { formatCurrency, getForecastMonths, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate } from '../utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from './icons';
 import { VineDivider } from './VineDivider';
@@ -41,6 +42,7 @@ interface DashboardTabProps {
   statuses?: StatusOption[];
   selectedMonthKey: string;
   onEditJob?: (id: string, updated: Partial<Job>) => void;
+  onViewJob?: (jobId: string) => void;
   userEmail: string;
   notifSettings: NotifSettings;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
@@ -93,6 +95,7 @@ export default function DashboardTab({
   statuses = [],
   selectedMonthKey,
   onEditJob,
+  onViewJob,
   userEmail,
   notifSettings,
   triggerAlert,
@@ -100,6 +103,9 @@ export default function DashboardTab({
 }: DashboardTabProps) {
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
   const [isRadarExpanded, setIsRadarExpanded] = React.useState(false);
+  // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
+  // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
+  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
   const [visibleCount, setVisibleCount] = React.useState(4);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
@@ -770,14 +776,19 @@ export default function DashboardTab({
       >
         <div className="space-y-4">
           <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-white/60 tracking-wider uppercase" title="มูลค่างานตามสัญญาทั้งหมด">
+            <button
+              type="button"
+              onClick={() => setBreakdownFilter('contract')}
+              className="text-left cursor-pointer group"
+              title="คลิกเพื่อดูรายละเอียดว่าเป็นงานอะไรบ้าง"
+            >
+              <p className="text-xs font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="มูลค่างานตามสัญญาทั้งหมด">
                 มูลค่างานตามสัญญา ({formatMonthKey(selectedMonthKey)})
               </p>
-              <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5">
+              <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedContractVal)}
               </h3>
-            </div>
+            </button>
             {totalReceived > 0 && (
               <motion.div
                 initial={{ scale: 0, rotate: -15 }}
@@ -791,8 +802,13 @@ export default function DashboardTab({
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
-            <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase flex items-center gap-1.5" title="ยอดเงินที่รับเข้ามาแล้วจริง">
+            <button
+              type="button"
+              onClick={() => setBreakdownFilter('received')}
+              className="text-left cursor-pointer group"
+              title="คลิกเพื่อดูว่างานไหนบ้างที่รับเงินแล้ว"
+            >
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase flex items-center gap-1.5 group-hover:text-white/80">
                 <span>รับเงินแล้ว</span>
                 {receivedChangePct !== null && receivedChangePct !== 0 && (
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
@@ -803,7 +819,7 @@ export default function DashboardTab({
                   </span>
                 )}
               </p>
-              <p className="text-lg font-black font-mono text-white mt-0.5">
+              <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
@@ -811,15 +827,20 @@ export default function DashboardTab({
                   คงเหลือหลังหักรายจ่าย: {formatCurrency(receivedAfterVariableExpense)}
                 </p>
               )}
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="ยอดเงินที่ยังไม่ได้รับ">
+            </button>
+            <button
+              type="button"
+              onClick={() => setBreakdownFilter('pending')}
+              className="text-left cursor-pointer group"
+              title="คลิกเพื่อดูว่างานไหนบ้างที่ยังค้างรับ"
+            >
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="ยอดเงินที่ยังไม่ได้รับ">
                 ยอดค้างรับ
               </p>
-              <p className="text-lg font-black font-mono text-white mt-0.5">
+              <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedPending)}
               </p>
-            </div>
+            </button>
             <div>
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
                 กำไรสุทธิ
@@ -1270,6 +1291,90 @@ export default function DashboardTab({
           </div>
         )}
       </div>
+
+      {/* Breakdown popup: which jobs make up the clicked hero-card figure */}
+      <AnimatePresence>
+        {breakdownFilter && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative max-h-[80vh] flex flex-col"
+            >
+              <button
+                type="button"
+                onClick={() => setBreakdownFilter(null)}
+                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div>
+                <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
+                  {breakdownFilter === 'contract' && `งานทั้งหมดของเดือน ${formatMonthKey(selectedMonthKey)}`}
+                  {breakdownFilter === 'received' && 'งานที่รับเงินแล้ว'}
+                  {breakdownFilter === 'pending' && 'งานที่ยังค้างรับ'}
+                </h3>
+                <p className="text-xs text-brand-muted mt-0.5">
+                  {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
+                  {breakdownFilter === 'received' && formatCurrency(totalReceived)}
+                  {breakdownFilter === 'pending' && formatCurrency(totalPending)}
+                  {' '}รวมจาก{' '}
+                  {(breakdownFilter === 'contract'
+                    ? selectedMonthJobs
+                    : breakdownFilter === 'received'
+                    ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
+                    : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
+                  ).length}{' '}
+                  งาน
+                </p>
+              </div>
+
+              <div className="overflow-y-auto space-y-2 -mx-1 px-1">
+                {(breakdownFilter === 'contract'
+                  ? selectedMonthJobs
+                  : breakdownFilter === 'received'
+                  ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
+                  : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
+                ).map(j => (
+                  <button
+                    key={j.id}
+                    type="button"
+                    onClick={() => {
+                      setBreakdownFilter(null);
+                      onViewJob?.(j.id);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-brand-text dark:text-white truncate">{j.name}</p>
+                      <p className="text-[10px] text-brand-muted truncate">{j.client || 'ไม่ระบุลูกค้า'}</p>
+                    </div>
+                    <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
+                      {formatCurrency(
+                        breakdownFilter === 'contract' ? j.value :
+                        breakdownFilter === 'received' ? (j.received || 0) :
+                        j.pending
+                      )}
+                    </span>
+                  </button>
+                ))}
+
+                {(breakdownFilter === 'contract'
+                  ? selectedMonthJobs
+                  : breakdownFilter === 'received'
+                  ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
+                  : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
+                ).length === 0 && (
+                  <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานในหมวดนี้สำหรับเดือนนี้</p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

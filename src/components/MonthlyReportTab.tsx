@@ -49,6 +49,7 @@ interface MonthlyReportTabProps {
   notifSettings: NotifSettings;
   onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
   onSwitchTab: (tabId: 'dashboard' | 'jobs' | 'summary' | 'timeline' | 'split' | 'report' | 'plans') => void;
+  onViewJob?: (jobId: string) => void;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   expenses?: Expense[];
@@ -63,6 +64,7 @@ export default function MonthlyReportTab({
   notifSettings,
   onUpdateNotifSettings,
   onSwitchTab,
+  onViewJob,
   triggerAlert,
   triggerConfirm,
   expenses = []
@@ -1031,7 +1033,11 @@ export default function MonthlyReportTab({
                 {creditTermReport.overdue.map(j => {
                   const days = getRelativeDaysText(j.payDate);
                   return (
-                    <div key={j.id} className="text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs">
+                    <div
+                      key={j.id}
+                      onClick={() => onViewJob?.(j.id)}
+                      className={`text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs ${onViewJob ? 'cursor-pointer hover:border-pink-acc/40 transition-colors' : ''}`}
+                    >
                       <p className="font-extrabold text-brand-text leading-tight truncate">{j.name}</p>
                       <p className="text-[10px] text-brand-muted font-semibold mt-0.5">ลูกค้า: {j.client}</p>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-brand-border/20">
@@ -1039,7 +1045,7 @@ export default function MonthlyReportTab({
                         <span className="text-[9px] bg-pink-bg text-pink-acc font-black px-1.5 py-0.5 rounded-sm">{days.text}</span>
                       </div>
                       <button
-                        onClick={() => handleAlertSelfEmail(j)}
+                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-pink-acc" />
@@ -1071,7 +1077,11 @@ export default function MonthlyReportTab({
               <div className="space-y-3 max-h-56 overflow-y-auto pr-1 no-scrollbar">
                 {creditTermReport.dueToday.map(j => {
                   return (
-                    <div key={j.id} className="text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs">
+                    <div
+                      key={j.id}
+                      onClick={() => onViewJob?.(j.id)}
+                      className={`text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs ${onViewJob ? 'cursor-pointer hover:border-yellow-acc/40 transition-colors' : ''}`}
+                    >
                       <p className="font-extrabold text-brand-text leading-tight truncate">{j.name}</p>
                       <p className="text-[10px] text-brand-muted font-semibold mt-0.5">ลูกค้า: {j.client}</p>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-brand-border/20">
@@ -1079,7 +1089,7 @@ export default function MonthlyReportTab({
                         <span className="text-[9px] bg-yellow-bg text-yellow-acc font-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5">วันนี้ <IconAlertDot className="w-2.5 h-2.5" /></span>
                       </div>
                       <button
-                        onClick={() => handleAlertSelfEmail(j)}
+                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-yellow-acc" />
@@ -1112,7 +1122,11 @@ export default function MonthlyReportTab({
                 {creditTermReport.upcoming.map(j => {
                   const days = getRelativeDaysText(j.payDate);
                   return (
-                    <div key={j.id} className="text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs">
+                    <div
+                      key={j.id}
+                      onClick={() => onViewJob?.(j.id)}
+                      className={`text-xs p-3 bg-brand-white rounded-xl border border-brand-border/30 shadow-xs ${onViewJob ? 'cursor-pointer hover:border-blue-acc/40 transition-colors' : ''}`}
+                    >
                       <p className="font-extrabold text-brand-text leading-tight truncate">{j.name}</p>
                       <p className="text-[10px] text-brand-muted font-semibold mt-0.5">ลูกค้า: {j.client}</p>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-brand-border/20">
@@ -1120,7 +1134,7 @@ export default function MonthlyReportTab({
                         <span className="text-[9px] bg-blue-bg text-blue-acc font-black px-1.5 py-0.5 rounded-sm">{days.text}</span>
                       </div>
                       <button
-                        onClick={() => handleAlertSelfEmail(j)}
+                        onClick={(e) => { e.stopPropagation(); handleAlertSelfEmail(j); }}
                         className="mt-2 w-full py-1.5 px-2 bg-brand-bg hover:bg-brand-faint dark:bg-neutral-800/40 dark:hover:bg-neutral-800 border border-brand-border/30 text-brand-text font-black rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-all"
                       >
                         <Mail className="w-3 h-3 text-blue-acc" />

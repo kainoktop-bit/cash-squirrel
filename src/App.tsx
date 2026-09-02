@@ -13,6 +13,7 @@ import CustomDialog from './components/CustomDialog';
 import Login from './components/Login';
 import ResetPassword from './components/ResetPassword';
 import MonthlyReportTab from './components/MonthlyReportTab';
+import { JobDetailModal } from './components/JobDetailModal';
 import TaxTab from './components/TaxTab';
 import { SettingsTab } from './components/SettingsTab';
 import { InvoiceTab } from './components/InvoiceTab';
@@ -1048,6 +1049,10 @@ export default function App() {
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
   const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
+  // Shared read-only job detail popup, opened from clickable summary figures/lists across
+  // multiple tabs (Dashboard's hero card, the credit-term board) so every tab doesn't need to
+  // wire up its own copy of JobDetailModal just to let the user drill into a number.
+  const [viewJobId, setViewJobId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
   // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
   // same place instead of living in two disconnected tabs.
@@ -2277,6 +2282,7 @@ export default function App() {
                   statuses={statuses}
                   selectedMonthKey={selectedMonthKey}
                   onEditJob={handleEditJob}
+                  onViewJob={setViewJobId}
                   userEmail={session?.user?.email || 'user@example.com'}
                   notifSettings={notifSettings}
                   triggerAlert={triggerAlert}
@@ -2461,6 +2467,7 @@ export default function App() {
                   notifSettings={notifSettings}
                   onUpdateNotifSettings={setNotifSettings}
                   onSwitchTab={setActiveTab}
+                  onViewJob={setViewJobId}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
                 />
@@ -2530,6 +2537,26 @@ export default function App() {
         <CustomDialog
           dialog={dialog}
           onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        />
+
+        {/* Shared read-only job detail popup -- see onViewJob prop on DashboardTab/MonthlyReportTab */}
+        <JobDetailModal
+          job={viewJobId ? jobs.find(j => j.id === viewJobId) || null : null}
+          statuses={statuses}
+          onClose={() => setViewJobId(null)}
+          onEdit={() => {
+            const id = viewJobId;
+            setViewJobId(null);
+            if (id) {
+              setJobIdToOpen(id);
+              setActiveTab('jobs');
+            }
+          }}
+          onDelete={() => {
+            const id = viewJobId;
+            setViewJobId(null);
+            if (id) handleDeleteJob(id);
+          }}
         />
 
         {/* 🎉 Pro plan promo, shown once/day to non-Pro users */}
