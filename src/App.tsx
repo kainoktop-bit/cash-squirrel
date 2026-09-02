@@ -1496,19 +1496,6 @@ export default function App() {
   };
 
   const handleDeleteGoal = (id: string) => {
-    // Deleting the goal outright must also clean up any Expense a deposit logged via the
-    // "deduct from cash" option -- those live in the separate `expenses` array, keyed only by
-    // the id stashed on that goal's own history entries, so they'd otherwise survive forever as
-    // an orphaned deduction with no goal left to trace them back to.
-    const goalToDelete = goals.find(g => g.id === id);
-    const linkedExpenseIds = new Set(
-      (goalToDelete?.history || [])
-        .map(tx => tx.linkedExpenseId)
-        .filter((expId): expId is string => !!expId)
-    );
-    if (linkedExpenseIds.size > 0) {
-      setExpenses(prev => prev.filter(e => !linkedExpenseIds.has(e.id)));
-    }
     setGoals(prev => prev.filter(g => g.id !== id));
   };
 
@@ -1525,28 +1512,13 @@ export default function App() {
       amount: Math.abs(amount),
       date: todayStr,
       reason: reason?.trim() || defaultReason,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      // A savings transfer is not an Expense -- it must never land in the `expenses` array,
+      // since tax reports, monthly summaries, and CSV exports all sum that array and would
+      // wrongly treat money moved into savings as a deductible business expense. Cash-on-hand
+      // totals (Dashboard/SummaryTab) read this flag directly off the goal's own history instead.
+      ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
-
-    // Depositing straight from tracked income (before it's cleared the fixed-expense
-    // threshold as "net profit") needs to visibly reduce cash-on-hand too, or the dashboard
-    // still shows the full amount as received. Logging a matching Expense reuses the existing
-    // variable-expense netting everywhere instead of touching every cash total separately.
-    // Computed here, outside the setGoals updater -- updaters can run more than once (e.g.
-    // React StrictMode's double-invoke in dev), and a side effect inside one would create a
-    // duplicate, unlinked expense that never gets cleaned up when the transaction is deleted.
-    if (amount > 0 && deductFromCash) {
-      const linkedExpense: Expense = {
-        id: `expense-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        name: `ฝากเข้าเป้าหมาย: ${g.name}`,
-        category: 'เงินออม',
-        amount: Math.abs(amount),
-        date: todayStr,
-        note: 'บันทึกอัตโนมัติจากการฝากเงินเข้าเป้าหมายออมโดยหักจากยอดรายรับ',
-      };
-      newTx.linkedExpenseId = linkedExpense.id;
-      setExpenses(prevExp => [linkedExpense, ...prevExp]);
-    }
 
     if (nextVal >= g.target && g.current < g.target) {
       // Goal completed! Massive leaf party!
@@ -1573,14 +1545,6 @@ export default function App() {
     if (!g || !g.history) return;
     const targetTx = g.history.find(t => t.id === txId);
     if (!targetTx) return;
-
-    // Same reasoning as handleUpdateGoalProgress: setExpenses must not live inside the
-    // setGoals updater, since that updater can run more than once (React StrictMode) and would
-    // otherwise re-run this filter redundantly against a stale `prevExp` snapshot each time.
-    if (targetTx.linkedExpenseId) {
-      const linkedExpenseId = targetTx.linkedExpenseId;
-      setExpenses(prevExp => prevExp.filter(e => e.id !== linkedExpenseId));
-    }
 
     setGoals(prev => prev.map(goal => {
       if (goal.id !== goalId || !goal.history) return goal;

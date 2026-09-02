@@ -186,11 +186,22 @@ export default function SummaryTab({
     const monthExpenses = expenses.filter(e => getMonthKey(e.date) === selectedMonth);
     const totalVariableExpense = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
 
+    // Money moved into savings goals this month via the deposit modal's "deduct from cash"
+    // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
+    // transfer isn't a real expense, so it must stay out of totalVariableExpense/monthExpenses
+    // (both shown to the user as "รายจ่ายผันแปร") while still counting against cash-on-hand.
+    const goalDeductionsThisMonth = goals.reduce((sum, g) => {
+      const monthly = (g.history || [])
+        .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonth)
+        .reduce((s, tx) => s + tx.amount, 0);
+      return sum + monthly;
+    }, 0);
+
     // Fixed Expense
     const fixedExpense = settings.monthlyExpense;
-    
-    // Net cash flow received (subtract both fixed and variable expenses)
-    const netCashReceived = totalReceived - fixedExpense - totalVariableExpense;
+
+    // Net cash flow received (subtract fixed expenses, variable expenses, and cash-funded goal deposits)
+    const netCashReceived = totalReceived - fixedExpense - totalVariableExpense - goalDeductionsThisMonth;
     
     // Suggest allocated to savings target based on goals allocation percentages
     const totalAllocatedPct = goals.reduce((sum, g) => sum + (g.allocatedPercentage || 0), 0);
@@ -215,6 +226,7 @@ export default function SummaryTab({
       totalWht,
       fixedExpense,
       totalVariableExpense,
+      goalDeductionsThisMonth,
       monthExpenses,
       netCashReceived,
       targetSavings,
@@ -228,7 +240,7 @@ export default function SummaryTab({
         return isPaid || j.pending === 0;
       }).length,
     };
-  }, [monthJobs, settings, expenses, selectedMonth, statuses]);
+  }, [monthJobs, settings, expenses, selectedMonth, statuses, goals]);
 
   // Generate summaries for all available months to display in the beautiful archive
   const monthlySummaries = useMemo(() => {
@@ -548,11 +560,11 @@ export default function SummaryTab({
                   <span className="text-xs font-bold text-brand-text dark:text-neutral-200">2. หัก รายจ่ายทั้งหมดในรอบเดือน (รวมคงที่และแปรผัน)</span>
                 </div>
                 <p className="text-[10px] text-brand-muted dark:text-neutral-400 ml-3.5">
-                  รวมภาระค่าใช้จ่ายคงที่ประจำเดือน และค่าใช้จ่ายผันแปรเสริมทั้งหมด
+                  รวมภาระค่าใช้จ่ายคงที่ประจำเดือน ค่าใช้จ่ายผันแปรเสริม และเงินที่ฝากเข้าเป้าหมายออม
                 </p>
               </div>
               <span className="text-xs font-black font-mono text-rose-600 dark:text-rose-400">
-                -{formatCurrency(metrics.fixedExpense + metrics.totalVariableExpense)}
+                -{formatCurrency(metrics.fixedExpense + metrics.totalVariableExpense + metrics.goalDeductionsThisMonth)}
               </span>
             </div>
 
@@ -587,6 +599,24 @@ export default function SummaryTab({
                   ค่าอุปกรณ์, ค่าโฆษณา, ค่าเดินทาง ({metrics.monthExpenses.length} รายการ)
                 </p>
               </div>
+
+              {/* Goal deposits deducted from cash-on-hand -- kept separate from "รายจ่ายผันแปร"
+                  since a savings transfer isn't a real expense, only shown when it applies. */}
+              {metrics.goalDeductionsThisMonth > 0 && (
+                <div className="space-y-0.5 sm:col-span-2 pt-2 border-t border-brand-border/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                      เงินฝากเข้าเป้าหมายออม
+                    </span>
+                    <span className="text-xs font-black font-mono text-indigo-600 dark:text-indigo-400">
+                      -{formatCurrency(metrics.goalDeductionsThisMonth)}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-brand-muted dark:text-neutral-500">
+                    เงินที่ดึงเข้าเป้าหมายออมโดยหักจากยอดรายรับ (ไม่ใช่รายจ่าย แค่ย้ายไปเก็บ)
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="h-px bg-brand-border/40 dark:bg-neutral-800 my-2" />

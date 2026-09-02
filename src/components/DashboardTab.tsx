@@ -589,11 +589,24 @@ export default function DashboardTab({
     .filter(e => getMonthKey(e.date) === selectedMonthKey)
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const profit = totalReceived - settings.monthlyExpense - variableExpenseThisMonth;
+  // Money moved into savings goals this month via the deposit modal's "deduct from cash"
+  // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
+  // transfer isn't a real expense and would wrongly show up in tax/expense reports otherwise.
+  const goalDeductionsThisMonth = goals.reduce((sum, g) => {
+    const monthly = (g.history || [])
+      .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
+      .reduce((s, tx) => s + tx.amount, 0);
+    return sum + monthly;
+  }, 0);
+
+  const totalCashOutThisMonth = variableExpenseThisMonth + goalDeductionsThisMonth;
+
+  const profit = totalReceived - settings.monthlyExpense - totalCashOutThisMonth;
   // What's actually left in hand right now: money already received minus money already spent
-  // on logged variable expenses. Deliberately excludes the fixed-expense budget line (that's
-  // what `profit` above is for) since fixed bills haven't necessarily left the wallet yet.
-  const receivedAfterVariableExpense = Math.max(0, totalReceived - variableExpenseThisMonth);
+  // on logged variable expenses and cash-funded goal deposits. Deliberately excludes the
+  // fixed-expense budget line (that's what `profit` above is for) since fixed bills haven't
+  // necessarily left the wallet yet.
+  const receivedAfterVariableExpense = Math.max(0, totalReceived - totalCashOutThisMonth);
 
   // Month-over-month comparison for the hero card
   const prevMonthKey = React.useMemo(() => {
@@ -622,7 +635,7 @@ export default function DashboardTab({
   } else if (profit < 0) {
     alertStatus = 'danger';
     alertHeadline = `วิกฤตเสบียงไม่พอรายจ่าย (ขาดอีก ${formatCurrency(Math.abs(profit))})`;
-    alertFullMessage = `วิกฤตหน้าหนาวเดือน ${monthName}: ลูกนัทในรังมีเพียง (${formatCurrency(totalReceived)}) ซึ่งยังไม่พอประทังชีวิตจากรายจ่ายทั้งหมด (คงที่ ${formatCurrency(settings.monthlyExpense)}${variableExpenseThisMonth > 0 ? ` + รายจ่ายผันแปร ${formatCurrency(variableExpenseThisMonth)}` : ''}) คุณยังขาดลูกนัทอีกจำนวน ${formatCurrency(Math.abs(profit))}`;
+    alertFullMessage = `วิกฤตหน้าหนาวเดือน ${monthName}: ลูกนัทในรังมีเพียง (${formatCurrency(totalReceived)}) ซึ่งยังไม่พอประทังชีวิตจากรายจ่ายทั้งหมด (คงที่ ${formatCurrency(settings.monthlyExpense)}${variableExpenseThisMonth > 0 ? ` + รายจ่ายผันแปร ${formatCurrency(variableExpenseThisMonth)}` : ''}${goalDeductionsThisMonth > 0 ? ` + เงินที่ฝากเข้าเป้าหมายออม ${formatCurrency(goalDeductionsThisMonth)}` : ''}) คุณยังขาดลูกนัทอีกจำนวน ${formatCurrency(Math.abs(profit))}`;
   } else if (profit >= 0 && profit < 5000) {
     alertStatus = 'warning';
     alertHeadline = `เสบียงสะสมเดือน ${monthName} อยู่ระดับหมิ่นเหม่ (${formatCurrency(profit)})`;
@@ -793,8 +806,8 @@ export default function DashboardTab({
               <p className="text-lg font-black font-mono text-white mt-0.5">
                 {formatCurrency(animatedReceived)}
               </p>
-              {variableExpenseThisMonth > 0 && (
-                <p className="text-[9px] font-bold text-white/50 mt-0.5" title="รับเงินแล้ว หักด้วยรายจ่ายผันแปรที่บันทึกไว้จริงในเดือนนี้">
+              {totalCashOutThisMonth > 0 && (
+                <p className="text-[9px] font-bold text-white/50 mt-0.5" title="รับเงินแล้ว หักด้วยรายจ่ายผันแปรและเงินที่ฝากเข้าเป้าหมายออมในเดือนนี้">
                   คงเหลือหลังหักรายจ่าย: {formatCurrency(receivedAfterVariableExpense)}
                 </p>
               )}
