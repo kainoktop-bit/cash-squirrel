@@ -105,7 +105,7 @@ export default function DashboardTab({
   const [isRadarExpanded, setIsRadarExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
   // or null when closed. Each row in the breakdown links out to the shared JobDetailModal via onViewJob.
-  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | null>(null);
+  const [breakdownFilter, setBreakdownFilter] = React.useState<'contract' | 'received' | 'pending' | 'profit' | null>(null);
   const [quickSearch, setQuickSearch] = React.useState('');
   const [visibleCount, setVisibleCount] = React.useState(4);
   const [isSendingSimulated, setIsSendingSimulated] = React.useState(false);
@@ -590,20 +590,20 @@ export default function DashboardTab({
 
   // Ad-hoc variable expenses logged for the selected month (equipment, outsourcing, etc.)
   // -- must be netted out here too, or this stat silently ignores anything logged through
-  // the variable-expense tracker and never moves when the user records a new one.
-  const variableExpenseThisMonth = expenses
-    .filter(e => getMonthKey(e.date) === selectedMonthKey)
-    .reduce((sum, e) => sum + e.amount, 0);
+  // the variable-expense tracker and never moves when the user records a new one. Kept as the
+  // itemized list (not just the sum) so the "กำไรสุทธิ" breakdown popup can show exactly which
+  // records ate into the total, not just a number the user has to take on faith.
+  const monthVariableExpenses = expenses.filter(e => getMonthKey(e.date) === selectedMonthKey);
+  const variableExpenseThisMonth = monthVariableExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Money moved into savings goals this month via the deposit modal's "deduct from cash"
   // option. Tracked on the goal transaction itself, never as a fake Expense -- a savings
   // transfer isn't a real expense and would wrongly show up in tax/expense reports otherwise.
-  const goalDeductionsThisMonth = goals.reduce((sum, g) => {
-    const monthly = (g.history || [])
-      .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
-      .reduce((s, tx) => s + tx.amount, 0);
-    return sum + monthly;
-  }, 0);
+  const monthGoalDeductions = goals.flatMap(g => (g.history || [])
+    .filter(tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === selectedMonthKey)
+    .map(tx => ({ ...tx, goalName: g.name, goalEmoji: g.emoji }))
+  );
+  const goalDeductionsThisMonth = monthGoalDeductions.reduce((sum, tx) => sum + tx.amount, 0);
 
   const totalCashOutThisMonth = variableExpenseThisMonth + goalDeductionsThisMonth;
 
@@ -841,11 +841,16 @@ export default function DashboardTab({
                 {formatCurrency(animatedPending)}
               </p>
             </button>
-            <div>
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
+            <button
+              type="button"
+              onClick={() => setBreakdownFilter('profit')}
+              className="text-left cursor-pointer group"
+              title="คลิกเพื่อดูว่ายอดนี้คำนวณมาจากอะไรบ้าง"
+            >
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
                 กำไรสุทธิ
               </p>
-              <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B]">
+              <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B] group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedProfit)}
               </p>
               {profit < 0 && (
@@ -853,7 +858,7 @@ export default function DashboardTab({
                   ขาดอีก {formatCurrency(Math.abs(profit))}
                 </p>
               )}
-            </div>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -1292,88 +1297,145 @@ export default function DashboardTab({
         )}
       </div>
 
-      {/* Breakdown popup: which jobs make up the clicked hero-card figure */}
+      {/* Breakdown popup: which jobs (or, for "กำไรสุทธิ", which deductions) make up the clicked
+          hero-card figure */}
       <AnimatePresence>
-        {breakdownFilter && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative max-h-[80vh] flex flex-col"
-            >
-              <button
-                type="button"
-                onClick={() => setBreakdownFilter(null)}
-                className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+        {breakdownFilter && (() => {
+          const breakdownJobs =
+            breakdownFilter === 'contract' ? selectedMonthJobs :
+            breakdownFilter === 'received' ? selectedMonthJobs.filter(j => (j.received || 0) > 0) :
+            breakdownFilter === 'pending' ? selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0) :
+            [];
+          return (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setBreakdownFilter(null)}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-brand-white dark:bg-stone-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 w-full max-w-md shadow-xl space-y-4 relative max-h-[80vh] flex flex-col"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setBreakdownFilter(null)}
+                  className="absolute top-4 right-4 p-1.5 bg-brand-faint hover:bg-brand-border/40 dark:bg-stone-800 rounded-lg text-brand-muted hover:text-brand-text transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
 
-              <div>
-                <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                  {breakdownFilter === 'contract' && `งานทั้งหมดของเดือน ${formatMonthKey(selectedMonthKey)}`}
-                  {breakdownFilter === 'received' && 'งานที่รับเงินแล้ว'}
-                  {breakdownFilter === 'pending' && 'งานที่ยังค้างรับ'}
-                </h3>
-                <p className="text-xs text-brand-muted mt-0.5">
-                  {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
-                  {breakdownFilter === 'received' && formatCurrency(totalReceived)}
-                  {breakdownFilter === 'pending' && formatCurrency(totalPending)}
-                  {' '}รวมจาก{' '}
-                  {(breakdownFilter === 'contract'
-                    ? selectedMonthJobs
-                    : breakdownFilter === 'received'
-                    ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
-                    : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
-                  ).length}{' '}
-                  งาน
-                </p>
-              </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
+                    {breakdownFilter === 'contract' && `งานทั้งหมดของเดือน ${formatMonthKey(selectedMonthKey)}`}
+                    {breakdownFilter === 'received' && 'งานที่รับเงินแล้ว'}
+                    {breakdownFilter === 'pending' && 'งานที่ยังค้างรับ'}
+                    {breakdownFilter === 'profit' && 'กำไรสุทธิคำนวณมาจากอะไรบ้าง'}
+                  </h3>
+                  {breakdownFilter !== 'profit' && (
+                    <p className="text-xs text-brand-muted mt-0.5">
+                      {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
+                      {breakdownFilter === 'received' && formatCurrency(totalReceived)}
+                      {breakdownFilter === 'pending' && formatCurrency(totalPending)}
+                      {' '}รวมจาก{' '}{breakdownJobs.length}{' '}งาน
+                    </p>
+                  )}
+                </div>
 
-              <div className="overflow-y-auto space-y-2 -mx-1 px-1">
-                {(breakdownFilter === 'contract'
-                  ? selectedMonthJobs
-                  : breakdownFilter === 'received'
-                  ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
-                  : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
-                ).map(j => (
-                  <button
-                    key={j.id}
-                    type="button"
-                    onClick={() => {
-                      setBreakdownFilter(null);
-                      onViewJob?.(j.id);
-                    }}
-                    className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-brand-text dark:text-white truncate">{j.name}</p>
-                      <p className="text-[10px] text-brand-muted truncate">{j.client || 'ไม่ระบุลูกค้า'}</p>
-                    </div>
-                    <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
-                      {formatCurrency(
-                        breakdownFilter === 'contract' ? j.value :
-                        breakdownFilter === 'received' ? (j.received || 0) :
-                        j.pending
+                {breakdownFilter === 'profit' ? (
+                  <div className="overflow-y-auto space-y-3 -mx-1 px-1">
+                    {/* Calculation steps */}
+                    <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-brand-muted">รับเงินแล้ว</span>
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+{formatCurrency(totalReceived)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-brand-muted">หัก ค่าใช้จ่ายคงที่รายเดือน</span>
+                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(settings.monthlyExpense)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-brand-muted">หัก รายจ่ายผันแปร ({monthVariableExpenses.length} รายการ)</span>
+                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(variableExpenseThisMonth)}</span>
+                      </div>
+                      {goalDeductionsThisMonth > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-brand-muted">หัก เงินฝากเข้าเป้าหมายออม ({monthGoalDeductions.length} รายการ)</span>
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(goalDeductionsThisMonth)}</span>
+                        </div>
                       )}
-                    </span>
-                  </button>
-                ))}
+                      <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
+                      <div className="flex justify-between">
+                        <span className="font-bold text-brand-text dark:text-white">= กำไรสุทธิ</span>
+                        <span className={`font-mono font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {formatCurrency(profit)}
+                        </span>
+                      </div>
+                    </div>
 
-                {(breakdownFilter === 'contract'
-                  ? selectedMonthJobs
-                  : breakdownFilter === 'received'
-                  ? selectedMonthJobs.filter(j => (j.received || 0) > 0)
-                  : selectedMonthJobs.filter(j => j.isPosted !== false && j.pending > 0)
-                ).length === 0 && (
-                  <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานในหมวดนี้สำหรับเดือนนี้</p>
+                    {/* Itemized variable expenses */}
+                    {monthVariableExpenses.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">รายจ่ายผันแปร</p>
+                        <div className="space-y-1.5">
+                          {monthVariableExpenses.map(e => (
+                            <div key={e.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <span className="text-brand-text dark:text-white truncate">{e.name}</span>
+                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">-{formatCurrency(e.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Itemized goal deductions */}
+                    {monthGoalDeductions.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">เงินฝากเข้าเป้าหมายออม</p>
+                        <div className="space-y-1.5">
+                          {monthGoalDeductions.map(tx => (
+                            <div key={tx.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
+                              <span className="text-brand-text dark:text-white truncate">{tx.goalEmoji} {tx.goalName}</span>
+                              <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">-{formatCurrency(tx.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-y-auto space-y-2 -mx-1 px-1">
+                    {breakdownJobs.map(j => (
+                      <button
+                        key={j.id}
+                        type="button"
+                        onClick={() => {
+                          setBreakdownFilter(null);
+                          onViewJob?.(j.id);
+                        }}
+                        className="w-full flex items-center justify-between gap-2 p-3 bg-brand-faint/60 hover:bg-brand-faint dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl text-left transition-all cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-brand-text dark:text-white truncate">{j.name}</p>
+                          <p className="text-[10px] text-brand-muted truncate">{j.client || 'ไม่ระบุลูกค้า'}</p>
+                        </div>
+                        <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
+                          {formatCurrency(
+                            breakdownFilter === 'contract' ? j.value :
+                            breakdownFilter === 'received' ? (j.received || 0) :
+                            j.pending
+                          )}
+                        </span>
+                      </button>
+                    ))}
+
+                    {breakdownJobs.length === 0 && (
+                      <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานในหมวดนี้สำหรับเดือนนี้</p>
+                    )}
+                  </div>
                 )}
-              </div>
-            </motion.div>
-          </div>
-        )}
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
     </div>
