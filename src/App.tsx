@@ -1496,6 +1496,19 @@ export default function App() {
   };
 
   const handleDeleteGoal = (id: string) => {
+    // Deleting the goal outright must also clean up any Expense a deposit logged via the
+    // "deduct from cash" option -- those live in the separate `expenses` array, keyed only by
+    // the id stashed on that goal's own history entries, so they'd otherwise survive forever as
+    // an orphaned deduction with no goal left to trace them back to.
+    const goalToDelete = goals.find(g => g.id === id);
+    const linkedExpenseIds = new Set(
+      (goalToDelete?.history || [])
+        .map(tx => tx.linkedExpenseId)
+        .filter((expId): expId is string => !!expId)
+    );
+    if (linkedExpenseIds.size > 0) {
+      setExpenses(prev => prev.filter(e => !linkedExpenseIds.has(e.id)));
+    }
     setGoals(prev => prev.filter(g => g.id !== id));
   };
 
