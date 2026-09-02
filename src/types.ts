@@ -64,6 +64,7 @@ export interface GoalTransaction {
   createdAt?: string; // ISO string
   relatedGoalId?: string; // if this transaction is one leg of a transfer between goals, the other goal's id
   relatedGoalName?: string; // snapshot of the other goal's name at the time of transfer (for display even if that goal is later renamed/deleted)
+  linkedExpenseId?: string; // set when this deposit also logged a matching Expense so it deducts from cash-on-hand; deleted together
 }
 
 export interface Goal {

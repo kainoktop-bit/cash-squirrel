@@ -61,7 +61,7 @@ interface SplitTabProps {
   settings: AppSettings;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
   onDeleteGoal: (id: string) => void;
-  onUpdateGoalProgress: (id: string, amount: number, reason?: string, date?: string) => void;
+  onUpdateGoalProgress: (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => void;
   onDeleteGoalTransaction?: (goalId: string, txId: string, revertBalance?: boolean) => void;
   onTransferBetweenGoals: (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => void;
   onUpdateGoal: (id: string, updatedFields: Partial<Goal>) => void;
@@ -397,6 +397,7 @@ export default function SplitTab({
   const [txAmount, setTxAmount] = useState('');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txReason, setTxReason] = useState('');
+  const [txDeductFromCash, setTxDeductFromCash] = useState(false);
 
   // History list filter state inside goal detail modal
   const [historyFilter, setHistoryFilter] = useState<'all' | 'deposit' | 'withdraw'>('all');
@@ -425,6 +426,7 @@ export default function SplitTab({
     setTxAmount('');
     setTxDate(new Date().toISOString().split('T')[0]);
     setTxReason('');
+    setTxDeductFromCash(false);
     setIsTxModalOpen(true);
   };
 
@@ -441,7 +443,7 @@ export default function SplitTab({
     const defaultReason = txType === 'deposit' ? 'ฝากเงินออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
     const finalReason = txReason.trim() || defaultReason;
 
-    onUpdateGoalProgress(txGoal.id, signedAmount, finalReason, txDate);
+    onUpdateGoalProgress(txGoal.id, signedAmount, finalReason, txDate, txType === 'deposit' && txDeductFromCash);
     setIsTxModalOpen(false);
 
     triggerAlert(
@@ -2172,6 +2174,29 @@ export default function SplitTab({
                     <span className="absolute left-3 top-2.5 text-brand-muted font-bold text-xs">฿</span>
                   </div>
                 </div>
+
+                {/* Deduct-from-cash toggle -- only relevant for deposits. Lets money go into a
+                    goal before it's technically "net profit" yet, but still marks it as spent
+                    out of tracked income so cash-on-hand totals elsewhere reflect it. */}
+                {txType === 'deposit' && (
+                  <label className="flex items-start gap-2.5 p-3 bg-brand-faint/60 dark:bg-stone-800/60 border border-brand-border/60 dark:border-neutral-700 rounded-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={txDeductFromCash}
+                      onChange={(e) => setTxDeductFromCash(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-emerald-600 shrink-0 cursor-pointer"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-brand-text dark:text-neutral-200 block">
+                        หักออกจากยอดรายรับ/เงินสดคงเหลือด้วย
+                      </span>
+                      <p className="text-[10px] text-brand-muted leading-relaxed">
+                        ติ๊กถ้าเงินก้อนนี้มาจากรายรับที่บันทึกในระบบอยู่แล้ว (จะไปลดยอด "เงินสดคงเหลือ" ในหน้าภาพรวม/สรุปยอดรับให้อัตโนมัติ)
+                        ไม่ต้องติ๊กถ้าเงินมาจากที่อื่นที่ไม่เกี่ยวกับรายรับในแอป
+                      </p>
+                    </div>
+                  </label>
+                )}
 
                 {/* Date input */}
                 <div className="space-y-1">

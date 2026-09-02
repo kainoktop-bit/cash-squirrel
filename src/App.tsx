@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense } from './types';
+import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from './types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from './sampleData';
 import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
 
@@ -1499,14 +1499,14 @@ export default function App() {
     setGoals(prev => prev.filter(g => g.id !== id));
   };
 
-  const handleUpdateGoalProgress = (id: string, amount: number, reason?: string, date?: string) => {
+  const handleUpdateGoalProgress = (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => {
     const todayStr = date || new Date().toISOString().split('T')[0];
     const defaultReason = amount >= 0 ? 'โอนเงินเข้าฝากออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
 
     setGoals(prev => prev.map(g => {
       if (g.id === id) {
         const nextVal = Math.max(0, Math.min(g.target, g.current + amount));
-        const newTx = {
+        const newTx: GoalTransaction = {
           id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           type: (amount >= 0 ? 'deposit' : 'withdraw') as 'deposit' | 'withdraw',
           amount: Math.abs(amount),
@@ -1514,6 +1514,23 @@ export default function App() {
           reason: reason?.trim() || defaultReason,
           createdAt: new Date().toISOString()
         };
+
+        // Depositing straight from tracked income (before it's cleared the fixed-expense
+        // threshold as "net profit") needs to visibly reduce cash-on-hand too, or the dashboard
+        // still shows the full amount as received. Logging a matching Expense reuses the existing
+        // variable-expense netting everywhere instead of touching every cash total separately.
+        if (amount > 0 && deductFromCash) {
+          const linkedExpense: Expense = {
+            id: `expense-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            name: `ฝากเข้าเป้าหมาย: ${g.name}`,
+            category: 'เงินออม',
+            amount: Math.abs(amount),
+            date: todayStr,
+            note: 'บันทึกอัตโนมัติจากการฝากเงินเข้าเป้าหมายออมโดยหักจากยอดรายรับ',
+          };
+          newTx.linkedExpenseId = linkedExpense.id;
+          setExpenses(prevExp => [linkedExpense, ...prevExp]);
+        }
 
         if (nextVal >= g.target && g.current < g.target) {
           // Goal completed! Massive leaf party!
@@ -1549,6 +1566,10 @@ export default function App() {
           } else {
             nextCurrent = Math.min(g.target, g.current + targetTx.amount);
           }
+        }
+        if (targetTx?.linkedExpenseId) {
+          const linkedExpenseId = targetTx.linkedExpenseId;
+          setExpenses(prevExp => prevExp.filter(e => e.id !== linkedExpenseId));
         }
         return {
           ...g,
