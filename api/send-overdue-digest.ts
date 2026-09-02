@@ -19,11 +19,6 @@ interface JobRow {
   lastFollowUpDate?: string;
 }
 
-interface StatusOptionRow {
-  id: string;
-  behavior: 'done' | 'partial' | 'pending';
-}
-
 interface NotifSettingsRow {
   enabled?: boolean;
   alertEmail?: string;
@@ -54,15 +49,15 @@ interface JobWithDiff extends JobRow {
 
 // Overdue jobs, jobs due today, and jobs due within the next 2 days -- catching it a day or two
 // early is far more useful than only finding out once it's already overdue.
-function findJobsNeedingAttention(jobs: JobRow[], statuses: StatusOptionRow[]): JobWithDiff[] {
+//
+// Trust the recorded `pending` field as-is, same as Dashboard/Summary/Timeline -- don't also gate
+// on status behavior or paymentStatus, or a job whose paid flag and pending amount have drifted
+// out of sync silently skips the digest instead of surfacing as money still owed.
+function findJobsNeedingAttention(jobs: JobRow[]): JobWithDiff[] {
   return jobs
     .map((j) => {
-      const statusOpt = statuses.find((s) => s.id === j.status);
-      const behavior = statusOpt ? statusOpt.behavior : 'pending';
-      const isUnpaid = behavior !== 'done' && j.pending > 0 && j.paymentStatus !== 'paid';
-
       const targetDateStr = j.dueDate || j.payDate;
-      if (!isUnpaid || !targetDateStr) return null;
+      if (j.pending <= 0 || !targetDateStr) return null;
 
       const diffDays = diffDaysFromToday(targetDateStr);
       if (diffDays > 2) return null;
@@ -274,7 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
-      supabaseAdmin.from('user_cashflow_data').select('user_id, email, jobs, statuses, notif_settings'),
+      supabaseAdmin.from('user_cashflow_data').select('user_id, email, jobs, notif_settings'),
       supabaseAdmin.from('subscriptions').select('user_id, status, current_period_end').eq('status', 'active'),
       listAllAuthUsers(),
     ]);
@@ -308,8 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       try {
         const jobs: JobRow[] = row.jobs || [];
-        const statuses: StatusOptionRow[] = row.statuses || [];
-        const attentionJobs = findJobsNeedingAttention(jobs, statuses);
+        const attentionJobs = findJobsNeedingAttention(jobs);
 
         if (attentionJobs.length === 0) {
           skipped += 1;
