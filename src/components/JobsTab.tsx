@@ -51,6 +51,11 @@ interface JobsTabProps {
   ) => void;
   openJobId?: string | null;
   onOpenJobHandled?: () => void;
+  // Deep-link that scrolls straight to a job's card in the list and briefly highlights it,
+  // instead of opening the edit form -- used by the credit-term board and Dashboard's summary
+  // breakdown so clicking a job jumps to the exact "ได้เงินครบแล้ว/ได้มัดจำ" quick-action row.
+  scrollToJobId?: string | null;
+  onScrollToJobHandled?: () => void;
 }
 
 export default function JobsTab({
@@ -70,8 +75,26 @@ export default function JobsTab({
   triggerPrompt,
   openJobId,
   onOpenJobHandled,
+  scrollToJobId,
+  onScrollToJobHandled,
 }: JobsTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [highlightedJobId, setHighlightedJobId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!scrollToJobId) return;
+    const el = document.getElementById(`job-card-${scrollToJobId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedJobId(scrollToJobId);
+      const timer = setTimeout(() => setHighlightedJobId(null), 2500);
+      onScrollToJobHandled?.();
+      return () => clearTimeout(timer);
+    }
+    // Job isn't in the currently filtered/visible list (search/status/type filter excludes it) --
+    // nothing to scroll to, still consume the request so it doesn't fire again on next render.
+    onScrollToJobHandled?.();
+  }, [scrollToJobId, onScrollToJobHandled]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [subTab, setSubTab] = useState<'all' | 'wip' | 'posted'>('all');
@@ -635,11 +658,16 @@ export default function JobsTab({
             return (
               <motion.div
                 key={j.id}
+                id={`job-card-${j.id}`}
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden"
+                className={`bg-brand-white border rounded-[var(--radius-lg)] p-5 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden ${
+                  highlightedJobId === j.id
+                    ? 'border-[#E65F2B] ring-2 ring-[#E65F2B]/40'
+                    : 'border-brand-border'
+                }`}
               >
                 {/* Visual Accent bar on the left */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${catColors.dot}`} />
