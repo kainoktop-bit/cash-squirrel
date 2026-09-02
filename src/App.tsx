@@ -1500,84 +1500,85 @@ export default function App() {
   };
 
   const handleUpdateGoalProgress = (id: string, amount: number, reason?: string, date?: string, deductFromCash?: boolean) => {
+    const g = goals.find(x => x.id === id);
+    if (!g) return;
+
     const todayStr = date || new Date().toISOString().split('T')[0];
     const defaultReason = amount >= 0 ? 'โอนเงินเข้าฝากออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
+    const nextVal = Math.max(0, Math.min(g.target, g.current + amount));
+    const newTx: GoalTransaction = {
+      id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: (amount >= 0 ? 'deposit' : 'withdraw') as 'deposit' | 'withdraw',
+      amount: Math.abs(amount),
+      date: todayStr,
+      reason: reason?.trim() || defaultReason,
+      createdAt: new Date().toISOString()
+    };
 
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const nextVal = Math.max(0, Math.min(g.target, g.current + amount));
-        const newTx: GoalTransaction = {
-          id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          type: (amount >= 0 ? 'deposit' : 'withdraw') as 'deposit' | 'withdraw',
-          amount: Math.abs(amount),
-          date: todayStr,
-          reason: reason?.trim() || defaultReason,
-          createdAt: new Date().toISOString()
-        };
+    // Depositing straight from tracked income (before it's cleared the fixed-expense
+    // threshold as "net profit") needs to visibly reduce cash-on-hand too, or the dashboard
+    // still shows the full amount as received. Logging a matching Expense reuses the existing
+    // variable-expense netting everywhere instead of touching every cash total separately.
+    // Computed here, outside the setGoals updater -- updaters can run more than once (e.g.
+    // React StrictMode's double-invoke in dev), and a side effect inside one would create a
+    // duplicate, unlinked expense that never gets cleaned up when the transaction is deleted.
+    if (amount > 0 && deductFromCash) {
+      const linkedExpense: Expense = {
+        id: `expense-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: `ฝากเข้าเป้าหมาย: ${g.name}`,
+        category: 'เงินออม',
+        amount: Math.abs(amount),
+        date: todayStr,
+        note: 'บันทึกอัตโนมัติจากการฝากเงินเข้าเป้าหมายออมโดยหักจากยอดรายรับ',
+      };
+      newTx.linkedExpenseId = linkedExpense.id;
+      setExpenses(prevExp => [linkedExpense, ...prevExp]);
+    }
 
-        // Depositing straight from tracked income (before it's cleared the fixed-expense
-        // threshold as "net profit") needs to visibly reduce cash-on-hand too, or the dashboard
-        // still shows the full amount as received. Logging a matching Expense reuses the existing
-        // variable-expense netting everywhere instead of touching every cash total separately.
-        if (amount > 0 && deductFromCash) {
-          const linkedExpense: Expense = {
-            id: `expense-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            name: `ฝากเข้าเป้าหมาย: ${g.name}`,
-            category: 'เงินออม',
-            amount: Math.abs(amount),
-            date: todayStr,
-            note: 'บันทึกอัตโนมัติจากการฝากเงินเข้าเป้าหมายออมโดยหักจากยอดรายรับ',
-          };
-          newTx.linkedExpenseId = linkedExpense.id;
-          setExpenses(prevExp => [linkedExpense, ...prevExp]);
-        }
+    if (nextVal >= g.target && g.current < g.target) {
+      // Goal completed! Massive leaf party!
+      fireMascot({
+        mood: 'celebrate',
+        message: `ว้าววว! คุณทำเป้าหมายออมเงิน "${g.name}" สำเร็จครบ 100% แล้ว! ยอดเยี่ยมที่สุดเลยค้าบเจ้ากระรอก!`
+      });
+      leafBus.trigger({ count: 32, type: 'mixed', durationMs: 6500 });
+    } else if (amount > 0) {
+      // Saving money, drop some green leaves!
+      leafBus.trigger({ count: 10, type: 'green', durationMs: 2500 });
+    }
+    notifyLineGoalEvent(newTx.type, { name: g.name, target: g.target, current: nextVal }, { amount: newTx.amount, reason: newTx.reason });
 
-        if (nextVal >= g.target && g.current < g.target) {
-          // Goal completed! Massive leaf party!
-          fireMascot({
-            mood: 'celebrate',
-            message: `ว้าววว! คุณทำเป้าหมายออมเงิน "${g.name}" สำเร็จครบ 100% แล้ว! ยอดเยี่ยมที่สุดเลยค้าบเจ้ากระรอก!`
-          });
-          leafBus.trigger({ count: 32, type: 'mixed', durationMs: 6500 });
-        } else if (amount > 0) {
-          // Saving money, drop some green leaves!
-          leafBus.trigger({ count: 10, type: 'green', durationMs: 2500 });
-        }
-        notifyLineGoalEvent(newTx.type, { name: g.name, target: g.target, current: nextVal }, { amount: newTx.amount, reason: newTx.reason });
-        return {
-          ...g,
-          current: nextVal,
-          history: [newTx, ...(g.history || [])]
-        };
-      }
-      return g;
-    }));
+    setGoals(prev => prev.map(goal => (
+      goal.id === id
+        ? { ...goal, current: nextVal, history: [newTx, ...(goal.history || [])] }
+        : goal
+    )));
   };
 
   const handleDeleteGoalTransaction = (goalId: string, txId: string, revertBalance: boolean = true) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === goalId && g.history) {
-        const targetTx = g.history.find(t => t.id === txId);
-        const newHistory = g.history.filter(t => t.id !== txId);
-        let nextCurrent = g.current;
-        if (targetTx && revertBalance) {
-          if (targetTx.type === 'deposit') {
-            nextCurrent = Math.max(0, g.current - targetTx.amount);
-          } else {
-            nextCurrent = Math.min(g.target, g.current + targetTx.amount);
-          }
-        }
-        if (targetTx?.linkedExpenseId) {
-          const linkedExpenseId = targetTx.linkedExpenseId;
-          setExpenses(prevExp => prevExp.filter(e => e.id !== linkedExpenseId));
-        }
-        return {
-          ...g,
-          current: nextCurrent,
-          history: newHistory
-        };
+    const g = goals.find(x => x.id === goalId);
+    if (!g || !g.history) return;
+    const targetTx = g.history.find(t => t.id === txId);
+    if (!targetTx) return;
+
+    // Same reasoning as handleUpdateGoalProgress: setExpenses must not live inside the
+    // setGoals updater, since that updater can run more than once (React StrictMode) and would
+    // otherwise re-run this filter redundantly against a stale `prevExp` snapshot each time.
+    if (targetTx.linkedExpenseId) {
+      const linkedExpenseId = targetTx.linkedExpenseId;
+      setExpenses(prevExp => prevExp.filter(e => e.id !== linkedExpenseId));
+    }
+
+    setGoals(prev => prev.map(goal => {
+      if (goal.id !== goalId || !goal.history) return goal;
+      const newHistory = goal.history.filter(t => t.id !== txId);
+      let nextCurrent = goal.current;
+      if (revertBalance) {
+        nextCurrent = targetTx.type === 'deposit'
+          ? Math.max(0, goal.current - targetTx.amount)
+          : Math.min(goal.target, goal.current + targetTx.amount);
       }
-      return g;
+      return { ...goal, current: nextCurrent, history: newHistory };
     }));
   };
 
