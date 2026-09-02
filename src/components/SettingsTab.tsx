@@ -132,6 +132,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     });
   };
 
+  // Both digest toggles below write straight to merge_notif_settings the moment they're
+  // clicked, the same way handleDisconnectLine does for lineUserId, instead of only relying on
+  // the generic 1.5s-debounced autosave. That debounce has an acknowledged data-loss window (see
+  // saveCloudData in App.tsx) -- a reload/backgrounded tab shortly after toggling can lose the
+  // pending write entirely, and the next load then reads the stale (still-enabled) value back
+  // from the cloud, making the toggle look like it silently turned itself back on.
+  const persistNotifPatch = (patch: Partial<NotifSettings>) => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    supabase.rpc('merge_notif_settings', { p_user_id: userId, p_patch: patch })
+      .then(({ error }: { error: any }) => {
+        if (error) console.warn('persistNotifPatch: merge_notif_settings failed:', error);
+      });
+  };
+
+  const handleToggleMonthlyReport = () => {
+    const monthlyReportEnabled = !notifSettings.monthlyReportEnabled;
+    onUpdateNotifSettings({ ...notifSettings, monthlyReportEnabled });
+    persistNotifPatch({ monthlyReportEnabled });
+  };
+
+  const handleToggleDailyDigest = () => {
+    const dailyDigestEnabled = !notifSettings.dailyDigestEnabled;
+    onUpdateNotifSettings({ ...notifSettings, dailyDigestEnabled });
+    persistNotifPatch({ dailyDigestEnabled });
+  };
+
   const handleDisconnectLine = () => {
     triggerConfirm(
       'ยกเลิกการเชื่อมต่อ LINE',
@@ -391,10 +418,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onSwitchTab('plans');
                     return;
                   }
-                  onUpdateNotifSettings({
-                    ...notifSettings,
-                    monthlyReportEnabled: !notifSettings.monthlyReportEnabled
-                  });
+                  handleToggleMonthlyReport();
                 }}
                 className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                   notifSettings.monthlyReportEnabled
@@ -434,10 +458,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onSwitchTab('plans');
                     return;
                   }
-                  onUpdateNotifSettings({
-                    ...notifSettings,
-                    dailyDigestEnabled: !notifSettings.dailyDigestEnabled
-                  });
+                  handleToggleDailyDigest();
                 }}
                 className={`w-full flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                   notifSettings.dailyDigestEnabled
