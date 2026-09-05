@@ -424,36 +424,36 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     
     // Build descending full table (minimum of 6 items/rows)
     const itemsCount = selectedInvoice.items.length;
-    const paddedRowsCount = Math.max(6, itemsCount);
+    const paddedRowsCount = Math.max(5, itemsCount);
     let itemRows = '';
     
     for (let i = 0; i < paddedRowsCount; i++) {
       const item = selectedInvoice.items[i];
       if (item) {
         itemRows += `
-          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 11px;">
-            <td style="padding: 12px; text-align: center; color: #6b7280; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
-            <td style="padding: 12px; font-weight: 600; color: #111827; line-height: 1.4; border-right: 1px solid #f3f4f6;">${item.description || '-'}</td>
-            <td style="padding: 12px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
-            <td style="padding: 12px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
-            <td style="padding: 12px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(item.quantity * item.price).replace('฿', '')}</td>
+          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px;">
+            <td style="padding: 7px 10px; text-align: center; color: #6b7280; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
+            <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${item.description || '-'}</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
+            <td style="padding: 7px 10px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
+            <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(item.quantity * item.price).replace('฿', '')}</td>
           </tr>
         `;
       } else {
         itemRows += `
-          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 11px; height: 35px;">
-            <td style="padding: 12px; text-align: center; color: #9ca3af; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
-            <td style="padding: 12px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 12px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 12px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 12px;">&nbsp;</td>
+          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px; height: 24px;">
+            <td style="padding: 7px 10px; text-align: center; color: #9ca3af; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
+            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
+            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
+            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
+            <td style="padding: 7px 10px;">&nbsp;</td>
           </tr>
         `;
       }
     }
 
     const bankSection = selectedInvoice.documentType !== 'quotation' ? `
-      <div style="margin-top: 15px;">
+      <div style="margin-top: 0;">
         <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ช่องทางการชำระเงิน / PAYMENT CHANNELS</p>
         <div style="display: flex; gap: 15px; font-size: 10px; font-weight: bold; color: #374151; margin-bottom: 6px;">
           <label style="display: flex; align-items: center; gap: 5px;">
@@ -484,9 +484,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     ` : '';
 
     const noteSection = selectedInvoice.note ? `
-      <div style="font-size: 11px; margin-top: 14px;">
+      <div style="font-size: 10.5px; margin-top: 8px;">
         <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em;">หมายเหตุ / REMARK</p>
-        <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.4;">${selectedInvoice.note}</p>
+        <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.35;">${selectedInvoice.note}</p>
       </div>
     ` : '';
 
@@ -534,7 +534,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             @media print {
               @page {
                 size: A4;
-                margin: 15mm;
+                margin: 12mm;
               }
               body {
                 -webkit-print-color-adjust: exact !important;
@@ -546,19 +546,20 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               color: #1f2937;
               background-color: #ffffff;
               margin: 0;
-              padding: 10px;
-              line-height: 1.4;
+              padding: 8px;
+              line-height: 1.35;
             }
             .page-container {
               max-width: 800px;
               margin: 0 auto;
               position: relative;
+              transform-origin: top center;
             }
             .header-bar {
               height: 4px;
               background-color: #e65f2b;
               width: 100%;
-              margin-bottom: 20px;
+              margin-bottom: 12px;
               border-radius: 2px;
             }
             table {
@@ -572,8 +573,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               font-weight: bold;
               border-bottom: 1px solid #e5e7eb;
               border-right: 1px solid #e5e7eb;
-              padding: 10px 12px;
-              font-size: 11px;
+              padding: 7px 10px;
+              font-size: 10px;
               text-transform: uppercase;
               letter-spacing: 0.02em;
             }
@@ -587,20 +588,20 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             <div class="header-bar"></div>
             
             <!-- 1. Header Row (Title on Left, Logo on Right) -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e65f2b; padding-bottom: 15px; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e65f2b; padding-bottom: 10px; gap: 20px;">
               <div>
-                <h1 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0; letter-spacing: 0.01em; font-family: 'Sarabun', sans-serif;">
+                <h1 style="font-size: 21px; font-weight: 800; color: #111827; margin: 0; letter-spacing: 0.01em; font-family: 'Sarabun', sans-serif;">
                   ${docTypeLabel}
                 </h1>
-                <p style="color: #e65f2b; font-weight: 800; font-size: 11px; margin: 2px 0 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
+                <p style="color: #e65f2b; font-weight: 800; font-size: 10px; margin: 2px 0 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
                   ${docTypeEng}
                 </p>
               </div>
               <div style="text-align: right;">
                 ${selectedInvoice.issuer.logoUrl ? `
-                  <img src="${selectedInvoice.issuer.logoUrl}" style="max-height: 60px; max-width: 180px; object-fit: contain;" alt="Logo" />
+                  <img src="${selectedInvoice.issuer.logoUrl}" style="max-height: 48px; max-width: 180px; object-fit: contain;" alt="Logo" />
                 ` : `
-                  <div style="font-size: 18px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em; max-width: 220px; word-wrap: break-word;">
+                  <div style="font-size: 16px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em; max-width: 220px; word-wrap: break-word;">
                     ${selectedInvoice.issuer.name || '-'}
                   </div>
                 `}
@@ -608,7 +609,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </div>
 
             <!-- 2. Issuer & Document Info side-by-side with high-quality spacing -->
-            <div style="display: flex; justify-content: space-between; gap: 30px; margin-top: 20px; font-size: 11px; line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; gap: 24px; margin-top: 12px; font-size: 10.5px; line-height: 1.4;">
               
               <!-- Left: ISSUER -->
               <div style="flex: 1.3;">
@@ -628,39 +629,39 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               </div>
 
               <!-- Right: DOCUMENT METADATA CARD -->
-              <div style="flex: 1; padding: 15px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fafafa; min-width: 240px;">
-                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.05em;">ข้อมูลเอกสาร / DOCUMENT INFO</p>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 11px;">
+              <div style="flex: 1; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background-color: #fafafa; min-width: 240px;">
+                <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.05em;">ข้อมูลเอกสาร / DOCUMENT INFO</p>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 10.5px;">
                   <tr>
-                    <td style="padding: 3px 0; font-weight: bold; color: #4b5563; width: 100px;">เลขที่เอกสาร:</td>
-                    <td style="padding: 3px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.documentNo}</td>
+                    <td style="padding: 2px 0; font-weight: bold; color: #4b5563; width: 100px;">เลขที่เอกสาร:</td>
+                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.documentNo}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 3px 0; font-weight: bold; color: #4b5563;">วันที่ออก:</td>
-                    <td style="padding: 3px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.createdDate}</td>
+                    <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">วันที่ออก:</td>
+                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.createdDate}</td>
                   </tr>
                   ${selectedInvoice.dueDate ? `
                     <tr>
-                      <td style="padding: 3px 0; font-weight: bold; color: #4b5563;">${dueDateLabel}</td>
-                      <td style="padding: 3px 0; font-family: monospace; font-weight: 800; color: ${dueDateColor}; text-align: right;">${selectedInvoice.dueDate}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">${dueDateLabel}</td>
+                      <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: ${dueDateColor}; text-align: right;">${selectedInvoice.dueDate}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.paymentTerm ? `
                     <tr>
-                      <td style="padding: 3px 0; font-weight: bold; color: #4b5563;">เงื่อนไขการชำระ:</td>
-                      <td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.paymentTerm}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">เงื่อนไขการชำระ:</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.paymentTerm}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.documentType === 'quotation' && selectedInvoice.deliveryTerm ? `
                     <tr>
-                      <td style="padding: 3px 0; font-weight: bold; color: #4b5563;">ระยะเวลาส่งมอบ:</td>
-                      <td style="padding: 3px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.deliveryTerm}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">ระยะเวลาส่งมอบ:</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.deliveryTerm}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.documentType !== 'quotation' && selectedInvoice.refNo ? `
                     <tr>
-                      <td style="padding: 3px 0; font-weight: bold; color: #4b5563;">อ้างอิงเลขที่:</td>
-                      <td style="padding: 3px 0; font-family: monospace; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.refNo}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">อ้างอิงเลขที่:</td>
+                      <td style="padding: 2px 0; font-family: monospace; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.refNo}</td>
                     </tr>
                   ` : ''}
                 </table>
@@ -669,8 +670,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </div>
 
             <!-- 3. Customer Info (BILL TO) - Wide Panel, clean padding -->
-            <div style="margin-top: 20px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #fcfcfc;">
-              <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ลูกค้าผู้จ่ายเงิน / BILL TO</p>
+            <div style="margin-top: 12px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background-color: #fcfcfc;">
+              <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.05em;">ลูกค้าผู้จ่ายเงิน / BILL TO</p>
               <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 11px;">
                 <tr>
                   <td style="padding: 2px 0; font-weight: bold; color: #4b5563; width: 100px; vertical-align: top;">ชื่อลูกค้า/บริษัท:</td>
@@ -695,7 +696,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </div>
 
             <!-- 4. Items Table -->
-            <div style="margin: 20px 0; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="margin: 12px 0; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
               <table>
                 <thead>
                   <tr>
@@ -713,45 +714,45 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
             </div>
 
             <!-- 5. Bottom Calculation & Details -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin: 20px 0; gap: 35px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin: 12px 0; gap: 30px;">
               <div style="flex: 1.3;">
                 ${bankSection}
                 ${noteSection}
               </div>
 
-              <div style="flex: 0.9; font-size: 11px; color: #4b5563;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <div style="flex: 0.9; font-size: 10.5px; color: #4b5563;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                   <span>ราคารวม (Subtotal):</span>
                   <span style="font-family: monospace; font-weight: bold; color: #111827;">${formatCurrency(sTotals.subtotal).replace('฿', '')}</span>
                 </div>
                 ${vatRowHtml}
                 ${whtRowHtml}
-                
-                <div style="border-top: 1px solid #d1d5db; padding-top: 8px; margin-top: 8px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; background: #FDF3EC; border: 1px solid rgba(230,95,43,0.25); border-radius: 12px; padding: 10px 14px;">
-                    <span style="font-size: 13px; font-weight: bold; color: #292524;">จำนวนเงินรวมทั้งสิ้น:</span>
-                    <span style="font-family: monospace; font-size: 16px; font-weight: 900; color: #E65F2B;">
+
+                <div style="border-top: 1px solid #d1d5db; padding-top: 6px; margin-top: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; background: #FDF3EC; border: 1px solid rgba(230,95,43,0.25); border-radius: 10px; padding: 8px 12px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #292524;">จำนวนเงินรวมทั้งสิ้น:</span>
+                    <span style="font-family: monospace; font-size: 15px; font-weight: 900; color: #E65F2B;">
                       ${formatCurrency(sTotals.grandTotal).replace('฿', '')}
                     </span>
                   </div>
                 </div>
-                <div style="text-align: right; font-size: 10px; font-weight: bold; color: #6b7280; margin-top: 6px;">
+                <div style="text-align: right; font-size: 9.5px; font-weight: bold; color: #6b7280; margin-top: 5px;">
                   (${thaiBahtText(sTotals.grandTotal)})
                 </div>
               </div>
             </div>
 
             <!-- 6. Signature block -->
-            <div style="display: flex; justify-content: space-between; margin-top: 60px; gap: 40px; text-align: center; font-size: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-top: 26px; gap: 40px; text-align: center; font-size: 10px;">
               <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 45px;">${leftSignatureLabel}</p>
+                <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 24px;">${leftSignatureLabel}</p>
                 <div style="border-bottom: 1px dashed #9ca3af; width: 170px; margin-bottom: 4px;"></div>
                 <p style="font-weight: bold; color: #111827; margin: 0;">${selectedInvoice.issuer.name || '..........................................................'}</p>
                 <p style="color: #9ca3af; font-size: 9px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
               </div>
 
               <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 45px;">${rightSignatureLabel}</p>
+                <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 24px;">${rightSignatureLabel}</p>
                 <div style="border-bottom: 1px dashed #9ca3af; width: 170px; margin-bottom: 4px;"></div>
                 <p style="font-weight: bold; color: #111827; margin: 0;">${selectedInvoice.client.name || '..........................................................'}</p>
                 <p style="color: #9ca3af; font-size: 9px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
@@ -761,10 +762,33 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           </div>
 
           <script>
+            // Safety net on top of the tightened spacing above: if this particular document
+            // (many items, a long address/note, ...) still runs taller than one A4 page, shrink
+            // the whole thing down to fit rather than silently spilling onto a second page. The
+            // negative margin-bottom collapses the blank space a CSS transform would otherwise
+            // leave behind, since scaling doesn't itself shrink the element's layout box.
+            function fitToOnePage() {
+              var container = document.querySelector('.page-container');
+              if (!container) return;
+              var mmToPx = 96 / 25.4;
+              var pageContentHeightPx = (297 - 12 * 2) * mmToPx - 16; // @page margin (12mm*2) + body padding (8px*2)
+              var contentHeight = container.scrollHeight;
+              if (contentHeight > pageContentHeightPx) {
+                var scale = pageContentHeightPx / contentHeight;
+                container.style.transform = 'scale(' + scale + ')';
+                container.style.marginBottom = (-(contentHeight * (1 - scale))) + 'px';
+              }
+            }
+            function printNow() {
+              fitToOnePage();
+              setTimeout(function() { window.print(); }, 150);
+            }
             window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 300);
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function() { setTimeout(printNow, 100); });
+              } else {
+                setTimeout(printNow, 300);
+              }
             };
           </script>
         </body>
