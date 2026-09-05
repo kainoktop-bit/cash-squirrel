@@ -422,35 +422,21 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     
     const sTotals = calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate);
     
-    // Build descending full table (minimum of 6 items/rows)
-    const itemsCount = selectedInvoice.items.length;
-    const paddedRowsCount = Math.max(5, itemsCount);
+    // One row per actual item -- no filler rows padded on for a document with only a
+    // handful of items. A short items list should just look short, not stretched out.
     let itemRows = '';
-    
-    for (let i = 0; i < paddedRowsCount; i++) {
-      const item = selectedInvoice.items[i];
-      if (item) {
-        itemRows += `
-          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px;">
-            <td style="padding: 7px 10px; text-align: center; color: #6b7280; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
-            <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${item.description || '-'}</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
-            <td style="padding: 7px 10px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
-            <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(item.quantity * item.price).replace('฿', '')}</td>
-          </tr>
-        `;
-      } else {
-        itemRows += `
-          <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px; height: 24px;">
-            <td style="padding: 7px 10px; text-align: center; color: #9ca3af; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
-            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 7px 10px; border-right: 1px solid #f3f4f6;">&nbsp;</td>
-            <td style="padding: 7px 10px;">&nbsp;</td>
-          </tr>
-        `;
-      }
-    }
+
+    selectedInvoice.items.forEach((item, i) => {
+      itemRows += `
+        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px;">
+          <td style="padding: 7px 10px; text-align: center; color: #6b7280; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
+          <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${item.description || '-'}</td>
+          <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
+          <td style="padding: 7px 10px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
+          <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(item.quantity * item.price).replace('฿', '')}</td>
+        </tr>
+      `;
+    });
 
     const bankSection = selectedInvoice.documentType !== 'quotation' ? `
       <div style="margin-top: 0;">
@@ -1220,7 +1206,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     </table>
                   </div>
 
-                  {/* 4. Items List Table - Descending Table format with empty rows filler */}
+                  {/* 4. Items List Table - one row per actual item, no filler rows padded on */}
                   <div className="my-6 overflow-x-auto border border-stone-200 rounded-xl">
                     <table className="w-full min-w-[520px] border-collapse text-[10px] sm:text-[11px]">
                       <thead>
@@ -1233,38 +1219,17 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {(() => {
-                          const itemsCount = selectedInvoice.items.length;
-                          const paddedRowsCount = Math.max(6, itemsCount);
-                          const rows = [];
-                          for (let i = 0; i < paddedRowsCount; i++) {
-                            const item = selectedInvoice.items[i];
-                            if (item) {
-                              rows.push(
-                                <tr key={item.id} className="border-b border-stone-100 last:border-b-0 text-stone-800 font-medium">
-                                  <td className="py-3 px-3 text-center font-mono text-stone-400 border-r border-stone-100 w-12">{i + 1}</td>
-                                  <td className="py-3 px-3 text-left font-semibold text-stone-950 leading-relaxed border-r border-stone-100">{item.description || '(ไม่มีรายละเอียด)'}</td>
-                                  <td className="py-3 px-3 text-right font-mono font-bold text-stone-900 border-r border-stone-100 w-16">{item.quantity}</td>
-                                  <td className="py-3 px-3 text-right font-mono text-stone-700 border-r border-stone-100 w-24">{formatCurrency(item.price).replace('฿', '')}</td>
-                                  <td className="py-3 px-3 text-right font-mono font-bold text-stone-950 w-28">
-                                    {formatCurrency(item.quantity * item.price).replace('฿', '')}
-                                  </td>
-                                </tr>
-                              );
-                            } else {
-                              rows.push(
-                                <tr key={`empty-${i}`} className="border-b border-stone-100 last:border-b-0 text-stone-300 font-medium h-[38px]">
-                                  <td className="py-3 px-3 text-center font-mono text-stone-300 border-r border-stone-100 w-12">{i + 1}</td>
-                                  <td className="py-3 px-3 text-left border-r border-stone-100">&nbsp;</td>
-                                  <td className="py-3 px-3 text-right border-r border-stone-100 w-16">&nbsp;</td>
-                                  <td className="py-3 px-3 text-right border-r border-stone-100 w-24">&nbsp;</td>
-                                  <td className="py-3 px-3 text-right w-28">&nbsp;</td>
-                                </tr>
-                              );
-                            }
-                          }
-                          return rows;
-                        })()}
+                        {selectedInvoice.items.map((item, i) => (
+                          <tr key={item.id} className="border-b border-stone-100 last:border-b-0 text-stone-800 font-medium">
+                            <td className="py-3 px-3 text-center font-mono text-stone-400 border-r border-stone-100 w-12">{i + 1}</td>
+                            <td className="py-3 px-3 text-left font-semibold text-stone-950 leading-relaxed border-r border-stone-100">{item.description || '(ไม่มีรายละเอียด)'}</td>
+                            <td className="py-3 px-3 text-right font-mono font-bold text-stone-900 border-r border-stone-100 w-16">{item.quantity}</td>
+                            <td className="py-3 px-3 text-right font-mono text-stone-700 border-r border-stone-100 w-24">{formatCurrency(item.price).replace('฿', '')}</td>
+                            <td className="py-3 px-3 text-right font-mono font-bold text-stone-950 w-28">
+                              {formatCurrency(item.quantity * item.price).replace('฿', '')}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
