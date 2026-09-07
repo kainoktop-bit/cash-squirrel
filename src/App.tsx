@@ -1384,11 +1384,19 @@ export default function App() {
   // (not netFlow) so this matches the Dashboard's "คงเหลือหลังหักรายจ่าย" figure the user actually
   // watches -- netFlow also nets out the fixed-expense budget line, which isn't what "how much do
   // I have left right now" means to them.
-  const monthNetSafe = (extraJobs: Job[] = [], extraExpenses: Expense[] = []): number | undefined => {
+  //
+  // Takes the jobs/expenses arrays explicitly rather than reading the `jobs`/`expenses` closures
+  // itself -- callers must pass the array returned from their own setJobs/setExpenses functional
+  // updater (see handleAddJob etc. below), not the plain state variable. Two edits fired back to
+  // back (e.g. marking two jobs paid in quick succession) can both run before React re-renders,
+  // so both would close over the same pre-edit `jobs`/`expenses` and each notification would show
+  // a running balance that doesn't account for the other edit -- the exact "balances swapped"
+  // report this was fixed for.
+  const monthNetSafe = (jobsList: Job[], expensesList: Expense[]): number | undefined => {
     try {
       return computeMonthlySummary(
-        extraJobs.length ? [...extraJobs, ...jobs] : jobs,
-        extraExpenses.length ? [...extraExpenses, ...expenses] : expenses,
+        jobsList,
+        expensesList,
         goals,
         settings,
         getCurrentMonthKeyBkk()
@@ -1405,7 +1413,11 @@ export default function App() {
       ...newJob,
       id: `job-${Date.now()}`,
     };
-    setJobs(prev => [jobWithId, ...prev]);
+    let freshJobs: Job[] = jobs;
+    setJobs(prev => {
+      freshJobs = [jobWithId, ...prev];
+      return freshJobs;
+    });
     fireMascot({
       mood: 'celebrate',
       message: `เพิ่มงาน "${newJob.name}" ชิ้นใหม่เรียบร้อยแล้วค้าบ! สู้ๆ น้าเจ้ากระรอก!`
@@ -1413,7 +1425,7 @@ export default function App() {
     // Trigger a celebratory green leaves shower!
     leafBus.trigger({ count: 16, type: 'green', durationMs: 3500 });
 
-    notifyLineRecordAdded('job', jobWithId, monthNetSafe([jobWithId]));
+    notifyLineRecordAdded('job', jobWithId, monthNetSafe(freshJobs, expenses));
   };
 
   // Jumps to the Jobs tab and scrolls straight to one job's card, briefly highlighted --
@@ -1425,8 +1437,18 @@ export default function App() {
   };
 
   const handleEditJob = (id: string, updated: Partial<Job>) => {
-    const oldJob = jobs.find(j => j.id === id);
-    setJobs(prev => prev.map(j => j.id === id ? { ...j, ...updated } : j));
+    // Read oldJob and build the post-edit array from `prev` inside the functional updater, not
+    // from the `jobs` closure -- two edits fired back to back (e.g. marking two jobs paid within
+    // the same tick, before React re-renders between clicks) would otherwise both close over the
+    // same pre-edit `jobs`, so the second edit's LINE notification balance wouldn't account for
+    // the first edit at all. setJobs's functional form always sees the true latest pending state.
+    let oldJob: Job | undefined;
+    let freshJobs: Job[] = jobs;
+    setJobs(prev => {
+      oldJob = prev.find(j => j.id === id);
+      freshJobs = prev.map(j => j.id === id ? { ...j, ...updated } : j);
+      return freshJobs;
+    });
 
     // If job was completed or fully paid, trigger a massive celebration!
     const wasCompleted = (updated.status === 'done' && oldJob?.status !== 'done') ||
@@ -1440,24 +1462,9 @@ export default function App() {
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
       // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
       // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
-      // monthNet can't reuse monthNetSafe's "prepend a new job" shape here since this job already
-      // exists in `jobs` with its pre-edit values -- replace it in place instead, or it'd be
-      // double-counted (once stale, once as the "extra").
       if (oldJob) {
         const mergedJob = { ...oldJob, ...updated };
-        let monthNet: number | undefined;
-        try {
-          monthNet = computeMonthlySummary(
-            jobs.map(j => j.id === id ? mergedJob : j),
-            expenses,
-            goals,
-            settings,
-            getCurrentMonthKeyBkk()
-          ).receivedAfterVariableExpense;
-        } catch (err) {
-          console.warn('computeMonthlySummary failed for LINE notify:', err);
-        }
-        notifyLineRecordAdded('job', mergedJob, monthNet);
+        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
       }
     } else {
       fireMascot({
@@ -1474,25 +1481,17 @@ export default function App() {
       () => {
         const jobToDelete = jobs.find(j => j.id === id);
         deletedJobIdsRef.current.add(id);
-        setJobs(prev => prev.filter(j => j.id !== id));
+        let freshJobs: Job[] = jobs;
+        setJobs(prev => {
+          freshJobs = prev.filter(j => j.id !== id);
+          return freshJobs;
+        });
         fireMascot({
           mood: 'alert',
           message: `ลบดีลงานเรียบร้อยแล้วนะค้าบ หวังว่าดีลใหม่จะงอกเร็วๆ น้า!`
         });
         if (jobToDelete) {
-          let monthNet: number | undefined;
-          try {
-            monthNet = computeMonthlySummary(
-              jobs.filter(j => j.id !== id),
-              expenses,
-              goals,
-              settings,
-              getCurrentMonthKeyBkk()
-            ).receivedAfterVariableExpense;
-          } catch (err) {
-            console.warn('computeMonthlySummary failed for LINE notify:', err);
-          }
-          notifyLineRecordDeleted('job', jobToDelete, monthNet);
+          notifyLineRecordDeleted('job', jobToDelete, monthNetSafe(freshJobs, expenses));
         }
       }
     );
@@ -1703,29 +1702,25 @@ export default function App() {
       ...newExp,
       id: `expense-${Date.now()}`
     };
-    setExpenses(prev => [expWithId, ...prev]);
+    let freshExpenses: Expense[] = expenses;
+    setExpenses(prev => {
+      freshExpenses = [expWithId, ...prev];
+      return freshExpenses;
+    });
 
-    notifyLineRecordAdded('expense', expWithId, monthNetSafe([], [expWithId]));
+    notifyLineRecordAdded('expense', expWithId, monthNetSafe(jobs, freshExpenses));
   };
 
   const handleDeleteExpense = (id: string) => {
     const expenseToDelete = expenses.find(e => e.id === id);
     deletedExpenseIdsRef.current.add(id);
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    let freshExpenses: Expense[] = expenses;
+    setExpenses(prev => {
+      freshExpenses = prev.filter(e => e.id !== id);
+      return freshExpenses;
+    });
     if (expenseToDelete) {
-      let monthNet: number | undefined;
-      try {
-        monthNet = computeMonthlySummary(
-          jobs,
-          expenses.filter(e => e.id !== id),
-          goals,
-          settings,
-          getCurrentMonthKeyBkk()
-        ).receivedAfterVariableExpense;
-      } catch (err) {
-        console.warn('computeMonthlySummary failed for LINE notify:', err);
-      }
-      notifyLineRecordDeleted('expense', expenseToDelete, monthNet);
+      notifyLineRecordDeleted('expense', expenseToDelete, monthNetSafe(jobs, freshExpenses));
     }
   };
 
