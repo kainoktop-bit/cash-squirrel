@@ -635,9 +635,12 @@ export default function App() {
     }
   };
 
-  // Stripe Payment Link for the Pro subscription. Appending client_reference_id lets the
-  // webhook know which app user just paid, without needing a server-created Checkout Session.
-  const PRO_PAYMENT_LINK = 'https://buy.stripe.com/dRm9AS5776GAgvP61Z5wI02';
+  // Stripe Payment Link for the Pro plan -- one-time ฿149 THB price (not a Stripe subscription),
+  // matching how stripe-webhook.ts actually grants access (checkout.session.completed with
+  // mode==='payment', extending current_period_end by 30 days). Card + PromptPay both enabled on
+  // this link. Appending client_reference_id lets the webhook know which app user just paid,
+  // without needing a server-created Checkout Session.
+  const PRO_PAYMENT_LINK = 'https://buy.stripe.com/5kQ3cudDD1mg93n8a75wI03';
 
   // The webhook extends access by setting current_period_end to (now + 30 days) rather than
   // adding onto the existing period, since this is a manual monthly payment, not an auto-charging
