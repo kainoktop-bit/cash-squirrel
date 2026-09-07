@@ -324,10 +324,10 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
 - ถ้าข้อความบรรยายว่าเพิ่งรับงาน/ดีลใหม่เข้ามา (บอกว่าทำงานอะไร ได้ค่าจ้างเท่าไหร่ ขอให้บันทึกเป็นรายรับ) ให้ intent = "add_job" แล้วแยกข้อมูลใส่ฟิลด์ job* ทั้งหมดเท่าที่จับใจความได้:
   - jobName (บังคับ): ชื่องานสั้นๆ
   - jobValue (บังคับ): มูลค่างานเต็มเป็นตัวเลขล้วน ไม่ใส่หน่วย ห้ามเดาถ้าข้อความไม่ได้ระบุจำนวนเงินชัดเจน
-  - jobClient (บังคับ): ชื่อลูกค้า บริษัท หรือหน่วยงาน/องค์กรที่จ้างงานนี้ -- ถ้าข้อความพูดถึงชื่อองค์กร บริษัท มหาวิทยาลัย ร้าน หรือหน่วยงานใดๆ เลย (แม้จะพูดถึงในฐานะสถานที่/บริบทของงาน ไม่ได้พูดตรงๆ ว่า "ลูกค้าคือ...") ให้ถือว่านั่นคือ jobClient ได้เลย เช่น "ถ่ายภาพมหาวิทยาลัยกรุงเทพ" ให้ตีความว่า jobClient = "มหาวิทยาลัยกรุงเทพ"; ใส่ฟิลด์นี้มาก็ต่อเมื่อมีชื่อเฉพาะแบบนี้ปรากฏในข้อความเท่านั้น ถ้าไม่มีชื่อเฉพาะเลยห้ามเดา ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย
+  - jobClient (บังคับ): ชื่อ "ลูกค้าที่เป็นคนจ่ายเงิน" จริงๆ เท่านั้น -- ชื่อสถานที่/องค์กรที่พูดถึงในข้อความอาจเป็นแค่ "สถานที่ทำงาน" ไม่ใช่ตัวลูกค้าเสมอไป (เช่น "ไปถ่ายงานที่มหาวิทยาลัยกรุงเทพ" มหาวิทยาลัยอาจเป็นแค่สถานที่ ส่วนคนจ้างจริงอาจเป็นเอเจนซี่หรือคนอื่น) ห้ามเดาว่าชื่อสถานที่คือลูกค้าโดยอัตโนมัติ ใส่ฟิลด์นี้มาก็ต่อเมื่อข้อความระบุชัดเจนว่าใครเป็นคนจ่าย/ว่าจ้าง (เช่น "ลูกค้าคือ...", "บริษัท...ว่าจ้าง", หรือชื่อที่ระบุต่อท้ายในบริบทที่ชัดว่าเป็นผู้ว่าจ้าง) ถ้าไม่ชัดเจนว่าใครเป็นคนจ่ายเงิน ห้ามเดา ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย
   - jobType: เลือกจากนี้เท่านั้น "${DEFAULT_JOB_TYPES.join('", "')}" ถ้าไม่แน่ใจใช้ "${DEFAULT_JOB_TYPES[DEFAULT_JOB_TYPES.length - 1]}"
   - jobPaymentStatus (บังคับ): "paid" ถ้าข้อความบอกว่าได้รับเงินครบแล้ว/ลูกค้าจ่ายแล้ว เช่น "ได้เงินมาแล้ว", "จ่ายเรียบร้อยแล้ว", "จ่ายครบแล้ว", "โอนมาแล้ว", "รับเงินแล้ว" -- วลีเหล่านี้หมายถึงลูกค้าจ่ายเงินให้ผู้ใช้แล้วเสมอ ไม่ใช่ผู้ใช้จ่ายเงินออกไป อย่าตีความผิดทาง; "partial" ถ้าพูดถึง "มัดจำ"/"วางมัดจำ"/"ได้มัดจำ"/"เก็บมัดจำ" พร้อมจำนวนเงิน (ให้ใส่จำนวนนั้นใน jobReceivedAmount ด้วยเสมอ) -- คำว่ามัดจำแปลว่าได้รับเงินบางส่วนแล้วเสมอ ต้องจับ intent นี้ให้ได้ทุกครั้งที่เห็นคำนี้; "pending" เฉพาะตอนที่ข้อความบอกชัดเจนว่ายังไม่ได้รับเงินเลยสักบาท -- ถ้าข้อความไม่ได้พูดถึงสถานะการจ่ายเงินเลยแม้แต่นิดเดียว (ไม่มีทั้งคำว่าได้เงิน/จ่ายแล้ว/มัดจำ/ยังไม่ได้) ห้ามเดาเป็น pending เด็ดขาด ให้ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย (ต้องถามผู้ใช้ก่อนเสมอ ห้ามสันนิษฐานเอง)
-  - jobCreditTerm: จำนวนวันที่ลูกค้าจะโอนหลังส่งงาน ใส่เฉพาะตอนที่ jobPaymentStatus เป็น "pending" (ยังไม่ได้เงินเลย) และข้อความระบุมาชัดเจน (เช่น "เครดิต 30 วัน", "จ่ายทันที" = ใส่ 0) ถ้า jobPaymentStatus เป็น "paid" หรือ "partial" ไม่ต้องใส่ฟิลด์นี้เลย (ไม่บังคับแล้วในสองกรณีนี้); ถ้า pending แต่ข้อความไม่ได้พูดถึงเครดิตเทอมเลย ห้ามเดาใส่ 0 ให้ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย
+  - jobCreditTerm: จำนวนวันนับจากวันนี้ที่ลูกค้าจะโอนเงินส่วนที่เหลือมาให้ -- สำคัญมากสำหรับเตือนความจำผู้ใช้ ต้องถามทุกครั้งที่ยังมียอดค้างอยู่ (jobPaymentStatus เป็น "pending" หรือ "partial") ยกเว้น "paid" ที่ไม่มียอดค้างแล้วไม่ต้องถาม ใส่ฟิลด์นี้มาก็ต่อเมื่อข้อความระบุมาชัดเจน (เช่น "เครดิต 30 วัน", "จ่ายทันที" = ใส่ 0, "อีก 15 วันได้เงิน") ถ้ายังมียอดค้างแต่ข้อความไม่ได้พูดถึงเลยว่าเมื่อไหร่จะได้เงินส่วนที่เหลือ ห้ามเดาใส่ 0 ให้ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย
   - jobWhtRate: % หัก ณ ที่จ่ายถ้าพูดถึง (0, 1, 3, หรือ 5) ไม่พูดถึงใส่ 0
 - ถ้าข้อความบรรยายว่าเพิ่งจ่ายรายจ่าย/ค่าใช้จ่ายออกไป (ไม่ใช่รายรับ) ให้ intent = "add_expense" แล้วแยกใส่:
   - expenseName (บังคับ): ชื่อรายการสั้นๆ
@@ -958,17 +958,17 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
 
     // Required before actually saving: name, value, client, and whether payment's been
     // received -- these are the fields a freelancer actually needs on record for every job, not
-    // just enough to technically build a row. Credit term is only required when payment status
-    // is "pending" (nothing received at all yet) -- "paid" has none left to ask about, and
-    // "partial" already answers the more useful question (some money is in hand); asking for a
-    // credit term on top of that too is friction the deposit amount already covers.
-    const needsCreditTerm = merged.paymentStatus === 'pending';
+    // just enough to technically build a row. Credit term is required whenever there's still a
+    // balance outstanding ("pending" or "partial") -- when the remaining money actually shows up
+    // matters for reminders regardless of whether a deposit already came in; only "paid" (no
+    // balance left at all) skips it.
+    const needsCreditTerm = merged.paymentStatus === 'pending' || merged.paymentStatus === 'partial';
     const missingLabels = [
       !merged.name && 'ชื่องาน',
       !merged.value && 'มูลค่างาน',
       !merged.client && 'ชื่อลูกค้า',
       !merged.paymentStatus && 'ได้รับเงินหรือยัง (ได้แล้ว/ยังไม่ได้/ได้มัดจำบางส่วน)',
-      needsCreditTerm && merged.creditTerm === undefined && 'จะได้เงินอีกกี่วัน (เครดิตเทอม)',
+      needsCreditTerm && merged.creditTerm === undefined && 'จะได้เงินส่วนที่เหลืออีกกี่วัน',
     ].filter((s): s is string => !!s);
 
     if (missingLabels.length === 0) {
