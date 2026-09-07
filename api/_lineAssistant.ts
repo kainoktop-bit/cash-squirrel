@@ -294,7 +294,11 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
     const response = await callWithRetry(() =>
       ai.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        // Was 1024 -- too tight once the tool call's "answer" field carries a real Thai
+        // explanation (e.g. "what's included in this number") alongside the JSON scaffolding;
+        // hitting the cap mid-answer truncates the tool_use JSON, which then fails to parse
+        // and silently returns null below with nothing logged. 4096 gives real headroom.
+        max_tokens: 4096,
         tool_choice: { type: 'tool', name: 'extract_result' },
         tools: [
           {
@@ -375,9 +379,28 @@ ${JSON.stringify(formatted, null, 2)}
       })
     );
     const toolUse = response.content.find((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
-    const parsed = (toolUse?.input || {}) as ClassifyResult;
+    // Before this, a missing tool_use block or a missing `intent` fell straight through to
+    // `return null` with zero logging -- indistinguishable in Vercel Logs from "Claude decided
+    // not to answer" vs. a real parsing failure (e.g. stop_reason 'max_tokens' truncating the
+    // tool call's JSON mid-stream). Log it explicitly so this failure mode is visible instead of
+    // silently degrading to HELP_TEXT with no trace of why.
+    if (!toolUse) {
+      console.error('classifyMessage: no tool_use block in response', {
+        stopReason: response.stop_reason,
+        contentTypes: response.content.map((b) => b.type),
+      });
+      return null;
+    }
+    const parsed = toolUse.input as ClassifyResult;
     if (parsed.answer) parsed.answer = stripMarkdown(parsed.answer.trim());
-    return parsed.intent ? parsed : null;
+    if (!parsed.intent) {
+      console.error('classifyMessage: tool_use input missing intent', {
+        stopReason: response.stop_reason,
+        input: toolUse.input,
+      });
+      return null;
+    }
+    return parsed;
   } catch (err) {
     console.error('classifyMessage error:', err);
     return null;
