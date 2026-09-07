@@ -29,7 +29,7 @@ import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
 import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { PremiumUpsell } from './components/PremiumUpsell';
-import { ProPromoModal } from './components/ProPromoModal';
+import { ProPromoModal, ProPromoCard } from './components/ProPromoModal';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
 import { IconCrown, IconPalette } from './components/icons';
@@ -2250,35 +2250,16 @@ export default function App() {
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           
           {/* Weekly dismissible "upgrade to Pro" reminder for free users -- Dashboard only, gated
-              to once every 7 days by the useEffect above so it never nags on every visit. */}
+              to once every 7 days by the useEffect above so it never nags on every visit. Same
+              rich card as the daily popup (ProPromoCard), just rendered inline instead of as an
+              overlay. */}
           {activeTab === 'dashboard' && isProBannerVisible && !isPro && (
-            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-[#E65F2B]/10 to-[#E65F2B]/5 dark:from-[#E65F2B]/15 dark:to-[#E65F2B]/5 border border-[#E65F2B]/20 rounded-3xl px-5 py-4 animate-fade-in">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-full bg-[#E65F2B]/15 flex items-center justify-center shrink-0">
-                  <IconCrown className="w-4.5 h-4.5 text-[#E65F2B]" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-brand-text dark:text-white">อัปเกรดเป็นกระรอกตุนเงิน Pro</p>
-                  <p className="text-[10px] text-brand-muted truncate">ออกใบเสร็จ/ใบกำกับภาษี PDF และสรุปงานค้างจ่ายอัตโนมัติ เริ่มต้น ฿149/เดือน</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('plans')}
-                  className="px-3.5 py-2 bg-[#E65F2B] hover:bg-[#D8551F] text-white rounded-xl text-[11px] font-black transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  ดูแพ็กเกจ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsProBannerVisible(false)}
-                  aria-label="ปิด"
-                  className="p-1.5 rounded-full text-brand-muted hover:text-brand-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="mb-6 animate-fade-in">
+              <ProPromoCard
+                onUpgrade={() => setActiveTab('plans')}
+                onClose={() => setIsProBannerVisible(false)}
+                className="w-full max-w-2xl mx-auto"
+              />
             </div>
           )}
 
