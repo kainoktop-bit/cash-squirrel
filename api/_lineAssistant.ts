@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey, DEFAULT_JOB_TYPES } from '../src/utils.js';
 import type { Expense, Goal } from '../src/types.js';
@@ -25,9 +25,9 @@ import {
 // a short follow-up (just a number, just a name) completes it instead of making the user retype
 // the whole thing -- but it expires on its own after PENDING_JOB_DRAFT_TTL_MS and is never
 // surfaced as "still waiting", so there's still no state a user can get permanently stuck in.
-// Everything else is either a fixed Quick Reply command (zero AI cost) or a Gemini-answered
-// question grounded in the user's real data -- with a static fallback (HELP_TEXT) if Gemini is
-// unconfigured or errors (e.g. free-tier quota), so a Gemini outage degrades to "here are the
+// Everything else is either a fixed Quick Reply command (zero AI cost) or a Claude-answered
+// question grounded in the user's real data -- with a static fallback (HELP_TEXT) if Claude is
+// unconfigured or errors (e.g. rate limited), so a Claude outage degrades to "here are the
 // buttons" instead of a raw error or a stuck conversation.
 
 interface StatusRow {
@@ -98,20 +98,21 @@ export async function findUserByLineId(lineUserId: string): Promise<UserRow | nu
   return (data as UserRow) || null;
 }
 
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
+function getClaudeClient(): Anthropic | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
+  return new Anthropic({ apiKey });
 }
 
-// The free-tier Gemini quota returns HTTP 429 under bursts -- one short retry smooths that over
-// without adding much latency to a chat reply.
+// A burst of messages can trip the API's rate limit (HTTP 429) -- one short retry smooths that
+// over without adding much latency to a chat reply.
 async function callWithRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
   try {
     return await fn();
   } catch (err) {
+    const status = (err as { status?: number })?.status;
     const message = err instanceof Error ? err.message : String(err);
-    const isRateLimited = message.includes('"code":429') || message.includes('RESOURCE_EXHAUSTED');
+    const isRateLimited = status === 429 || message.includes('rate_limit') || message.includes('RESOURCE_EXHAUSTED');
     if (isRateLimited && attempt < 2) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
       return callWithRetry(fn, attempt + 1);
@@ -264,7 +265,7 @@ export interface ClassifyResult {
   answer?: string;
 }
 
-// Single Gemini call handles three things at once (question answering, add-job extraction,
+// Single Claude call handles three things at once (question answering, add-job extraction,
 // add-expense extraction) -- merging call sites is what fixed the free-tier 429 rate limit
 // before (see git history), so this stays one call rather than three. `pendingJobDraft`, when
 // present, is folded into the prompt so a short follow-up ("1500", just a client name) gets
@@ -272,7 +273,7 @@ export interface ClassifyResult {
 // at all -- the caller (handleAssistantMessageInner) does its own field-level merge on top as a
 // safety net regardless of how well the model followed that instruction.
 async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobDraft?: JobDraft): Promise<ClassifyResult | null> {
-  const ai = getGeminiClient();
+  const ai = getClaudeClient();
   if (!ai) return null;
 
   const formatted = {
@@ -291,14 +292,39 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
 
   try {
     const response = await callWithRetry(() =>
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
+      ai.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        tool_choice: { type: 'tool', name: 'extract_result' },
+        tools: [
+          {
+            name: 'extract_result',
+            description: 'บันทึกผลการตีความข้อความของผู้ใช้',
+            input_schema: {
+              type: 'object',
+              properties: {
+                intent: { type: 'string', enum: ['add_job', 'add_expense', 'question', 'other'] },
+                jobName: { type: 'string' },
+                jobClient: { type: 'string' },
+                jobType: { type: 'string' },
+                jobValue: { type: 'number' },
+                jobCreditTerm: { type: 'number' },
+                jobPaymentStatus: { type: 'string', enum: ['paid', 'partial', 'pending'] },
+                jobReceivedAmount: { type: 'number' },
+                jobWhtRate: { type: 'number' },
+                expenseName: { type: 'string' },
+                expenseCategory: { type: 'string' },
+                expenseAmount: { type: 'number' },
+                answer: { type: 'string' },
+              },
+              required: ['intent'],
+            },
+          },
+        ],
+        messages: [
           {
             role: 'user',
-            parts: [
-              {
-                text: `คุณคือ "พี่กระรอก" มาสคอตของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
+            content: `คุณคือ "พี่กระรอก" มาสคอตของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
 
 บุคลิก:
 - เป็นเพื่อนสนิทที่คอยช่วยดูแลเรื่องเงินให้ พูดจาแบบกันเองสุดๆ เหมือนแชทคุยกับเพื่อน ไม่ใช่ผู้ช่วย AI ที่เป็นทางการ
@@ -344,36 +370,12 @@ ${pendingJobDraft ? `
 ${JSON.stringify(formatted, null, 2)}
 
 ข้อความจากผู้ใช้: "${text}"`,
-              },
-            ],
           },
         ],
-        config: {
-          thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              intent: { type: 'STRING', enum: ['add_job', 'add_expense', 'question', 'other'] },
-              jobName: { type: 'STRING' },
-              jobClient: { type: 'STRING' },
-              jobType: { type: 'STRING' },
-              jobValue: { type: 'NUMBER' },
-              jobCreditTerm: { type: 'NUMBER' },
-              jobPaymentStatus: { type: 'STRING', enum: ['paid', 'partial', 'pending'] },
-              jobReceivedAmount: { type: 'NUMBER' },
-              jobWhtRate: { type: 'NUMBER' },
-              expenseName: { type: 'STRING' },
-              expenseCategory: { type: 'STRING' },
-              expenseAmount: { type: 'NUMBER' },
-              answer: { type: 'STRING' },
-            },
-            required: ['intent'],
-          },
-        },
       })
     );
-    const parsed = JSON.parse(response.text || '{}') as ClassifyResult;
+    const toolUse = response.content.find((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
+    const parsed = (toolUse?.input || {}) as ClassifyResult;
     if (parsed.answer) parsed.answer = stripMarkdown(parsed.answer.trim());
     return parsed.intent ? parsed : null;
   } catch (err) {
@@ -537,7 +539,7 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
   งานเดือนนี้: buildThisMonthJobsMessage,
 };
 
-// Fallback for anything that isn't a Quick Reply command AND Gemini couldn't answer (unconfigured
+// Fallback for anything that isn't a Quick Reply command AND Claude couldn't answer (unconfigured
 // or erroring, e.g. quota) -- a greeting, a random question, or anything else. Since there's no
 // pending chat flow to get stuck in, this is always a safe, friendly fallback rather than a
 // leftover mid-conversation prompt.
@@ -930,8 +932,8 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     ? storedDraft.draft
     : undefined;
 
-  // Anything else goes through one combined Gemini call -- could be a question, or a natural-
-  // language "just add this job/expense" message. classifyMessage returns null whenever Gemini
+  // Anything else goes through one combined Claude call -- could be a question, or a natural-
+  // language "just add this job/expense" message. classifyMessage returns null whenever Claude
   // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
   // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
   const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft);
@@ -956,7 +958,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       ...(result.jobWhtRate !== undefined && { whtRate: result.jobWhtRate }),
     };
 
-    // Safety net on top of Gemini's own extraction: "มัดจำ<number>" is a common enough pattern
+    // Safety net on top of Claude's own extraction: "มัดจำ<number>" is a common enough pattern
     // that it's worth catching directly in code rather than trusting the model to follow the
     // prompt's instruction every single time. Only fires when the model didn't already set a
     // payment status, so it never overrides a real extraction.
