@@ -349,6 +349,7 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
 - ตอบจาก "ข้อมูลบัญชีจริง" ด้านล่างเท่านั้น ห้ามเดาหรือสร้างตัวเลข/รายการที่ไม่มีในข้อมูลนี้ขึ้นมาเองเด็ดขาด ห้ามให้ข้อมูลเท็จหรือคาดเดาแทนการบอกว่าไม่รู้
 - ถ้าคำถามต้องการข้อมูลที่ไม่มีอยู่ในนี้เลย ให้บอกตรงๆ ว่าไม่มีข้อมูลส่วนนั้น อย่าแต่งคำตอบขึ้นมา
 - ตอบสั้น กระชับ ตรงประเด็นกับสิ่งที่ถาม อย่าตอบกำกวมหรือคลุมเครือ เป็นธรรมชาติแบบคุยกันในแชท ภาษาไทย ไม่ต้องทักทายซ้ำ
+- ห้ามเขียนคำตอบเป็นพารากราฟยาวๆ ก้อนเดียวเหมือนบทความเด็ดขาด ให้เขียนสั้นๆ แบบคนจริงพิมพ์แชทหากัน (1-2 ประโยคสั้นๆ ต่อช่วง) ถ้ามีหลายเรื่องที่จะพูดจริงๆ ให้แยกแต่ละเรื่องด้วยการเว้นบรรทัดว่าง (เคาะ Enter สองครั้ง) แต่ละช่วงจะกลายเป็นข้อความแยกกันเหมือนพิมพ์ทีละข้อความจริงๆ (ระบบจะแยกส่งให้เองสูงสุด 3 ข้อความ) แต่ถ้าคำตอบสั้นพอเรื่องเดียวจบ ก็ไม่ต้องเว้นบรรทัดเลย
 - ถ้ารายการว่างเปล่า (ไม่มีงานในหมวดที่ถาม) ให้ตอบว่าไม่มีอย่างชัดเจน เป็นข่าวดีไม่ใช่ข้อผิดพลาด
 - "กระแสเงินสดสุทธิ" ในข้อมูลนี้ไม่ใช่ตัวเลขเดียวกับ "กำไร/กำไรสุทธิ" เป๊ะๆ -- มันคือ (เงินที่รับแล้วจริง) ลบ (รายจ่ายที่บันทึกไว้ในระบบเท่านั้น) และไม่ติดลบต่ำกว่า 0 ถ้าผู้ใช้ถามถึงกำไร ให้ตอบด้วยตัวเลขนี้ได้แต่ต้องบอกด้วยว่านี่คือกระแสเงินสดสุทธิจากรายการที่บันทึกไว้ ไม่ใช่กำไรทางบัญชีที่แม่นยำ 100% เพราะอาจมีรายจ่ายที่ผู้ใช้ยังไม่ได้บันทึกเข้าระบบ (เช่น ค่าจ้างฟรีแลนซ์ช่วยงาน ต้นทุนอื่นๆ) ซึ่งจะไม่ถูกรวมในตัวเลขนี้
 - ถ้าถามว่าตัวเลขใดตัวเลขหนึ่ง "รวมอะไรบ้าง" หรือครบถ้วนหรือไม่ ให้อธิบายตามจริงว่าเป็นผลรวมของอะไร (เช่น รายจ่ายรวม = ค่าใช้จ่ายคงที่ + ค่าใช้จ่ายผันแปรที่บันทึกไว้ในแอป) และบอกตรงๆ ว่าถ้ามีรายจ่ายอะไรที่ยังไม่ได้บันทึกเป็นรายการในแอป ตัวเลขนี้จะไม่รวมส่วนนั้น
@@ -441,8 +442,20 @@ function getQuickReply(): import('./_line.js').LineQuickReply {
   return { items: items.slice(0, 13) };
 }
 
-function withQuickReply(message: LineMessage): LineMessage {
-  return { ...message, quickReply: getQuickReply() };
+// Splits a freeform reply into a few short chat bubbles on blank-line boundaries instead of one
+// long paragraph -- reads like a real person texting in short bursts rather than an AI-generated
+// wall of text. Capped so a reply can never exceed LINE's 5-messages-per-reply limit; anything
+// past the cap is folded into the last bubble rather than silently dropped.
+const MAX_BUBBLES = 3;
+function splitIntoBubbles(text: string): string[] {
+  const parts = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return [text.trim()];
+  if (parts.length <= MAX_BUBBLES) return parts;
+  return [...parts.slice(0, MAX_BUBBLES - 1), parts.slice(MAX_BUBBLES - 1).join('\n\n')];
+}
+
+function textBubbles(text: string): LineMessage[] {
+  return splitIntoBubbles(text).map((t) => ({ type: 'text', text: t }));
 }
 
 function buildSectionLabel(text: string, color: string) {
@@ -578,17 +591,14 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
 // or erroring, e.g. quota) -- a greeting, a random question, or anything else. Since there's no
 // pending chat flow to get stuck in, this is always a safe, friendly fallback rather than a
 // leftover mid-conversation prompt.
+// Two short bubbles instead of one long block -- the button list used to be typed out again as
+// plain text here too, which was redundant (the real tappable Quick Reply buttons already show
+// up below every reply) and made this the longest, most wall-of-text-looking message in the bot.
 function buildHelpText(name?: string): string {
   return [
-    `🐿️ สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ`,
-    'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้',
-    'กดปุ่มด้านล่างได้เลย:',
-    '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
-    '📋 งานค้างจ่าย',
-    '📊 สรุปเดือนนี้',
-    '📅 งานเดือนนี้',
-    '📦 งานสต็อก',
-  ].join('\n');
+    `🐿️ สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}!`,
+    'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้ครับ กดปุ่มด้านล่างก็ได้เหมือนกัน',
+  ].join('\n\n');
 }
 
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
@@ -995,14 +1005,21 @@ function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'part
 }
 
 // Entry point called from api/line-webhook.ts. Returns null when this LINE user isn't linked
-// to any app account yet, so the caller can fall back to the link-code flow. Every non-null
-// reply gets the Quick Reply shortcuts attached so they're always one tap away.
-export async function handleAssistantMessage(lineUserId: string, text: string): Promise<LineMessage | null> {
+// to any app account yet, so the caller can fall back to the link-code flow. Always returns an
+// array (LINE's reply API takes one call with up to 5 message bubbles) -- a freeform text reply
+// may be split into a few short bubbles by textBubbles, everything else is just one. The Quick
+// Reply shortcuts are attached to the last bubble only, so they're always one tap away.
+export async function handleAssistantMessage(lineUserId: string, text: string): Promise<LineMessage[] | null> {
   const result = await handleAssistantMessageInner(lineUserId, text);
-  return result ? withQuickReply(result) : null;
+  if (result === null) return null;
+  const messages = Array.isArray(result) ? result : [result];
+  if (messages.length === 0) return null;
+  const lastIndex = messages.length - 1;
+  const withQuick = messages.map((m, i) => (i === lastIndex ? { ...m, quickReply: getQuickReply() } : m));
+  return withQuick.slice(0, 5); // LINE's reply API accepts at most 5 messages per call
 }
 
-async function handleAssistantMessageInner(lineUserId: string, text: string): Promise<LineMessage | null> {
+async function handleAssistantMessageInner(lineUserId: string, text: string): Promise<LineMessage | LineMessage[] | null> {
   let user: UserRow | null;
   try {
     user = await findUserByLineId(lineUserId);
@@ -1038,7 +1055,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName);
   if (!result) {
     const replyText = await appendNameAskIfNeeded(user, !!existingName, alreadyAskedName, buildHelpText(existingName));
-    return { type: 'text', text: replyText };
+    return textBubbles(replyText);
   }
 
   // A message can introduce the user's own name alongside anything else it's doing -- save it
@@ -1120,7 +1137,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       alreadyAskedName,
       `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
     );
-    return { type: 'text', text: replyText };
+    return textBubbles(replyText);
   }
 
   if (result.intent === 'add_expense') {
@@ -1143,7 +1160,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       alreadyAskedName,
       result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย'
     );
-    return { type: 'text', text: replyText };
+    return textBubbles(replyText);
   }
 
   // Any intent's `answer` is usable here now, not just "question" -- lets a plain greeting or
@@ -1151,9 +1168,9 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   // through to the generic buildHelpText below.
   if (result.answer) {
     const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, result.answer);
-    return { type: 'text', text: replyText };
+    return textBubbles(replyText);
   }
 
   const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, buildHelpText(knownName));
-  return { type: 'text', text: replyText };
+  return textBubbles(replyText);
 }

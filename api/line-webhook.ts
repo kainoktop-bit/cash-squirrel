@@ -27,7 +27,7 @@ interface LineEvent {
   message?: { type: string; text?: string };
 }
 
-async function reply(accessToken: string, replyToken: string, message: LineMessage): Promise<void> {
+async function reply(accessToken: string, replyToken: string, messages: LineMessage[]): Promise<void> {
   await fetch(LINE_REPLY_URL, {
     method: 'POST',
     headers: {
@@ -36,7 +36,7 @@ async function reply(accessToken: string, replyToken: string, message: LineMessa
     },
     body: JSON.stringify({
       replyToken,
-      messages: [message],
+      messages,
     }),
   });
 }
@@ -134,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? '✅ เชื่อมต่อบัญชีสำเร็จแล้วครับ!\nตอนนี้คุณจะได้รับแจ้งเตือนจากกระรอกตุนเงินผ่าน LINE นี้ รวมถึงพิมพ์เพิ่มงานหรือถามข้อมูลได้เลยครับ'
           : 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
 
-        await reply(accessToken, event.replyToken, { type: 'text', text: replyText });
+        await reply(accessToken, event.replyToken, [{ type: 'text', text: replyText }]);
       })
     );
 
