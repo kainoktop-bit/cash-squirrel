@@ -956,6 +956,19 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       ...(result.jobWhtRate !== undefined && { whtRate: result.jobWhtRate }),
     };
 
+    // Safety net on top of Gemini's own extraction: "มัดจำ<number>" is a common enough pattern
+    // that it's worth catching directly in code rather than trusting the model to follow the
+    // prompt's instruction every single time. Only fires when the model didn't already set a
+    // payment status, so it never overrides a real extraction.
+    if (!merged.paymentStatus) {
+      const depositMatch = trimmed.match(/มัดจำ[^0-9]{0,15}([\d,]+(?:\.\d+)?)/);
+      const depositAmount = depositMatch ? parseFloat(depositMatch[1].replace(/,/g, '')) : NaN;
+      if (depositAmount > 0) {
+        merged.paymentStatus = 'partial';
+        merged.receivedAmount = depositAmount;
+      }
+    }
+
     // Required before actually saving: name, value, client, and whether payment's been
     // received -- these are the fields a freelancer actually needs on record for every job, not
     // just enough to technically build a row. Credit term is required whenever there's still a
@@ -963,12 +976,14 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     // matters for reminders regardless of whether a deposit already came in; only "paid" (no
     // balance left at all) skips it.
     const needsCreditTerm = merged.paymentStatus === 'pending' || merged.paymentStatus === 'partial';
+    const remaining = merged.value != null ? merged.value - (merged.receivedAmount || 0) : undefined;
     const missingLabels = [
       !merged.name && 'ชื่องาน',
       !merged.value && 'มูลค่างาน',
       !merged.client && 'ชื่อลูกค้า',
       !merged.paymentStatus && 'ได้รับเงินหรือยัง (ได้แล้ว/ยังไม่ได้/ได้มัดจำบางส่วน)',
-      needsCreditTerm && merged.creditTerm === undefined && 'จะได้เงินส่วนที่เหลืออีกกี่วัน',
+      needsCreditTerm && merged.creditTerm === undefined &&
+        (remaining ? `อีก ${formatCurrency(remaining)} จะได้เงินตอนไหน` : 'จะได้เงินส่วนที่เหลืออีกกี่วัน'),
     ].filter((s): s is string => !!s);
 
     if (missingLabels.length === 0) {
