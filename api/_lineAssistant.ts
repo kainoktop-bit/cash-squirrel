@@ -41,6 +41,8 @@ interface NotifSettingsRow {
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
   pendingJobDraft?: { draft: JobDraft; createdAt: string };
+  userName?: string;
+  nameAskedAt?: string;
   [key: string]: unknown;
 }
 
@@ -263,6 +265,7 @@ export interface ClassifyResult {
   expenseCategory?: string;
   expenseAmount?: number;
   answer?: string;
+  userName?: string;
 }
 
 // Single Claude call handles three things at once (question answering, add-job extraction,
@@ -272,7 +275,7 @@ export interface ClassifyResult {
 // interpreted as completing that draft rather than as an unrelated message with no job context
 // at all -- the caller (handleAssistantMessageInner) does its own field-level merge on top as a
 // safety net regardless of how well the model followed that instruction.
-async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobDraft?: JobDraft): Promise<ClassifyResult | null> {
+async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobDraft?: JobDraft, knownUserName?: string): Promise<ClassifyResult | null> {
   const ai = getClaudeClient();
   if (!ai) return null;
 
@@ -320,6 +323,7 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
                 expenseCategory: { type: 'string' },
                 expenseAmount: { type: 'number' },
                 answer: { type: 'string' },
+                userName: { type: 'string' },
               },
               required: ['intent'],
             },
@@ -331,11 +335,14 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
             content: `คุณคือ "พี่กระรอก" มาสคอตของแอปกระรอกตุนเงิน (แอปบันทึกรายรับ-รายจ่ายสำหรับฟรีแลนซ์) ตอบคำถามผู้ใช้ในแชท LINE
 
 บุคลิก:
-- เป็นเพื่อนสนิทที่คอยช่วยดูแลเรื่องเงินให้ พูดจาแบบกันเองสุดๆ เหมือนแชทคุยกับเพื่อน ไม่ใช่ผู้ช่วย AI ที่เป็นทางการ
-- ใช้ภาษาพูดธรรมดาแบบคนไทยคุยกันจริงๆ ไม่ต้องเกร็งหรือดูเป็นทางการ จะใช้ "ครับ" บ้างก็ได้แต่ไม่ต้องทุกประโยค เน้นความเป็นธรรมชาติเป็นหลัก
+- สวมบทบาทเป็น "พี่กระรอก" ตัวละครกระรอกจริงๆ ไม่ใช่ AI ผู้ช่วย -- เป็นเพื่อนสนิทที่คอยช่วยดูแลเรื่องเงินให้ พูดจาน่ารัก อ่อนโยน เป็นมิตร เหมือนแชทคุยกับเพื่อนที่ห่วงใยกัน
+- ใช้ภาษาพูดธรรมดาแบบคนไทยคุยกันจริงๆ ไม่ต้องเกร็งหรือดูเป็นทางการจนเกินไป แต่ก็ไม่ต้องเป็นกันเองจนหยาบคาย จะใช้ "ครับ" บ้างก็ได้แต่ไม่ต้องทุกประโยค เน้นความเป็นธรรมชาติเป็นหลัก
+- ห้ามใช้คำหยาบ คำไม่สุภาพ หรือคำแสลงหยาบคายเด็ดขาดไม่ว่ากรณีใด แม้ผู้ใช้จะพิมพ์คำหยาบมาก่อนก็ตาม ให้พูดจาสุภาพน่ารักเสมอ
 - แซวหรือเปรียบเทียบธีมกระรอก/เก็บเสบียง/โพรงไม้ได้บ้างเป็นครั้งคราวให้ดูมีคาแรคเตอร์ แต่อย่าใส่ทุกประโยคจนดูฝืน
 - ถ้าข่าวไม่ดี (เช่น มีงานค้างจ่าย เกินกำหนด) ให้บอกตรงไปตรงมาด้วยความเข้าใจและให้กำลังใจ ไม่ตำหนิหรือทำให้รู้สึกแย่
 - ความเป็นกันเองต้องไม่ทำให้คำตอบยืดยาวหรือคลุมเครือ -- ยังต้องตอบสั้น กระชับ ตรงประเด็นตามกฎด้านล่างเสมอ
+- ${knownUserName ? `รู้จักผู้ใช้คนนี้แล้ว ชื่อ "${knownUserName}" ให้เรียกชื่อนี้เป็นบางครั้งอย่างเป็นธรรมชาติเวลาทักทายหรือตอบ (ไม่ต้องเรียกทุกประโยคจนดูเยิ่นเย้อ)` : 'ยังไม่รู้ชื่อผู้ใช้คนนี้ -- ห้ามถามชื่อเองในคำตอบ (ระบบจะถามให้แยกต่างหากถ้าจำเป็น) แค่ตอบคำถามตามปกติไปก่อน'}
+- ถ้าข้อความนี้ผู้ใช้บอกชื่อตัวเอง (เช่น "ผมชื่อปาร์ค", "หนูชื่อฝนนะ", "เรียกว่าต้นก็ได้", "ชื่อเบียร์ครับ") ให้ทักทายตอบรับชื่อนั้นอย่างอบอุ่นน่ารักในคำตอบด้วย
 
 กฎสำคัญ:
 - ห้ามใช้สัญลักษณ์จัดรูปแบบแบบ markdown เด็ดขาด (ห้ามใช้ ** ทำตัวหนา, ห้ามใช้ # หัวข้อ, ห้ามใช้ * หรือ - นำหน้าเป็น bullet) เพราะแชท LINE ไม่รองรับ markdown จะเห็นเป็นสัญลักษณ์ดิบๆ แทน ให้เขียนเป็นข้อความธรรมดาล้วนๆ ใช้การขึ้นบรรทัดใหม่แทนถ้าต้องแยกรายการ
@@ -365,7 +372,8 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
   - expenseCategory: เลือกจากนี้เท่านั้น "${EXPENSE_CATEGORIES.join('", "')}" ถ้าไม่แน่ใจใช้ "อื่นๆ"
 - ถ้าข้อความเป็นคำถาม/สอบถามข้อมูล ให้ intent = "question" แล้วตอบใส่ช่อง answer ตามกฎด้านบนทั้งหมด
 - ถ้า intent = "add_job" แต่ไม่มี jobName หรือ jobValue หรือ intent = "add_expense" แต่ไม่มี expenseName หรือ expenseAmount ให้ยังคง intent นั้นไว้ แต่ใส่คำตอบในช่อง answer บอกสิ่งที่ขาดไปแบบเป็นมิตร ชวนพิมพ์มาใหม่พร้อมข้อมูลที่ขาด หรือกดปุ่ม "📝 ฟอร์มบันทึก" แทนก็ได้
-- ถ้าข้อความไม่เข้าเงื่อนไขไหนเลย (เช่นทักทายเฉยๆ ไม่รู้เรื่อง) ให้ intent = "other"
+- ถ้าข้อความไม่เข้าเงื่อนไขไหนเลย (เช่นทักทายเฉยๆ, บอกชื่อตัวเองเฉยๆ, พูดคุยทั่วไป) ให้ intent = "other" และถ้าเป็นการทักทาย/แนะนำตัว/พูดคุยเล็กๆ น้อยๆ ที่พอตอบกลับได้แบบมีคาแรคเตอร์ ให้ใส่คำตอบสั้นๆ อบอุ่นในช่อง answer ด้วย (ไม่ต้องใส่ก็ได้ถ้าข้อความไม่มีความหมายจับต้องได้เลย)
+- ไม่ว่า intent จะเป็นอะไรก็ตาม: ถ้าข้อความนี้มีการบอกชื่อของผู้ใช้เอง ให้ใส่เฉพาะชื่อเรียก (ไม่ใส่คำนำหน้า/คำอื่น) ลงในฟิลด์ userName เสมอ ไม่มีการบอกชื่อก็ไม่ต้องใส่ฟิลด์นี้
 ${pendingJobDraft ? `
 ผู้ใช้เพิ่งเริ่มบันทึกงานนี้ไว้เมื่อครู่แต่ข้อมูลยังไม่ครบ ยังค้างรออยู่: ${JSON.stringify(pendingJobDraft)}
 ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของงานนี้ (เช่น พิมพ์มาแค่ตัวเลขเดียว หรือชื่อลูกค้าเดียว โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_job" แล้วใส่ค่ากลับเข้าไปในฟิลด์ job* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมงานนี้เลย (เช่นถามคำถามอื่น หรือพูดถึงงาน/รายจ่ายใหม่คนละเรื่อง) ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_job` : ''}
@@ -393,6 +401,10 @@ ${JSON.stringify(formatted, null, 2)}
     }
     const parsed = toolUse.input as ClassifyResult;
     if (parsed.answer) parsed.answer = stripMarkdown(parsed.answer.trim());
+    if (parsed.userName) {
+      const cleaned = parsed.userName.trim().slice(0, 40);
+      parsed.userName = cleaned || undefined;
+    }
     if (!parsed.intent) {
       console.error('classifyMessage: tool_use input missing intent', {
         stopReason: response.stop_reason,
@@ -566,16 +578,18 @@ const QUICK_ACTIONS: Record<string, (snapshot: DataSnapshot) => LineMessage> = {
 // or erroring, e.g. quota) -- a greeting, a random question, or anything else. Since there's no
 // pending chat flow to get stuck in, this is always a safe, friendly fallback rather than a
 // leftover mid-conversation prompt.
-const HELP_TEXT = [
-  '🐿️ สวัสดีครับ! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ',
-  'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้',
-  'กดปุ่มด้านล่างได้เลย:',
-  '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
-  '📋 งานค้างจ่าย',
-  '📊 สรุปเดือนนี้',
-  '📅 งานเดือนนี้',
-  '📦 งานสต็อก',
-].join('\n');
+function buildHelpText(name?: string): string {
+  return [
+    `🐿️ สวัสดี${name ? `ครับคุณ${name}` : 'ครับ'}! กระรอกตุนเงินพร้อมช่วยดูแลเงินให้แล้วครับ`,
+    'พิมพ์เล่าเรื่องงาน/รายจ่ายมาได้เลย เดี๋ยวบันทึกให้ หรือถามอะไรเกี่ยวกับเงินๆ ทองๆ ก็ได้',
+    'กดปุ่มด้านล่างได้เลย:',
+    '📝 ฟอร์มบันทึก - เพิ่มงานหรือรายจ่ายใหม่',
+    '📋 งานค้างจ่าย',
+    '📊 สรุปเดือนนี้',
+    '📅 งานเดือนนี้',
+    '📦 งานสต็อก',
+  ].join('\n');
+}
 
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
 // via chat, so it's left at 0 -- editable in-app afterward same as any other field).
@@ -650,17 +664,52 @@ export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobF
 // Persists (or clears) the in-progress "add job" draft so the next message can complete it
 // instead of starting over -- best-effort: a failed write here just means the next message
 // starts fresh rather than resuming, never a hard failure the user sees.
+// Every notif_settings writer here mutates `user.notif_settings` locally right after a successful
+// write (instead of only writing to the DB) -- a single request can touch more than one of these
+// keys in a row (e.g. a message that both introduces a name AND leaves a job draft incomplete),
+// and each writer merges onto `user.notif_settings` as its base. Without updating that local
+// object in between, a later writer in the same request would merge onto the original stale
+// snapshot and silently drop whatever an earlier writer in this same request just saved.
 async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<void> {
   const notif_settings = { ...(user.notif_settings || {}), pendingJobDraft: { draft, createdAt: new Date().toISOString() } };
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
-  if (error) console.error('saveJobDraft error:', error);
+  if (error) { console.error('saveJobDraft error:', error); return; }
+  user.notif_settings = notif_settings;
 }
 
 async function clearJobDraft(user: UserRow): Promise<void> {
   if (!user.notif_settings?.pendingJobDraft) return;
   const { pendingJobDraft: _omit, ...rest } = user.notif_settings;
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: rest }).eq('user_id', user.user_id);
-  if (error) console.error('clearJobDraft error:', error);
+  if (error) { console.error('clearJobDraft error:', error); return; }
+  user.notif_settings = rest;
+}
+
+// Persists the name once extracted from a message -- kept forever (no TTL, unlike the job draft)
+// since remembering it is the whole point; a later message with a different name just overwrites it.
+async function saveUserName(user: UserRow, name: string): Promise<void> {
+  const notif_settings = { ...(user.notif_settings || {}), userName: name };
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
+  if (error) { console.error('saveUserName error:', error); return; }
+  user.notif_settings = notif_settings;
+}
+
+// Marks that we've asked for the user's name so the bot only ever asks once, even if they never
+// answer -- same "never leave the user stuck or nagged" philosophy as the job draft TTL above.
+async function markNameAsked(user: UserRow): Promise<void> {
+  const notif_settings = { ...(user.notif_settings || {}), nameAskedAt: new Date().toISOString() };
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
+  if (error) { console.error('markNameAsked error:', error); return; }
+  user.notif_settings = notif_settings;
+}
+
+// Tacks a one-time, friendly ask for the user's name onto an outgoing plain-text reply -- never
+// fires if the name is already known or has already been asked for once before, so it's a single
+// gentle nudge rather than a recurring nag.
+async function appendNameAskIfNeeded(user: UserRow, knowsName: boolean, alreadyAsked: boolean, replyText: string): Promise<string> {
+  if (knowsName || alreadyAsked) return replyText;
+  await markNameAsked(user);
+  return `${replyText}\n\nป.ล. เรียกคุณว่าอะไรดีครับ พิมพ์ชื่อมาบอกได้เลย จะได้จำไว้เรียกทุกครั้งเลยครับ 🐿️`;
 }
 
 // Bangkok "20 ส.ค. 2569 00:18" style timestamp, matching what people expect from a receipt card.
@@ -979,14 +1028,26 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     ? storedDraft.draft
     : undefined;
 
+  const existingName = user.notif_settings?.userName?.trim() || undefined;
+  const alreadyAskedName = !!user.notif_settings?.nameAskedAt;
+
   // Anything else goes through one combined Claude call -- could be a question, or a natural-
   // language "just add this job/expense" message. classifyMessage returns null whenever Claude
   // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
   // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft);
+  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName);
   if (!result) {
-    return { type: 'text', text: HELP_TEXT };
+    const replyText = await appendNameAskIfNeeded(user, !!existingName, alreadyAskedName, buildHelpText(existingName));
+    return { type: 'text', text: replyText };
   }
+
+  // A message can introduce the user's own name alongside anything else it's doing -- save it
+  // right away and fold it into the in-memory `user` snapshot so it's already known name-wise for
+  // the rest of this request (see the comment above saveJobDraft for why that mutation matters).
+  if (result.userName && result.userName !== existingName) {
+    await saveUserName(user, result.userName);
+  }
+  const knownName = result.userName || existingName;
 
   if (result.intent === 'add_job') {
     // Merge onto whatever was already captured from an earlier incomplete message -- a field
@@ -1053,10 +1114,13 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     await saveJobDraft(user, merged);
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
-    return {
-      type: 'text',
-      text: `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`,
-    };
+    const replyText = await appendNameAskIfNeeded(
+      user,
+      !!knownName,
+      alreadyAskedName,
+      `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
+    );
+    return { type: 'text', text: replyText };
   }
 
   if (result.intent === 'add_expense') {
@@ -1073,12 +1137,23 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       }
       return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
     }
-    return { type: 'text', text: result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
+    const replyText = await appendNameAskIfNeeded(
+      user,
+      !!knownName,
+      alreadyAskedName,
+      result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย'
+    );
+    return { type: 'text', text: replyText };
   }
 
-  if (result.intent === 'question' && result.answer) {
-    return { type: 'text', text: result.answer };
+  // Any intent's `answer` is usable here now, not just "question" -- lets a plain greeting or
+  // name introduction (intent "other") get a real in-character reply instead of always falling
+  // through to the generic buildHelpText below.
+  if (result.answer) {
+    const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, result.answer);
+    return { type: 'text', text: replyText };
   }
 
-  return { type: 'text', text: HELP_TEXT };
+  const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, buildHelpText(knownName));
+  return { type: 'text', text: replyText };
 }
