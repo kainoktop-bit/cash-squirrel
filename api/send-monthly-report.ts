@@ -17,7 +17,7 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
-const FREE_TRIAL_DAYS = 30;
+const FREE_TRIAL_DAYS = 14;
 
 interface NotifSettingsRow {
   alertEmail?: string;

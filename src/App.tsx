@@ -549,9 +549,9 @@ export default function App() {
     currentPeriodEnd: string | null;
   } | null>(null);
 
-  // First 30 days after signup are free automatically, based on the account's real creation
+  // First 14 days after signup are free automatically, based on the account's real creation
   // date from Supabase Auth (not something the client can fake). No Stripe interaction needed.
-  const FREE_TRIAL_DAYS = 30;
+  const FREE_TRIAL_DAYS = 14;
   const trialEndsAt = React.useMemo(() => {
     const createdAt = session?.user?.created_at;
     if (!createdAt || session?.isGuest) return null;
@@ -681,7 +681,7 @@ export default function App() {
     if (checkoutResult && session?.user?.id) {
       if (checkoutResult === 'success') {
         loadSubscriptionData(session.user.id);
-        triggerAlert('สมัครสมาชิกสำเร็จ!', 'เริ่มทดลองใช้ฟรี 30 วันได้เลยครับ ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
+        triggerAlert('สมัครสมาชิกสำเร็จ!', 'ขอบคุณที่สนับสนุนกระรอกตุนเงินนะครับ!');
       }
       window.history.replaceState({}, '', window.location.pathname + window.location.hash);
     }

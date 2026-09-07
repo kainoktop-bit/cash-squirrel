@@ -53,6 +53,51 @@ interface NotifSettingsRow {
 // point is nothing ever leaves the user stuck, per the note on handleAssistantMessageInner.
 const PENDING_JOB_DRAFT_TTL_MS = 15 * 60 * 1000;
 
+// Same trial length and Pro-check shape as api/send-overdue-digest.ts's isPro -- LINE chat is a
+// Pro-only feature (per PlansTab's feature list), so once neither the free trial nor a paid
+// period covers this user anymore, handleAssistantMessageInner short-circuits to a renewal
+// prompt instead of processing the message. Duplicated rather than shared: this codebase already
+// keeps FREE_TRIAL_DAYS as an independent constant per file (App.tsx, send-overdue-digest.ts,
+// send-monthly-report.ts) since there's no server/client-shared config module.
+const FREE_TRIAL_DAYS = 14;
+
+// Same one-time ฿149 THB Payment Link used by App.tsx's handleUpgrade -- client_reference_id is
+// appended per-user below so the Stripe webhook can attribute the payment correctly.
+const PRO_PAYMENT_LINK = 'https://buy.stripe.com/5kQ3cudDD1mg93n8a75wI03';
+
+async function isProUser(userId: string): Promise<boolean> {
+  const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
+    supabaseAdmin.auth.admin.getUserById(userId),
+    supabaseAdmin.from('subscriptions').select('status, current_period_end').eq('user_id', userId).maybeSingle(),
+  ]);
+  // A real lookup failure is indistinguishable here from "actually expired" -- fail open (treat
+  // as Pro) rather than risk locking a paying user out of LINE chat over a transient DB hiccup.
+  if (authErr || subErr) {
+    console.error('isProUser: lookup failed, failing open:', { authErr, subErr });
+    return true;
+  }
+
+  const createdAt = authUser?.user?.created_at;
+  const isInFreeTrial = !!createdAt && new Date(createdAt).getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000 > Date.now();
+
+  const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();
+
+  return isInFreeTrial || isPaidActive;
+}
+
+// Shown instead of processing anything once a user's trial/paid period has lapsed -- polite,
+// in-character, and points straight at checkout (client_reference_id pre-filled) rather than
+// making them find the upgrade button in the app themselves.
+function buildRenewalMessage(user: UserRow): LineMessage {
+  const url = new URL(PRO_PAYMENT_LINK);
+  url.searchParams.set('client_reference_id', user.user_id);
+  if (user.email) url.searchParams.set('prefilled_email', user.email);
+  return {
+    type: 'text',
+    text: `แพ็กเกจ Pro ของคุณหมดอายุแล้วครับ 🥲 การคุยกับผมผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro น่ะครับ\n\nต่ออายุง่ายๆ กดลิงก์นี้ได้เลย พอจ่ายเสร็จกลับมาคุยกับผมต่อได้ทันที: ${url.toString()}`,
+  };
+}
+
 export interface UserRow {
   user_id: string;
   email?: string;
@@ -1030,6 +1075,13 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     return { type: 'text', text: 'ขอโทษครับ ระบบมีปัญหาชั่วคราวตอนนี้ ลองพิมพ์คำถามใหม่อีกครั้งครับ' };
   }
   if (!user) return null;
+
+  // LINE chat is a Pro-only feature (per PlansTab's feature list) -- once the free trial and any
+  // paid period have both lapsed, every message gets this renewal prompt instead of being
+  // processed, so the bot never keeps working indefinitely for an expired account.
+  if (!(await isProUser(user.user_id))) {
+    return buildRenewalMessage(user);
+  }
 
   const trimmed = text.trim();
 

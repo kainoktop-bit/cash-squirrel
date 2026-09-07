@@ -4,7 +4,7 @@ import { sendGmailEmail } from './_gmail.js';
 import { sendLineMessageToEmail } from './_line.js';
 import type { LineMessage } from './_line.js';
 
-const FREE_TRIAL_DAYS = 30;
+const FREE_TRIAL_DAYS = 14;
 
 interface JobRow {
   id: string;
