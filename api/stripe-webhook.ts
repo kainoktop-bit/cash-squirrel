@@ -69,6 +69,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Revoke Pro access immediately on refund -- without this, a refunded user keeps full Pro
+    // access (including LINE chat) for the rest of the 30-day period as if nothing happened.
+    // The Charge object itself doesn't carry client_reference_id (that's only on the Checkout
+    // Session), so we look up the Session for this charge's PaymentIntent to find the user_id,
+    // same way the payment side attributes access in the first place.
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+
+      if (paymentIntentId) {
+        const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 });
+        const userId = sessions.data[0]?.client_reference_id;
+
+        if (userId) {
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              status: 'canceled',
+              current_period_end: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+        } else {
+          console.error('stripe-webhook: charge.refunded with no client_reference_id on its Checkout Session', { paymentIntentId });
+        }
+      }
+    }
+
     res.status(200).json({ received: true });
   } catch (err: any) {
     console.error('stripe-webhook handler error:', err);
