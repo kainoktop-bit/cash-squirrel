@@ -324,9 +324,10 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
 - ถ้าข้อความบรรยายว่าเพิ่งรับงาน/ดีลใหม่เข้ามา (บอกว่าทำงานอะไร ได้ค่าจ้างเท่าไหร่ ขอให้บันทึกเป็นรายรับ) ให้ intent = "add_job" แล้วแยกข้อมูลใส่ฟิลด์ job* ทั้งหมดเท่าที่จับใจความได้:
   - jobName (บังคับ): ชื่องานสั้นๆ
   - jobValue (บังคับ): มูลค่างานเต็มเป็นตัวเลขล้วน ไม่ใส่หน่วย ห้ามเดาถ้าข้อความไม่ได้ระบุจำนวนเงินชัดเจน
+  - jobClient (บังคับ): ชื่อลูกค้าหรือบริษัทที่จ้าง ถ้าข้อความไม่ได้ระบุชื่อลูกค้าเลย ห้ามใส่ฟิลด์นี้มา (อย่าเดาหรือใส่ค่าว่าง ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย)
   - jobType: เลือกจากนี้เท่านั้น "${DEFAULT_JOB_TYPES.join('", "')}" ถ้าไม่แน่ใจใช้ "${DEFAULT_JOB_TYPES[DEFAULT_JOB_TYPES.length - 1]}"
-  - jobPaymentStatus: "paid" ถ้าข้อความบอกว่าได้รับเงินครบแล้ว/ลูกค้าจ่ายแล้ว เช่น "ได้เงินมาแล้ว", "จ่ายเรียบร้อยแล้ว", "จ่ายครบแล้ว", "โอนมาแล้ว", "รับเงินแล้ว" -- วลีเหล่านี้หมายถึงลูกค้าจ่ายเงินให้ผู้ใช้แล้วเสมอ ไม่ใช่ผู้ใช้จ่ายเงินออกไป อย่าตีความผิดทาง; "partial" ถ้าได้แค่มัดจำบางส่วน (ต้องระบุ jobReceivedAmount ด้วย); "pending" เฉพาะตอนที่ข้อความบอกชัดเจนว่ายังไม่ได้รับเงิน หรือไม่ได้พูดถึงสถานะการจ่ายเงินเลย -- ห้ามเลือก pending ถ้าข้อความมีคำบ่งชี้ว่าได้รับเงินแล้วแบบข้างต้น
-  - jobCreditTerm: จำนวนวันที่ลูกค้าจะโอนหลังส่งงาน ถ้าไม่พูดถึงใส่ 0 (ได้เงินทันที)
+  - jobPaymentStatus (บังคับ): "paid" ถ้าข้อความบอกว่าได้รับเงินครบแล้ว/ลูกค้าจ่ายแล้ว เช่น "ได้เงินมาแล้ว", "จ่ายเรียบร้อยแล้ว", "จ่ายครบแล้ว", "โอนมาแล้ว", "รับเงินแล้ว" -- วลีเหล่านี้หมายถึงลูกค้าจ่ายเงินให้ผู้ใช้แล้วเสมอ ไม่ใช่ผู้ใช้จ่ายเงินออกไป อย่าตีความผิดทาง; "partial" ถ้าได้แค่มัดจำบางส่วน (ต้องระบุ jobReceivedAmount ด้วย); "pending" เฉพาะตอนที่ข้อความบอกชัดเจนว่ายังไม่ได้รับเงิน -- ถ้าข้อความไม่ได้พูดถึงสถานะการจ่ายเงินเลย ห้ามเดาเป็น pending เด็ดขาด ให้ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย (ต้องถามผู้ใช้ก่อนเสมอ ห้ามสันนิษฐานเอง)
+  - jobCreditTerm: จำนวนวันที่ลูกค้าจะโอนหลังส่งงาน ใส่เฉพาะตอนที่ jobPaymentStatus ไม่ใช่ "paid" และข้อความระบุมาชัดเจน (เช่น "เครดิต 30 วัน", "จ่ายทันที" = ใส่ 0) ถ้า jobPaymentStatus เป็น "paid" อยู่แล้วไม่ต้องใส่ฟิลด์นี้เลย (ไม่เกี่ยวข้อง); ถ้ายังไม่ paid แต่ข้อความไม่ได้พูดถึงเครดิตเทอมเลย ห้ามเดาใส่ 0 ให้ปล่อยว่างไว้ไม่ต้องมีคีย์นี้เลย
   - jobWhtRate: % หัก ณ ที่จ่ายถ้าพูดถึง (0, 1, 3, หรือ 5) ไม่พูดถึงใส่ 0
 - ถ้าข้อความบรรยายว่าเพิ่งจ่ายรายจ่าย/ค่าใช้จ่ายออกไป (ไม่ใช่รายรับ) ให้ intent = "add_expense" แล้วแยกใส่:
   - expenseName (บังคับ): ชื่อรายการสั้นๆ
@@ -955,14 +956,27 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       ...(result.jobWhtRate !== undefined && { whtRate: result.jobWhtRate }),
     };
 
-    if (merged.name && merged.value) {
+    // Required before actually saving: name, value, client, and whether payment's been
+    // received -- these are the fields a freelancer actually needs on record for every job, not
+    // just enough to technically build a row. Credit term is only required once payment status
+    // is known AND isn't "paid" (a job already paid in full has no meaningful credit term left).
+    const needsCreditTerm = merged.paymentStatus != null && merged.paymentStatus !== 'paid';
+    const missingLabels = [
+      !merged.name && 'ชื่องาน',
+      !merged.value && 'มูลค่างาน',
+      !merged.client && 'ชื่อลูกค้า',
+      !merged.paymentStatus && 'ได้รับเงินหรือยัง (ได้แล้ว/ยังไม่ได้/ได้มัดจำบางส่วน)',
+      needsCreditTerm && merged.creditTerm === undefined && 'จะได้เงินอีกกี่วัน (เครดิตเทอม)',
+    ].filter((s): s is string => !!s);
+
+    if (missingLabels.length === 0) {
       const draft: JobDraft = {
-        name: merged.name,
+        name: merged.name!,
         client: merged.client,
         type: merged.type,
-        value: merged.value,
+        value: merged.value!,
         creditTerm: merged.creditTerm || 0,
-        paymentStatus: merged.paymentStatus || 'pending',
+        paymentStatus: merged.paymentStatus,
         receivedAmount: merged.receivedAmount,
         whtRate: merged.whtRate || 0,
       };
@@ -975,15 +989,14 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
     }
 
-    // Still missing something required -- keep what's been said so far and ask specifically for
-    // what's left, instead of discarding it all and making the user retype from scratch.
+    // Still missing something -- keep what's been said so far and ask specifically for what's
+    // left, instead of discarding it all and making the user retype from scratch.
     await saveJobDraft(user, merged);
-    const missingLabels = [!merged.name && 'ชื่องาน', !merged.value && 'มูลค่างาน'].filter((s): s is string => !!s);
-    const missingText = missingLabels.join(' กับ ');
-    const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null].filter(Boolean).join(' ');
+    const missingText = missingLabels.join(', ');
+    const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
     return {
       type: 'text',
-      text: `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} เหลือแค่บอก${missingText}เพิ่มอีกนิดเดียวครับ`,
+      text: `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`,
     };
   }
 
