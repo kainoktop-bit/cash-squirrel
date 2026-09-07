@@ -15,11 +15,16 @@ import {
   formatCurrency,
 } from './_monthlySummary.js';
 
-// No multi-turn chat wizard for adding a job/expense -- that flow was removed for leaving people
-// stuck mid-conversation answering the wrong follow-up question. What replaced it: the LIFF form
-// (api/liff-submit.ts) for a proper multi-field UI, and -- back again here -- single-shot
+// No open-ended multi-turn chat wizard for adding a job/expense -- that flow was removed for
+// leaving people stuck mid-conversation answering the wrong follow-up question, with no way out.
+// What replaced it: the LIFF form (api/liff-submit.ts) for a proper multi-field UI, and --
 // natural-language add-job/add-expense (classifyMessage extracts everything from one message and
-// saves immediately, no pending/waiting state stored at all, so there's nothing to get stuck in).
+// saves immediately). The one exception is a bounded "pending job draft" (see
+// PENDING_JOB_DRAFT_TTL_MS / saveJobDraft / clearJobDraft below): if a message is missing a
+// required field, what was captured is saved and the reply asks specifically for what's left, so
+// a short follow-up (just a number, just a name) completes it instead of making the user retype
+// the whole thing -- but it expires on its own after PENDING_JOB_DRAFT_TTL_MS and is never
+// surfaced as "still waiting", so there's still no state a user can get permanently stuck in.
 // Everything else is either a fixed Quick Reply command (zero AI cost) or a Gemini-answered
 // question grounded in the user's real data -- with a static fallback (HELP_TEXT) if Gemini is
 // unconfigured or errors (e.g. free-tier quota), so a Gemini outage degrades to "here are the
@@ -35,8 +40,16 @@ interface NotifSettingsRow {
   lineUserId?: string;
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
+  pendingJobDraft?: { draft: JobDraft; createdAt: string };
   [key: string]: unknown;
 }
+
+// How long a partial "add job" draft stays available to be completed by a follow-up message.
+// Short enough that a user who never comes back isn't left with a stale draft resurfacing days
+// later and getting silently merged into an unrelated message; long enough to actually type a
+// reply. Expired drafts are just dropped, never surfaced as "your draft expired" -- the whole
+// point is nothing ever leaves the user stuck, per the note on handleAssistantMessageInner.
+const PENDING_JOB_DRAFT_TTL_MS = 15 * 60 * 1000;
 
 export interface UserRow {
   user_id: string;
@@ -253,13 +266,12 @@ export interface ClassifyResult {
 
 // Single Gemini call handles three things at once (question answering, add-job extraction,
 // add-expense extraction) -- merging call sites is what fixed the free-tier 429 rate limit
-// before (see git history), so this stays one call rather than three. Strictly single-shot: no
-// pending/waiting state is ever stored, so there's nothing to leave a user stuck answering the
-// wrong follow-up question (the exact bug class the old multi-turn chat wizard had, which is why
-// it was removed in favor of the LIFF form). If required fields are missing from one message,
-// the caller just asks the user to resend with more detail -- never a stored "still waiting for
-// field X" state.
-async function classifyMessage(text: string, snapshot: DataSnapshot): Promise<ClassifyResult | null> {
+// before (see git history), so this stays one call rather than three. `pendingJobDraft`, when
+// present, is folded into the prompt so a short follow-up ("1500", just a client name) gets
+// interpreted as completing that draft rather than as an unrelated message with no job context
+// at all -- the caller (handleAssistantMessageInner) does its own field-level merge on top as a
+// safety net regardless of how well the model followed that instruction.
+async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobDraft?: JobDraft): Promise<ClassifyResult | null> {
   const ai = getGeminiClient();
   if (!ai) return null;
 
@@ -323,6 +335,9 @@ async function classifyMessage(text: string, snapshot: DataSnapshot): Promise<Cl
 - ถ้าข้อความเป็นคำถาม/สอบถามข้อมูล ให้ intent = "question" แล้วตอบใส่ช่อง answer ตามกฎด้านบนทั้งหมด
 - ถ้า intent = "add_job" แต่ไม่มี jobName หรือ jobValue หรือ intent = "add_expense" แต่ไม่มี expenseName หรือ expenseAmount ให้ยังคง intent นั้นไว้ แต่ใส่คำตอบในช่อง answer บอกสิ่งที่ขาดไปแบบเป็นมิตร ชวนพิมพ์มาใหม่พร้อมข้อมูลที่ขาด หรือกดปุ่ม "📝 ฟอร์มบันทึก" แทนก็ได้
 - ถ้าข้อความไม่เข้าเงื่อนไขไหนเลย (เช่นทักทายเฉยๆ ไม่รู้เรื่อง) ให้ intent = "other"
+${pendingJobDraft ? `
+ผู้ใช้เพิ่งเริ่มบันทึกงานนี้ไว้เมื่อครู่แต่ข้อมูลยังไม่ครบ ยังค้างรออยู่: ${JSON.stringify(pendingJobDraft)}
+ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของงานนี้ (เช่น พิมพ์มาแค่ตัวเลขเดียว หรือชื่อลูกค้าเดียว โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_job" แล้วใส่ค่ากลับเข้าไปในฟิลด์ job* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมงานนี้เลย (เช่นถามคำถามอื่น หรือพูดถึงงาน/รายจ่ายใหม่คนละเรื่อง) ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_job` : ''}
 
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
@@ -591,6 +606,22 @@ export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobF
     return false;
   }
   return true;
+}
+
+// Persists (or clears) the in-progress "add job" draft so the next message can complete it
+// instead of starting over -- best-effort: a failed write here just means the next message
+// starts fresh rather than resuming, never a hard failure the user sees.
+async function saveJobDraft(user: UserRow, draft: JobDraft): Promise<void> {
+  const notif_settings = { ...(user.notif_settings || {}), pendingJobDraft: { draft, createdAt: new Date().toISOString() } };
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
+  if (error) console.error('saveJobDraft error:', error);
+}
+
+async function clearJobDraft(user: UserRow): Promise<void> {
+  if (!user.notif_settings?.pendingJobDraft) return;
+  const { pendingJobDraft: _omit, ...rest } = user.notif_settings;
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: rest }).eq('user_id', user.user_id);
+  if (error) console.error('clearJobDraft error:', error);
 }
 
 // Bangkok "20 ส.ค. 2569 00:18" style timestamp, matching what people expect from a receipt card.
@@ -890,35 +921,70 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     return QUICK_ACTIONS[trimmed](buildDataSnapshot(user));
   }
 
+  // A draft only counts if it's still within TTL -- an expired one is silently dropped rather
+  // than resumed, so a message sent long after an abandoned "add job" attempt is never
+  // mysteriously merged into it.
+  const storedDraft = user.notif_settings?.pendingJobDraft;
+  const pendingDraft = storedDraft && Date.now() - new Date(storedDraft.createdAt).getTime() < PENDING_JOB_DRAFT_TTL_MS
+    ? storedDraft.draft
+    : undefined;
+
   // Anything else goes through one combined Gemini call -- could be a question, or a natural-
   // language "just add this job/expense" message. classifyMessage returns null whenever Gemini
   // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
   // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const result = await classifyMessage(trimmed, buildDataSnapshot(user));
+  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft);
   if (!result) {
     return { type: 'text', text: HELP_TEXT };
   }
 
   if (result.intent === 'add_job') {
-    if (result.jobName && result.jobValue) {
+    // Merge onto whatever was already captured from an earlier incomplete message -- a field
+    // this message provides always overrides the stored one, but a field it doesn't mention
+    // keeps its earlier value instead of the whole draft being thrown away and the user having
+    // to repeat everything they already said.
+    const merged: JobDraft = {
+      ...pendingDraft,
+      ...(result.jobName !== undefined && { name: result.jobName }),
+      ...(result.jobClient !== undefined && { client: result.jobClient }),
+      ...(result.jobType !== undefined && { type: result.jobType }),
+      ...(result.jobValue !== undefined && { value: result.jobValue }),
+      ...(result.jobCreditTerm !== undefined && { creditTerm: result.jobCreditTerm }),
+      ...(result.jobPaymentStatus !== undefined && { paymentStatus: result.jobPaymentStatus }),
+      ...(result.jobReceivedAmount !== undefined && { receivedAmount: result.jobReceivedAmount }),
+      ...(result.jobWhtRate !== undefined && { whtRate: result.jobWhtRate }),
+    };
+
+    if (merged.name && merged.value) {
       const draft: JobDraft = {
-        name: result.jobName,
-        client: result.jobClient,
-        type: result.jobType,
-        value: result.jobValue,
-        creditTerm: result.jobCreditTerm || 0,
-        paymentStatus: result.jobPaymentStatus || 'pending',
-        receivedAmount: result.jobReceivedAmount,
-        whtRate: result.jobWhtRate || 0,
+        name: merged.name,
+        client: merged.client,
+        type: merged.type,
+        value: merged.value,
+        creditTerm: merged.creditTerm || 0,
+        paymentStatus: merged.paymentStatus || 'pending',
+        receivedAmount: merged.receivedAmount,
+        whtRate: merged.whtRate || 0,
       };
       const job = buildJobFromDraft(draft);
       const ok = await persistJob(user, job);
       if (!ok) {
         return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
       }
+      if (pendingDraft) await clearJobDraft(user);
       return buildJobSavedMessage(job, computeMonthNetForUser(user, job));
     }
-    return { type: 'text', text: result.answer || 'ขอชื่องานกับมูลค่างานด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย' };
+
+    // Still missing something required -- keep what's been said so far and ask specifically for
+    // what's left, instead of discarding it all and making the user retype from scratch.
+    await saveJobDraft(user, merged);
+    const missingLabels = [!merged.name && 'ชื่องาน', !merged.value && 'มูลค่างาน'].filter((s): s is string => !!s);
+    const missingText = missingLabels.join(' กับ ');
+    const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null].filter(Boolean).join(' ');
+    return {
+      type: 'text',
+      text: `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} เหลือแค่บอก${missingText}เพิ่มอีกนิดเดียวครับ`,
+    };
   }
 
   if (result.intent === 'add_expense') {
