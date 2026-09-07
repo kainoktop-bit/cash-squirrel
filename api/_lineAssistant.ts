@@ -625,7 +625,20 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
 }
 
 export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraft>): Promise<boolean> {
-  const jobs = [...(user.jobs || []), job];
+  // Re-read jobs right before writing, not the `user` snapshot fetched at the top of this
+  // request -- the Gemini/Claude call in between can take several seconds, plenty of time for a
+  // concurrent delete from the web app to land in that window. Appending onto the stale snapshot
+  // would silently resurrect whatever was deleted the moment this write overwrites the column.
+  const { data: current, error: fetchErr } = await supabaseAdmin
+    .from('user_cashflow_data')
+    .select('jobs')
+    .eq('user_id', user.user_id)
+    .maybeSingle();
+  if (fetchErr) {
+    console.error('persistJob: failed to re-fetch current jobs:', fetchErr);
+    return false;
+  }
+  const jobs = [...(current?.jobs || user.jobs || []), job];
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ jobs }).eq('user_id', user.user_id);
   if (error) {
     console.error('persistJob error:', error);
@@ -776,7 +789,18 @@ export function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
 }
 
 export async function persistExpense(user: UserRow, expense: Expense): Promise<boolean> {
-  const expenses = [...(user.expenses || []), expense];
+  // Same reasoning as persistJob above -- re-read right before writing instead of trusting the
+  // snapshot fetched before the (potentially several-second) Claude call.
+  const { data: current, error: fetchErr } = await supabaseAdmin
+    .from('user_cashflow_data')
+    .select('expenses')
+    .eq('user_id', user.user_id)
+    .maybeSingle();
+  if (fetchErr) {
+    console.error('persistExpense: failed to re-fetch current expenses:', fetchErr);
+    return false;
+  }
+  const expenses = [...(current?.expenses || user.expenses || []), expense];
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ expenses }).eq('user_id', user.user_id);
   if (error) {
     console.error('persistExpense error:', error);
