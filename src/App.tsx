@@ -29,7 +29,7 @@ import { MascotToast } from './components/MascotToast';
 import { TourModal, TourStep } from './components/TourModal';
 import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { PremiumUpsell } from './components/PremiumUpsell';
-import { ProPromoModal, ProPromoCard } from './components/ProPromoModal';
+import { ProPromoModal } from './components/ProPromoModal';
 import { fireMascot } from './mascotBus';
 import { leafBus } from './leafBus';
 import { IconCrown, IconPalette } from './components/icons';
@@ -542,7 +542,6 @@ export default function App() {
   const deletedJobIdsRef = useRef<Set<string>>(new Set());
   const deletedExpenseIdsRef = useRef<Set<string>>(new Set());
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
-  const [isProBannerVisible, setIsProBannerVisible] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
     status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
@@ -1022,22 +1021,18 @@ export default function App() {
     if (isPro && isProPromoOpen) setIsProPromoOpen(false);
   }, [isPro, isProPromoOpen]);
 
-  // Same gating idea as the modal above, but for the quieter Dashboard banner -- shown at most
-  // once every 7 days (elapsed time, not calendar-day/week boundaries, so it doesn't matter what
-  // day of the week someone first sees it) instead of once a day, and dismissing it just hides it
-  // for the rest of that week rather than needing separate dismiss-tracking storage.
+  // Second, independent trigger for the same popup: at most once every 7 days (elapsed time, not
+  // calendar-day/week boundaries -- doesn't matter what day of the week someone first sees it).
+  // Reuses isProPromoOpen/ProPromoModal itself rather than a separate banner -- a free user should
+  // see the same closeable popup either way, just on two different cadences that can both apply.
   useEffect(() => {
     if (!isLoadedForUser || session?.isGuest || subscription === null || isPro) return;
     const storageKey = `cashflow_pro_banner_last_shown_${isLoadedForUser}`;
     const lastShown = Number(localStorage.getItem(storageKey) || 0);
     if (Date.now() - lastShown < 7 * 24 * 60 * 60 * 1000) return;
     localStorage.setItem(storageKey, String(Date.now()));
-    setIsProBannerVisible(true);
+    setIsProPromoOpen(true);
   }, [isLoadedForUser, session?.isGuest, subscription, isPro]);
-
-  useEffect(() => {
-    if (isPro && isProBannerVisible) setIsProBannerVisible(false);
-  }, [isPro, isProBannerVisible]);
 
   // Sync statuses and jobTypes to LocalStorage. Guest/demo sessions are deliberately excluded --
   // "ทดลองใช้งานระบบฟรี" is meant to reset to the same sample scenario on every fresh visit, so
@@ -2249,20 +2244,6 @@ export default function App() {
         {/* Scrollable Container with responsive max widths */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 no-scrollbar bg-brand-bg text-brand-text w-full max-w-7xl mx-auto">
           
-          {/* Weekly dismissible "upgrade to Pro" reminder for free users -- Dashboard only, gated
-              to once every 7 days by the useEffect above so it never nags on every visit. Same
-              rich card as the daily popup (ProPromoCard), just rendered inline instead of as an
-              overlay. */}
-          {activeTab === 'dashboard' && isProBannerVisible && !isPro && (
-            <div className="mb-6 animate-fade-in">
-              <ProPromoCard
-                onUpgrade={() => setActiveTab('plans')}
-                onClose={() => setIsProBannerVisible(false)}
-                className="w-full max-w-2xl mx-auto"
-              />
-            </div>
-          )}
-
           {/* Global Month Exploration Bar (สำรวจฤดูกาลเก็บเกี่ยว) - Display only on Dashboard */}
           {activeTab === 'dashboard' && (
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-white dark:bg-stone-900 border border-brand-border/60 rounded-3xl p-5 shadow-sm animate-fade-in">
