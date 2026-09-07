@@ -49,8 +49,6 @@ interface JobsTabProps {
     onConfirm: (val: string) => void,
     onCancel?: () => void
   ) => void;
-  openJobId?: string | null;
-  onOpenJobHandled?: () => void;
   // Deep-link that scrolls straight to a job's card in the list and briefly highlights it,
   // instead of opening the edit form -- used by the credit-term board and Dashboard's summary
   // breakdown so clicking a job jumps to the exact "ได้เงินครบแล้ว/ได้มัดจำ" quick-action row.
@@ -73,8 +71,6 @@ export default function JobsTab({
   triggerAlert,
   triggerConfirm,
   triggerPrompt,
-  openJobId,
-  onOpenJobHandled,
   scrollToJobId,
   onScrollToJobHandled,
 }: JobsTabProps) {
@@ -156,14 +152,6 @@ export default function JobsTab({
   // Lets a caller (e.g. the "โพสต์แล้ว รอรับเงิน" quick action) open the edit modal straight on
   // a specific step instead of always starting at step 1. Consumed once, then reset.
   const editStartStepRef = React.useRef(1);
-
-  // Lets another tab (e.g. Timeline) deep-link into a specific job's detail/edit modal by id.
-  React.useEffect(() => {
-    if (!openJobId) return;
-    const target = jobs.find((j) => j.id === openJobId);
-    if (target) setEditingJob(target);
-    onOpenJobHandled?.();
-  }, [openJobId, jobs, onOpenJobHandled]);
 
   // Edit form states
   const [editName, setEditName] = useState('');

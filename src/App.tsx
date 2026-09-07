@@ -1047,11 +1047,12 @@ export default function App() {
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
-  const [jobIdToOpen, setJobIdToOpen] = useState<string | null>(null);
   // Deep-link that scrolls the Jobs tab list to a specific job and briefly highlights it --
   // used by clickable summary figures/lists across other tabs (Dashboard's hero card, the
-  // credit-term board) so clicking a job jumps straight to its "ได้เงินครบแล้ว/ได้มัดจำ"
-  // quick-action row instead of opening a separate read-only popup.
+  // credit-term board, the LINE bot's "เปิดแอป" button on a saved-job card) so clicking/tapping
+  // a job jumps straight to its "ได้เงินครบแล้ว/ได้มัดจำ" quick-action row in the real list,
+  // instead of opening a separate read-only popup or leaving the user to scroll through however
+  // many jobs they've recorded to find it themselves.
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
   // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
@@ -1070,7 +1071,7 @@ export default function App() {
     const openAddExpense = params.get('openAddExpense');
     if (!jobId && !openAddJob && !openAddExpense) return;
 
-    if (jobId) setJobIdToOpen(jobId);
+    if (jobId) setScrollToJobId(jobId);
     if (openAddJob) {
       setRecordMode('income');
       setIsAddJobOpen(true);
@@ -2360,8 +2361,6 @@ export default function App() {
                       triggerAlert={triggerAlert}
                       triggerConfirm={triggerConfirm}
                       triggerPrompt={triggerPrompt}
-                      openJobId={jobIdToOpen}
-                      onOpenJobHandled={() => setJobIdToOpen(null)}
                       scrollToJobId={scrollToJobId}
                       onScrollToJobHandled={() => setScrollToJobId(null)}
                     />
@@ -2406,7 +2405,7 @@ export default function App() {
                   settings={settings}
                   statuses={statuses}
                   onEditJob={(jobId) => {
-                    setJobIdToOpen(jobId);
+                    setScrollToJobId(jobId);
                     setActiveTab('jobs');
                   }}
                   onDeleteJob={handleDeleteJob}
