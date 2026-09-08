@@ -46,6 +46,7 @@ interface NotifSettingsRow {
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
   pendingJobDraft?: { draft: JobDraft; createdAt: string };
+  pendingExpenseDraft?: { draft: ExpenseDraft; createdAt: string };
   userName?: string;
   nameAskedAt?: string;
   chatHistory?: ChatHistoryEntry[];
@@ -342,7 +343,8 @@ async function classifyMessage(
   snapshot: DataSnapshot,
   pendingJobDraft?: JobDraft,
   knownUserName?: string,
-  recentHistory?: ChatHistoryEntry[]
+  recentHistory?: ChatHistoryEntry[],
+  pendingExpenseDraft?: ExpenseDraft
 ): Promise<ClassifyResult | null> {
   const ai = getClaudeClient();
   if (!ai) return null;
@@ -451,7 +453,10 @@ ${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุ
 - ไม่ว่า intent จะเป็นอะไรก็ตาม: ถ้าข้อความนี้มีการบอกชื่อของผู้ใช้เอง ให้ใส่เฉพาะชื่อเรียก (ไม่ใส่คำนำหน้า/คำอื่น) ลงในฟิลด์ userName เสมอ ไม่มีการบอกชื่อก็ไม่ต้องใส่ฟิลด์นี้
 ${pendingJobDraft ? `
 ผู้ใช้เพิ่งเริ่มบันทึกงานนี้ไว้เมื่อครู่แต่ข้อมูลยังไม่ครบ ยังค้างรออยู่: ${JSON.stringify(pendingJobDraft)}
-ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของงานนี้ (เช่น พิมพ์มาแค่ตัวเลขเดียว หรือชื่อลูกค้าเดียว โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_job" แล้วใส่ค่ากลับเข้าไปในฟิลด์ job* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมงานนี้เลย (เช่นถามคำถามอื่น หรือพูดถึงงาน/รายจ่ายใหม่คนละเรื่อง) ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_job` : ''}
+ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของงานนี้ (เช่น พิมพ์มาแค่ตัวเลขเดียว หรือชื่อลูกค้าเดียว โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_job" แล้วใส่ค่ากลับเข้าไปในฟิลด์ job* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมงานนี้เลย (เช่นถามคำถามอื่น หรือพูดถึงงาน/รายจ่ายใหม่คนละเรื่อง หรือบอกว่านี่คือรายจ่ายไม่ใช่รายรับ) ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_job` : ''}
+${pendingExpenseDraft ? `
+ผู้ใช้เพิ่งเริ่มบันทึกรายจ่ายนี้ไว้เมื่อครู่แต่ข้อมูลยังไม่ครบ ยังค้างรออยู่: ${JSON.stringify(pendingExpenseDraft)}
+ถ้าข้อความใหม่นี้ดูเหมือนเป็นคำตอบที่เติมข้อมูลที่ขาดไปของรายจ่ายนี้ (เช่น พิมพ์มาแค่ชื่อรายการ หรือแค่จำนวนเงิน โดยไม่มีบริบทอื่น) ให้ตีความว่า intent = "add_expense" แล้วใส่ค่ากลับเข้าไปในฟิลด์ expense* ให้ครบทุกฟิลด์ที่มีอยู่แล้วข้างต้นด้วย (ไม่ใช่ใส่แค่ฟิลด์ที่เพิ่งพิมพ์มาใหม่) รวมกับฟิลด์ใหม่ที่เพิ่งได้จากข้อความนี้ แต่ถ้าข้อความนี้ชัดเจนว่าเป็นเรื่องอื่นที่ไม่เกี่ยวกับการเติมรายจ่ายนี้เลย ให้ตีความตามความหมายจริงของมันตามปกติ ไม่ต้องฝืนตีความเป็น add_expense` : ''}
 
 ข้อมูลบัญชีจริง (JSON):
 ${JSON.stringify(formatted, null, 2)}
@@ -766,6 +771,26 @@ async function clearJobDraft(user: UserRow): Promise<void> {
   const { pendingJobDraft: _omit, ...rest } = user.notif_settings;
   const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: rest }).eq('user_id', user.user_id);
   if (error) { console.error('clearJobDraft error:', error); return; }
+  user.notif_settings = rest;
+}
+
+// Same shape as saveJobDraft/clearJobDraft, for an in-progress "add expense" that's missing a
+// name or amount. Without this, a follow-up like "ชื่อรายการ คือ ตัดต่ออาร์คต" had nothing
+// structured to complete -- it relied entirely on the model re-deriving the amount from chat
+// history text, and worse, a *stale* pendingJobDraft (from an earlier, abandoned job) could hijack
+// that short reply via the job-continuation prompt instruction below, misfiling it as a job.
+async function saveExpenseDraft(user: UserRow, draft: ExpenseDraft): Promise<void> {
+  const notif_settings = { ...(user.notif_settings || {}), pendingExpenseDraft: { draft, createdAt: new Date().toISOString() } };
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
+  if (error) { console.error('saveExpenseDraft error:', error); return; }
+  user.notif_settings = notif_settings;
+}
+
+async function clearExpenseDraft(user: UserRow): Promise<void> {
+  if (!user.notif_settings?.pendingExpenseDraft) return;
+  const { pendingExpenseDraft: _omit, ...rest } = user.notif_settings;
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings: rest }).eq('user_id', user.user_id);
+  if (error) { console.error('clearExpenseDraft error:', error); return; }
   user.notif_settings = rest;
 }
 
@@ -1156,6 +1181,11 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     ? storedDraft.draft
     : undefined;
 
+  const storedExpenseDraft = user.notif_settings?.pendingExpenseDraft;
+  const pendingExpenseDraft = storedExpenseDraft && Date.now() - new Date(storedExpenseDraft.createdAt).getTime() < PENDING_JOB_DRAFT_TTL_MS
+    ? storedExpenseDraft.draft
+    : undefined;
+
   const existingName = user.notif_settings?.userName?.trim() || undefined;
   const alreadyAskedName = !!user.notif_settings?.nameAskedAt;
 
@@ -1170,7 +1200,7 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   // language "just add this job/expense" message. classifyMessage returns null whenever Claude
   // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
   // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName, recentHistory);
+  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName, recentHistory, pendingExpenseDraft);
   if (!result) {
     return finishConversationalReply(user, trimmed, !!existingName, alreadyAskedName, buildHelpText(existingName));
   }
@@ -1182,6 +1212,14 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     await saveUserName(user, result.userName);
   }
   const knownName = result.userName || existingName;
+
+  // A pending draft of the OTHER type, left over from an earlier abandoned attempt, must not
+  // linger once the model has clearly classified this message as something else -- e.g. "อันนี้
+  // เป็นค่าใช้จ่ายนะ" tags intent=add_expense, but a stale pendingJobDraft would otherwise still
+  // steer a LATER short reply (just a name, just a number) back into the abandoned job via the
+  // continuation instruction in the prompt above.
+  if (result.intent === 'add_job' && pendingExpenseDraft) await clearExpenseDraft(user);
+  if (result.intent === 'add_expense' && pendingDraft) await clearJobDraft(user);
 
   if (result.intent === 'add_job') {
     // Merge onto whatever was already captured from an earlier incomplete message -- a field
@@ -1258,25 +1296,39 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   }
 
   if (result.intent === 'add_expense') {
-    if (result.expenseName && result.expenseAmount) {
-      const draft: ExpenseDraft = {
-        name: result.expenseName,
-        category: result.expenseCategory,
-        amount: result.expenseAmount,
-      };
+    // Same merge-onto-earlier-draft pattern as add_job above -- a field this message provides
+    // always overrides the stored one, but a field it doesn't mention keeps its earlier value.
+    const merged: ExpenseDraft = {
+      ...pendingExpenseDraft,
+      ...(result.expenseName !== undefined && { name: result.expenseName }),
+      ...(result.expenseCategory !== undefined && { category: result.expenseCategory }),
+      ...(result.expenseAmount !== undefined && { amount: result.expenseAmount }),
+    };
+
+    const missingLabels = [!merged.name && 'ชื่อรายการ', !merged.amount && 'จำนวนเงิน'].filter((s): s is string => !!s);
+
+    if (missingLabels.length === 0) {
+      const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: merged.amount! };
       const expense = buildExpenseFromDraft(draft);
       const ok = await persistExpense(user, expense);
       if (!ok) {
         return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ' };
       }
+      if (pendingExpenseDraft) await clearExpenseDraft(user);
       return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
     }
+
+    // Still missing something -- keep what's been said so far and ask specifically for what's
+    // left, same as the add_job flow, instead of discarding it all and asking from scratch.
+    await saveExpenseDraft(user, merged);
+    const missingText = missingLabels.join(', ');
+    const knownText = [merged.name, merged.amount ? formatCurrency(merged.amount) : null].filter(Boolean).join(' ');
     return finishConversationalReply(
       user,
       trimmed,
       !!knownName,
       alreadyAskedName,
-      result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย'
+      `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
     );
   }
 
