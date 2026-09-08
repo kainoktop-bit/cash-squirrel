@@ -36,6 +36,11 @@ interface StatusRow {
   behavior: 'done' | 'partial' | 'pending';
 }
 
+interface ChatHistoryEntry {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 interface NotifSettingsRow {
   lineUserId?: string;
   lineLinkCode?: string;
@@ -43,6 +48,8 @@ interface NotifSettingsRow {
   pendingJobDraft?: { draft: JobDraft; createdAt: string };
   userName?: string;
   nameAskedAt?: string;
+  chatHistory?: ChatHistoryEntry[];
+  chatHistoryUpdatedAt?: string;
   [key: string]: unknown;
 }
 
@@ -52,6 +59,16 @@ interface NotifSettingsRow {
 // reply. Expired drafts are just dropped, never surfaced as "your draft expired" -- the whole
 // point is nothing ever leaves the user stuck, per the note on handleAssistantMessageInner.
 const PENDING_JOB_DRAFT_TTL_MS = 15 * 60 * 1000;
+
+// Short-term memory for follow-up questions ("แล้วเดือนที่แล้วล่ะ", "อันนั้นด้วย") within one
+// sitting -- NOT a permanent chat log. Capped at a few turns and expires after a gap of
+// inactivity, same TTL philosophy as the job draft above: it should feel like the bot remembers
+// what you *just* said, never like it's recalling something from an unrelated conversation days
+// ago. Only conversational text replies get saved here (question/other answers, "still missing a
+// field" prompts) -- quick-reply button taps and job/expense-saved receipt cards are deterministic
+// lookups/confirmations, not something a follow-up question would need to reference.
+const CHAT_HISTORY_TTL_MS = 20 * 60 * 1000;
+const CHAT_HISTORY_MAX_TURNS = 3;
 
 // Same trial length and Pro-check shape as api/send-overdue-digest.ts's isPro -- LINE chat is a
 // Pro-only feature (per PlansTab's feature list), so once neither the free trial nor a paid
@@ -320,7 +337,13 @@ export interface ClassifyResult {
 // interpreted as completing that draft rather than as an unrelated message with no job context
 // at all -- the caller (handleAssistantMessageInner) does its own field-level merge on top as a
 // safety net regardless of how well the model followed that instruction.
-async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobDraft?: JobDraft, knownUserName?: string): Promise<ClassifyResult | null> {
+async function classifyMessage(
+  text: string,
+  snapshot: DataSnapshot,
+  pendingJobDraft?: JobDraft,
+  knownUserName?: string,
+  recentHistory?: ChatHistoryEntry[]
+): Promise<ClassifyResult | null> {
   const ai = getClaudeClient();
   if (!ai) return null;
 
@@ -381,13 +404,19 @@ async function classifyMessage(text: string, snapshot: DataSnapshot, pendingJobD
 
 บุคลิก:
 - สวมบทบาทเป็น "พี่กระรอก" ตัวละครกระรอกจริงๆ ไม่ใช่ AI ผู้ช่วย -- เป็นเพื่อนสนิทที่คอยช่วยดูแลเรื่องเงินให้ พูดจาน่ารัก อ่อนโยน เป็นมิตร เหมือนแชทคุยกับเพื่อนที่ห่วงใยกัน
-- ใช้ภาษาพูดธรรมดาแบบคนไทยคุยกันจริงๆ ไม่ต้องเกร็งหรือดูเป็นทางการจนเกินไป แต่ก็ไม่ต้องเป็นกันเองจนหยาบคาย จะใช้ "ครับ" บ้างก็ได้แต่ไม่ต้องทุกประโยค เน้นความเป็นธรรมชาติเป็นหลัก
-- ห้ามใช้คำหยาบ คำไม่สุภาพ หรือคำแสลงหยาบคายเด็ดขาดไม่ว่ากรณีใด แม้ผู้ใช้จะพิมพ์คำหยาบมาก่อนก็ตาม ให้พูดจาสุภาพน่ารักเสมอ
+- ห้ามพูดจาแบบทางการหรือแบบหุ่นยนต์/AI เด็ดขาด -- ห้ามใช้คำศัพท์ทางการ/ราชาศัพท์แบบเอกสารราชการ เช่น "ดำเนินการ", "จัดสรร", "ตามที่ท่านได้แจ้ง", "รบกวนสอบถาม", "โปรดทราบ" ให้ใช้คำง่ายๆ แบบพูดคุยจริงแทน (เช่น "ทำให้แล้ว" ไม่ใช่ "ดำเนินการให้แล้ว", "เดี๋ยวเช็คให้" ไม่ใช่ "จะดำเนินการตรวจสอบให้")
+- ใช้คำลงท้าย/คำเติมแบบคนไทยคุยกันจริงๆ ปนไปได้เป็นธรรมชาติ เช่น "นะ" "อ่ะ" "เนอะ" "เลย" "ล่ะ" "ป่ะ" ไม่ต้องเติม "ครับ" ทุกประโยคจนดูเป็นแพทเทิร์นตายตัว -- อ่านแล้วต้องรู้สึกเหมือนเพื่อนพิมพ์มา ไม่ใช่ระบบตอบอัตโนมัติ
+- ห้ามใช้คำหยาบ คำไม่สุภาพ หรือคำแสลงหยาบคายเด็ดขาดไม่ว่ากรณีใด แม้ผู้ใช้จะพิมพ์คำหยาบมาก่อนก็ตาม ให้พูดจาสุภาพน่ารักเสมอ (สุภาพได้โดยไม่ต้องเป็นทางการ)
 - แซวหรือเปรียบเทียบธีมกระรอก/เก็บเสบียง/โพรงไม้ได้บ้างเป็นครั้งคราวให้ดูมีคาแรคเตอร์ แต่อย่าใส่ทุกประโยคจนดูฝืน
 - ถ้าข่าวไม่ดี (เช่น มีงานค้างจ่าย เกินกำหนด) ให้บอกตรงไปตรงมาด้วยความเข้าใจและให้กำลังใจ ไม่ตำหนิหรือทำให้รู้สึกแย่
 - ความเป็นกันเองต้องไม่ทำให้คำตอบยืดยาวหรือคลุมเครือ -- ยังต้องตอบสั้น กระชับ ตรงประเด็นตามกฎด้านล่างเสมอ
 - ${knownUserName ? `รู้จักผู้ใช้คนนี้แล้ว ชื่อ "${knownUserName}" ให้เรียกชื่อนี้เป็นบางครั้งอย่างเป็นธรรมชาติเวลาทักทายหรือตอบ (ไม่ต้องเรียกทุกประโยคจนดูเยิ่นเย้อ)` : 'ยังไม่รู้ชื่อผู้ใช้คนนี้ -- ห้ามถามชื่อเองในคำตอบ (ระบบจะถามให้แยกต่างหากถ้าจำเป็น) แค่ตอบคำถามตามปกติไปก่อน'}
 - ถ้าข้อความนี้ผู้ใช้บอกชื่อตัวเอง (เช่น "ผมชื่อปาร์ค", "หนูชื่อฝนนะ", "เรียกว่าต้นก็ได้", "ชื่อเบียร์ครับ") ให้ทักทายตอบรับชื่อนั้นอย่างอบอุ่นน่ารักในคำตอบด้วย
+${recentHistory && recentHistory.length > 0 ? `
+บทสนทนาล่าสุด (เรียงจากเก่าไปใหม่ นี่คือสิ่งที่คุยกันไปแล้วเมื่อครู่ในแชทเดียวกันนี้):
+${recentHistory.map((h) => `${h.role === 'user' ? 'ผู้ใช้' : 'คุณ'}: ${h.text}`).join('\n')}
+
+ใช้บทสนทนานี้ช่วยตีความข้อความใหม่ด้านล่าง โดยเฉพาะถ้ามีคำแทนหรือคำถามต่อเนื่อง (เช่น "อันนั้นล่ะ", "เดือนที่แล้วบ้าง", "แล้วอันนี้", "ทำไมล่ะ") ให้เข้าใจว่ากำลังพูดถึงเรื่องอะไรจากบทสนทนาข้างบน อย่าทักทายซ้ำหรือถามซ้ำสิ่งที่เพิ่งคุยไปแล้ว ให้ตอบต่อเนื่องเหมือนคุยกันมาตลอด` : ''}
 
 กฎสำคัญ:
 - ห้ามใช้สัญลักษณ์จัดรูปแบบแบบ markdown เด็ดขาด (ห้ามใช้ ** ทำตัวหนา, ห้ามใช้ # หัวข้อ, ห้ามใช้ * หรือ - นำหน้าเป็น bullet) เพราะแชท LINE ไม่รองรับ markdown จะเห็นเป็นสัญลักษณ์ดิบๆ แทน ให้เขียนเป็นข้อความธรรมดาล้วนๆ ใช้การขึ้นบรรทัดใหม่แทนถ้าต้องแยกรายการ
@@ -767,6 +796,36 @@ async function appendNameAskIfNeeded(user: UserRow, knowsName: boolean, alreadyA
   return `${replyText}\n\nป.ล. เรียกคุณว่าอะไรดีครับ พิมพ์ชื่อมาบอกได้เลย จะได้จำไว้เรียกทุกครั้งเลยครับ 🐿️`;
 }
 
+// Best-effort, same mutate-local-on-success pattern as the other notif_settings writers above --
+// trims to the last CHAT_HISTORY_MAX_TURNS turns (a "turn" = one user message + one reply).
+async function saveChatHistory(user: UserRow, userText: string, assistantText: string): Promise<void> {
+  const existing = user.notif_settings?.chatHistory || [];
+  const updated: ChatHistoryEntry[] = [
+    ...existing,
+    { role: 'user' as const, text: userText },
+    { role: 'assistant' as const, text: assistantText },
+  ].slice(-CHAT_HISTORY_MAX_TURNS * 2);
+  const notif_settings = { ...(user.notif_settings || {}), chatHistory: updated, chatHistoryUpdatedAt: new Date().toISOString() };
+  const { error } = await supabaseAdmin.from('user_cashflow_data').update({ notif_settings }).eq('user_id', user.user_id);
+  if (error) { console.error('saveChatHistory error:', error); return; }
+  user.notif_settings = notif_settings;
+}
+
+// Shared tail for every conversational (plain-text) reply: appends the one-time name ask if due,
+// records this exchange into short-term chat history for the next follow-up to reference, then
+// splits into LINE bubbles.
+async function finishConversationalReply(
+  user: UserRow,
+  userText: string,
+  knowsName: boolean,
+  alreadyAskedName: boolean,
+  replyText: string
+): Promise<LineMessage[]> {
+  const finalText = await appendNameAskIfNeeded(user, knowsName, alreadyAskedName, replyText);
+  await saveChatHistory(user, userText, finalText);
+  return textBubbles(finalText);
+}
+
 // Bangkok "20 ส.ค. 2569 00:18" style timestamp, matching what people expect from a receipt card.
 function formatThaiTimestamp(): string {
   const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -1100,14 +1159,20 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
   const existingName = user.notif_settings?.userName?.trim() || undefined;
   const alreadyAskedName = !!user.notif_settings?.nameAskedAt;
 
+  // Same TTL-drop pattern as the job draft above -- a history gap longer than CHAT_HISTORY_TTL_MS
+  // means this is effectively a fresh conversation, so stale context never gets dragged in.
+  const storedHistoryAt = user.notif_settings?.chatHistoryUpdatedAt;
+  const recentHistory = storedHistoryAt && Date.now() - new Date(storedHistoryAt).getTime() < CHAT_HISTORY_TTL_MS
+    ? user.notif_settings?.chatHistory
+    : undefined;
+
   // Anything else goes through one combined Claude call -- could be a question, or a natural-
   // language "just add this job/expense" message. classifyMessage returns null whenever Claude
   // is unconfigured or the call fails (including a 429 the retry couldn't clear), so an outage
   // degrades to the same friendly greeting/buttons a brand-new user sees, instead of a raw error.
-  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName);
+  const result = await classifyMessage(trimmed, buildDataSnapshot(user), pendingDraft, existingName, recentHistory);
   if (!result) {
-    const replyText = await appendNameAskIfNeeded(user, !!existingName, alreadyAskedName, buildHelpText(existingName));
-    return textBubbles(replyText);
+    return finishConversationalReply(user, trimmed, !!existingName, alreadyAskedName, buildHelpText(existingName));
   }
 
   // A message can introduce the user's own name alongside anything else it's doing -- save it
@@ -1183,13 +1248,13 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
     await saveJobDraft(user, merged);
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
-    const replyText = await appendNameAskIfNeeded(
+    return finishConversationalReply(
       user,
+      trimmed,
       !!knownName,
       alreadyAskedName,
       `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`
     );
-    return textBubbles(replyText);
   }
 
   if (result.intent === 'add_expense') {
@@ -1206,23 +1271,21 @@ async function handleAssistantMessageInner(lineUserId: string, text: string): Pr
       }
       return buildExpenseSavedMessage(expense, computeMonthNetForUser(user, undefined, expense));
     }
-    const replyText = await appendNameAskIfNeeded(
+    return finishConversationalReply(
       user,
+      trimmed,
       !!knownName,
       alreadyAskedName,
       result.answer || 'ขอชื่อรายการกับจำนวนเงินด้วยนะครับ ลองพิมพ์มาใหม่อีกทีได้เลย'
     );
-    return textBubbles(replyText);
   }
 
   // Any intent's `answer` is usable here now, not just "question" -- lets a plain greeting or
   // name introduction (intent "other") get a real in-character reply instead of always falling
   // through to the generic buildHelpText below.
   if (result.answer) {
-    const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, result.answer);
-    return textBubbles(replyText);
+    return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, result.answer);
   }
 
-  const replyText = await appendNameAskIfNeeded(user, !!knownName, alreadyAskedName, buildHelpText(knownName));
-  return textBubbles(replyText);
+  return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, buildHelpText(knownName));
 }
