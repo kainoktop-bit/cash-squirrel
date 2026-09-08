@@ -10,6 +10,24 @@ interface LoginProps {
   onGuestLogin: (email: string) => void;
 }
 
+// supabase-js's error.message is sometimes just the stringified (often empty) response body --
+// e.g. literally "{}" -- when Supabase's own /auth/v1/recover endpoint 500s without a proper
+// error_description (this happens when the project's outbound email/SMTP is misconfigured or
+// down, so the recovery email itself never sends). Showing that raw text to the user reads as a
+// broken app; this substitutes a real explanation whenever the message isn't actual prose.
+function formatResetError(err: any): string {
+  console.error('Password reset request failed:', err);
+  const message: string = err?.message || '';
+  const looksLikeRawJson = /^\s*[{[]/.test(message);
+  if (!message || looksLikeRawJson) {
+    return 'ระบบส่งอีเมลขัดข้องชั่วคราว (เซิร์ฟเวอร์ไม่ตอบสนองอย่างถูกต้อง) กรุณาลองใหม่อีกครั้งในอีกสักครู่ หากยังไม่สำเร็จ กรุณาติดต่อผู้ดูแลระบบค่ะ';
+  }
+  if (message.toLowerCase().includes('too many requests') || message.toLowerCase().includes('security purposes')) {
+    return 'ระบบตรวจพบการส่งคำขอถี่เกินไปชั่วคราว เพื่อความปลอดภัยกรุณารอประมาณ 1-2 นาทีแล้วลองใหม่อีกครั้งค่ะ';
+  }
+  return message;
+}
+
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -101,8 +119,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       setSuccess('ระบบได้ส่งรหัสยืนยันไปยัง ' + email + ' เรียบร้อยแล้วค่ะ! กรุณาเช็คกล่องข้อความ (และเมลขยะ/Spam) แล้วกรอกรหัสด้านล่างเพื่อตั้งรหัสผ่านใหม่');
       setRecoveryStep('verify');
     } catch (err: any) {
-      let message = err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
-      setError(message);
+      setError(formatResetError(err));
     } finally {
       setLoading(false);
     }
@@ -146,7 +163,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       setOtpToken('');
       setSuccess('ส่งรหัสยืนยันใหม่ไปยัง ' + email + ' เรียบร้อยแล้วค่ะ');
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      setError(formatResetError(err));
     } finally {
       setLoading(false);
     }
