@@ -2,18 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Expense } from '../types';
 import { formatCurrency, getMonthKey, formatMonthKey } from '../utils';
-import { Plus, Trash2, Receipt } from 'lucide-react';
+import { Plus, Trash2, Receipt, Pencil } from 'lucide-react';
 import { Mascot } from './Mascot';
 
 interface ExpenseRecordViewProps {
   expenses: Expense[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onEditExpense: (id: string, updated: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
   selectedMonth: string;
   triggerAlert: (title: string, message: string, onConfirm?: () => void) => void;
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   autoOpenAdd?: boolean;
   onAutoOpenAddHandled?: () => void;
+  scrollToExpenseId?: string | null;
+  onScrollToExpenseHandled?: () => void;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -33,25 +36,77 @@ const EXPENSE_CATEGORIES = [
 export default function ExpenseRecordView({
   expenses,
   onAddExpense,
+  onEditExpense,
   onDeleteExpense,
   selectedMonth,
   triggerAlert,
   triggerConfirm,
   autoOpenAdd,
   onAutoOpenAddHandled,
+  scrollToExpenseId,
+  onScrollToExpenseHandled,
 }: ExpenseRecordViewProps) {
-  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  // One shared bottom-sheet form for both add and edit -- `formMode` picks which action submit
+  // takes, `editingId` carries which record is being edited (null while adding).
+  const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [expName, setExpName] = useState('');
   const [expAmount, setExpAmount] = useState('');
   const [expCategory, setExpCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
   const [expNote, setExpNote] = useState('');
+  const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(null);
+
+  const openAddForm = () => {
+    setExpName('');
+    setExpAmount('');
+    setExpCategory(EXPENSE_CATEGORIES[0]);
+    setExpDate(new Date().toISOString().split('T')[0]);
+    setExpNote('');
+    setEditingId(null);
+    setFormMode('add');
+  };
+
+  const openEditForm = (expense: Expense) => {
+    setExpName(expense.name);
+    setExpAmount(String(expense.amount));
+    setExpCategory(expense.category);
+    setExpDate(expense.date);
+    setExpNote(expense.note || '');
+    setEditingId(expense.id);
+    setFormMode('edit');
+  };
+
+  const closeForm = () => {
+    setFormMode(null);
+    setEditingId(null);
+  };
 
   React.useEffect(() => {
     if (!autoOpenAdd) return;
-    setIsAddExpenseOpen(true);
+    openAddForm();
     onAutoOpenAddHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenAdd, onAutoOpenAddHandled]);
+
+  // Same scroll-to-and-highlight-real-row pattern as JobsTab's scrollToJobId -- shared by every
+  // clickable expense reference outside this view (currently the LINE assistant's "เปิดแอป"
+  // button on a saved-expense card), so tapping it lands on the actual row instead of just the
+  // top of the tab.
+  React.useEffect(() => {
+    if (!scrollToExpenseId) return;
+    const el = document.getElementById(`expense-card-${scrollToExpenseId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedExpenseId(scrollToExpenseId);
+      const timer = setTimeout(() => setHighlightedExpenseId(null), 2500);
+      onScrollToExpenseHandled?.();
+      return () => clearTimeout(timer);
+    }
+    // Expense isn't in the currently visible month's list -- nothing to scroll to, still consume
+    // the request so it doesn't fire again on next render.
+    onScrollToExpenseHandled?.();
+  }, [scrollToExpenseId, onScrollToExpenseHandled]);
 
   const monthExpenses = useMemo(
     () => expenses.filter(e => getMonthKey(e.date) === selectedMonth).sort((a, b) => b.date.localeCompare(a.date)),
@@ -65,18 +120,21 @@ export default function ExpenseRecordView({
       triggerAlert('ข้อมูลไม่ครบถ้วน', 'กรุณาระบุชื่อรายการและจำนวนเงินของค่าใช้จ่ายให้ครบถ้วน');
       return;
     }
-    onAddExpense({
+    const payload = {
       name: expName,
       amount: parseFloat(expAmount) || 0,
       category: expCategory,
       date: expDate,
       note: expNote
-    });
-    setExpName('');
-    setExpAmount('');
-    setExpNote('');
-    setIsAddExpenseOpen(false);
-    triggerAlert('บันทึกรายจ่ายสำเร็จ!', 'บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว');
+    };
+    if (formMode === 'edit' && editingId) {
+      onEditExpense(editingId, payload);
+      triggerAlert('แก้ไขรายจ่ายสำเร็จ!', 'อัปเดตข้อมูลรายจ่ายเรียบร้อยแล้ว');
+    } else {
+      onAddExpense(payload);
+      triggerAlert('บันทึกรายจ่ายสำเร็จ!', 'บันทึกข้อมูลรายจ่ายผันแปรของคุณเรียบร้อยแล้ว');
+    }
+    closeForm();
   };
 
   return (
@@ -112,7 +170,7 @@ export default function ExpenseRecordView({
             </span>
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => setIsAddExpenseOpen(true)}
+              onClick={openAddForm}
               className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" /> บันทึกรายจ่าย
@@ -134,7 +192,13 @@ export default function ExpenseRecordView({
           ) : (
             <div className="space-y-2 divide-y divide-brand-border/20 dark:divide-neutral-800">
               {monthExpenses.map(e => (
-                <div key={e.id} className="pt-2.5 first:pt-0 flex items-center justify-between gap-3 text-xs">
+                <div
+                  key={e.id}
+                  id={`expense-card-${e.id}`}
+                  className={`pt-2.5 first:pt-0 flex items-center justify-between gap-3 text-xs rounded-xl transition-colors duration-500 ${
+                    highlightedExpenseId === e.id ? 'bg-orange-50 dark:bg-orange-500/10 -mx-2 px-2' : ''
+                  }`}
+                >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-extrabold text-brand-text dark:text-white">{e.name}</span>
@@ -152,6 +216,13 @@ export default function ExpenseRecordView({
                     <span className="font-bold font-mono text-rose-600">
                       -{formatCurrency(e.amount)}
                     </span>
+                    <button
+                      onClick={() => openEditForm(e)}
+                      className="p-1 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-muted hover:text-brand-text rounded-md transition-colors cursor-pointer"
+                      title="แก้ไขรายจ่ายนี้"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => {
                         triggerConfirm(
@@ -173,15 +244,15 @@ export default function ExpenseRecordView({
         </div>
       </div>
 
-      {/* Sliding Bottom Sheet Modal for Adding Variable Expense */}
+      {/* Sliding Bottom Sheet Modal for Adding/Editing a Variable Expense */}
       <AnimatePresence>
-        {isAddExpenseOpen && (
+        {formMode !== null && (
           <div className="fixed inset-0 z-200">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsAddExpenseOpen(false)}
+              onClick={closeForm}
               className="absolute inset-0 bg-black/40 backdrop-blur-xs"
             />
 
@@ -196,10 +267,10 @@ export default function ExpenseRecordView({
 
               <div className="flex justify-between items-center shrink-0">
                 <h3 className="text-lg font-black text-brand-text dark:text-white font-display">
-                  บันทึกค่าใช้จ่ายใหม่
+                  {formMode === 'edit' ? 'แก้ไขรายจ่าย' : 'บันทึกค่าใช้จ่ายใหม่'}
                 </h3>
                 <button
-                  onClick={() => setIsAddExpenseOpen(false)}
+                  onClick={closeForm}
                   className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
                 >
                   ×
@@ -277,7 +348,15 @@ export default function ExpenseRecordView({
                   type="submit"
                   className="w-full px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                 >
-                  <Plus className="w-3.5 h-3.5" /> บันทึกจ่ายออกผันแปร
+                  {formMode === 'edit' ? (
+                    <>
+                      <Pencil className="w-3.5 h-3.5" /> บันทึกการแก้ไข
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" /> บันทึกจ่ายออกผันแปร
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>

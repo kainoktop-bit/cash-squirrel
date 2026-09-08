@@ -1070,6 +1070,7 @@ export default function App() {
   // instead of opening a separate read-only popup or leaving the user to scroll through however
   // many jobs they've recorded to find it themselves.
   const [scrollToJobId, setScrollToJobId] = useState<string | null>(null);
+  const [scrollToExpenseId, setScrollToExpenseId] = useState<string | null>(null);
   const [autoOpenAddExpense, setAutoOpenAddExpense] = useState(false);
   // Umbrella "บันทึกรายรับ-รายจ่าย" tab: income (jobs) and expense are sub-modes of the
   // same place instead of living in two disconnected tabs.
@@ -1077,17 +1078,26 @@ export default function App() {
 
   // Deep links from the LINE assistant's Quick Reply buttons: once this user's data has loaded,
   // jump straight to the relevant spot in the Jobs tab and strip the param from the URL.
-  // ?job=<id> opens that job; ?openAddJob=1 / ?openAddExpense=1 pop the real add-job/add-expense
-  // form straight open (reusing the actual in-app modal, not a separate bare-bones page).
+  // ?job=<id> / ?expense=<id> opens that record; ?openAddJob=1 / ?openAddExpense=1 pop the real
+  // add-job/add-expense form straight open (reusing the actual in-app modal, not a separate
+  // bare-bones page).
   useEffect(() => {
     if (!(session?.user?.email && isLoadedForUser === session.user.email)) return;
     const params = new URLSearchParams(window.location.search);
     const jobId = params.get('job');
+    const expenseId = params.get('expense');
     const openAddJob = params.get('openAddJob');
     const openAddExpense = params.get('openAddExpense');
-    if (!jobId && !openAddJob && !openAddExpense) return;
+    if (!jobId && !expenseId && !openAddJob && !openAddExpense) return;
 
-    if (jobId) setScrollToJobId(jobId);
+    if (jobId) {
+      setRecordMode('income');
+      setScrollToJobId(jobId);
+    }
+    if (expenseId) {
+      setRecordMode('expense');
+      setScrollToExpenseId(expenseId);
+    }
     if (openAddJob) {
       setRecordMode('income');
       setIsAddJobOpen(true);
@@ -1099,6 +1109,7 @@ export default function App() {
     setActiveTab('jobs');
 
     params.delete('job');
+    params.delete('expense');
     params.delete('openAddJob');
     params.delete('openAddExpense');
     const newSearch = params.toString();
@@ -1726,6 +1737,10 @@ export default function App() {
     });
 
     notifyLineRecordAdded('expense', expWithId, monthNetSafe(jobs, freshExpenses));
+  };
+
+  const handleEditExpense = (id: string, updated: Partial<Expense>) => {
+    setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updated } : e));
   };
 
   const handleDeleteExpense = (id: string) => {
@@ -2384,12 +2399,15 @@ export default function App() {
                     <ExpenseRecordView
                       expenses={expenses}
                       onAddExpense={handleAddExpense}
+                      onEditExpense={handleEditExpense}
                       onDeleteExpense={handleDeleteExpense}
                       selectedMonth={selectedMonthKey}
                       triggerAlert={triggerAlert}
                       triggerConfirm={triggerConfirm}
                       autoOpenAdd={autoOpenAddExpense}
                       onAutoOpenAddHandled={() => setAutoOpenAddExpense(false)}
+                      scrollToExpenseId={scrollToExpenseId}
+                      onScrollToExpenseHandled={() => setScrollToExpenseId(null)}
                     />
                   )}
                 </div>

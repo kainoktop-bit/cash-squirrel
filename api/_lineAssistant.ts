@@ -1060,7 +1060,7 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
           type: 'button',
           style: 'primary',
           color: '#A63F1B',
-          action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') },
+          action: { type: 'uri', label: 'เปิดแอป', uri: `${appUrl.replace(/\/$/, '')}/?expense=${encodeURIComponent(expense.id)}` },
         },
       ],
     },
