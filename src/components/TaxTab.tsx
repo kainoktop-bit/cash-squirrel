@@ -1148,7 +1148,8 @@ export default function TaxTab({
 
                 <div className="space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">1. สรุปรายละเอียดรายได้หลัก</h3>
-                  <table className="w-full text-xs text-left text-slate-700 border-collapse">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-xs text-left text-slate-700 border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-[10px] font-extrabold text-slate-600 border-b border-slate-300">
                         <th className="py-2 px-3">หมวดหมู่รายได้</th>
@@ -1178,11 +1179,13 @@ export default function TaxTab({
                       </tr>
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">2. ตารางสรุปการประเมินภาษีแบบขั้นบันได</h3>
-                  <table className="w-full text-xs text-left text-slate-700 border-collapse">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-xs text-left text-slate-700 border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-[10px] font-extrabold text-slate-600 border-b border-slate-300">
                         <th className="py-2 px-3">รายการการเงิน</th>
@@ -1228,6 +1231,7 @@ export default function TaxTab({
                       </tr>
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-[10px] text-slate-500 leading-relaxed">
