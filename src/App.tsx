@@ -11,7 +11,6 @@ import SplitTab from './components/SplitTab';
 import SummaryTab from './components/SummaryTab';
 import CustomDialog from './components/CustomDialog';
 import Login from './components/Login';
-import ResetPassword from './components/ResetPassword';
 import MonthlyReportTab from './components/MonthlyReportTab';
 import TaxTab from './components/TaxTab';
 import { SettingsTab } from './components/SettingsTab';
@@ -298,7 +297,6 @@ export default function App() {
   // Authentication State
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   // Dark Mode reactive state & local storage synchronization
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -345,11 +343,6 @@ export default function App() {
 
   // Auth session listener
   useEffect(() => {
-    // Check URL hash for password recovery link
-    if (window.location.hash && window.location.hash.includes('type=recovery')) {
-      setIsRecoveryMode(true);
-    }
-
     const checkSession = async () => {
       const savedGuest = localStorage.getItem('cashflow_guest_session');
       if (savedGuest) {
@@ -384,9 +377,6 @@ export default function App() {
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecoveryMode(true);
-      }
       if (session) {
         setSession(session);
         localStorage.removeItem('cashflow_guest_session');
@@ -1855,19 +1845,6 @@ export default function App() {
           <p className="text-[11px] font-bold text-brand-muted tracking-wide animate-pulse">กำลังเตรียมความอบอุ่นให้กระเป๋าเงินของคุณ...</p>
         </motion.div>
       </div>
-    );
-  }
-
-  if (isRecoveryMode) {
-    return (
-      <ResetPassword 
-        darkMode={darkMode} 
-        setDarkMode={setDarkMode} 
-        onComplete={() => {
-          setIsRecoveryMode(false);
-          window.location.hash = '';
-        }} 
-      />
     );
   }
 

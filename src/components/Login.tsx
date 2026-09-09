@@ -10,24 +10,6 @@ interface LoginProps {
   onGuestLogin: (email: string) => void;
 }
 
-// supabase-js's error.message is sometimes just the stringified (often empty) response body --
-// e.g. literally "{}" -- when Supabase's own /auth/v1/recover endpoint 500s without a proper
-// error_description (this happens when the project's outbound email/SMTP is misconfigured or
-// down, so the recovery email itself never sends). Showing that raw text to the user reads as a
-// broken app; this substitutes a real explanation whenever the message isn't actual prose.
-function formatResetError(err: any): string {
-  console.error('Password reset request failed:', err);
-  const message: string = err?.message || '';
-  const looksLikeRawJson = /^\s*[{[]/.test(message);
-  if (!message || looksLikeRawJson) {
-    return 'ระบบส่งอีเมลขัดข้องชั่วคราว (เซิร์ฟเวอร์ไม่ตอบสนองอย่างถูกต้อง) กรุณาลองใหม่อีกครั้งในอีกสักครู่ หากยังไม่สำเร็จ กรุณาติดต่อผู้ดูแลระบบค่ะ';
-  }
-  if (message.toLowerCase().includes('too many requests') || message.toLowerCase().includes('security purposes')) {
-    return 'ระบบตรวจพบการส่งคำขอถี่เกินไปชั่วคราว เพื่อความปลอดภัยกรุณารอประมาณ 1-2 นาทีแล้วลองใหม่อีกครั้งค่ะ';
-  }
-  return message;
-}
-
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -49,9 +31,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     }
   }, [error, success]);
 
-  // Password recovery states
+  // Password recovery states -- delivered over LINE (api/request-password-reset-line.ts /
+  // verify-password-reset-line.ts) instead of Supabase's built-in email-based recovery, which
+  // depends on the project's SMTP staying healthy. The code + the new password are submitted
+  // together in one step here, since there's no Supabase recovery session to hand off to once
+  // the code checks out server-side -- see the comment in verify-password-reset-line.ts.
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify'>('request');
   const [otpToken, setOtpToken] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,14 +100,25 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+      const res = await fetch('/api/request-password-reset-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      if (resetErr) throw resetErr;
-      setSuccess('ระบบได้ส่งรหัสยืนยันไปยัง ' + email + ' เรียบร้อยแล้วค่ะ! กรุณาเช็คกล่องข้อความ (และเมลขยะ/Spam) แล้วกรอกรหัสด้านล่างเพื่อตั้งรหัสผ่านใหม่');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      if (data.reason === 'not_linked') {
+        setError('บัญชีนี้ยังไม่ได้เชื่อมต่อ LINE ครับ กรุณาไปที่หน้าตั้งค่าในแอป > เชื่อมต่อ LINE ก่อน (หรือติดต่อผู้ดูแลระบบถ้าเข้าแอปไม่ได้)');
+        return;
+      }
+      if (data.reason === 'send_failed') {
+        setError('ส่งรหัสผ่าน LINE ไม่สำเร็จชั่วคราว กรุณาลองใหม่อีกครั้งค่ะ');
+        return;
+      }
+      setSuccess('ส่งรหัสยืนยันไปที่ LINE ของคุณเรียบร้อยแล้วค่ะ! กรุณาเปิดแอป LINE เช็ครหัส แล้วกรอกด้านล่างพร้อมตั้งรหัสผ่านใหม่');
       setRecoveryStep('verify');
     } catch (err: any) {
-      setError(formatResetError(err));
+      setError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -127,25 +126,31 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
   const handleVerifyAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน กรุณาตรวจสอบอีกครั้งค่ะ');
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
-        email,
-        token: otpToken,
-        type: 'recovery',
+      const res = await fetch('/api/verify-password-reset-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: otpToken, newPassword: resetNewPassword }),
       });
-      if (verifyErr) throw verifyErr;
-      // Supabase emits a PASSWORD_RECOVERY auth event on success, which the
-      // app listens for (App.tsx) and switches to the "set new password" screen.
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง');
+      setSuccess('ตั้งรหัสผ่านใหม่สำเร็จแล้วค่ะ! เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย');
+      setIsForgotPassword(false);
+      setRecoveryStep('request');
+      setOtpToken('');
+      setPassword('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
     } catch (err: any) {
-      let message = err.message || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง';
-      if (message.toLowerCase().includes('expired') || message.toLowerCase().includes('invalid') || message.toLowerCase().includes('token')) {
-        message = 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่อีกครั้งค่ะ';
-      }
-      setError(message);
+      setError(err.message || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -156,14 +161,17 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setError(null);
     setSuccess(null);
     try {
-      const { error: resendErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+      const res = await fetch('/api/request-password-reset-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      if (resendErr) throw resendErr;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
       setOtpToken('');
-      setSuccess('ส่งรหัสยืนยันใหม่ไปยัง ' + email + ' เรียบร้อยแล้วค่ะ');
+      setSuccess('ส่งรหัสยืนยันใหม่ไปที่ LINE ของคุณเรียบร้อยแล้วค่ะ');
     } catch (err: any) {
-      setError(formatResetError(err));
+      setError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -234,6 +242,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   setIsSignUp(false);
                   setIsForgotPassword(false);
                   setRecoveryStep('request');
+                  setOtpToken('');
+                  setResetNewPassword('');
+                  setResetConfirmPassword('');
                   setError(null);
                   setSuccess(null);
                 }}
@@ -252,6 +263,9 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   setIsSignUp(true);
                   setIsForgotPassword(false);
                   setRecoveryStep('request');
+                  setOtpToken('');
+                  setResetNewPassword('');
+                  setResetConfirmPassword('');
                   setError(null);
                   setSuccess(null);
                 }}
@@ -319,7 +333,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             recoveryStep === 'request' ? (
               <form onSubmit={handleResetRequest} className="space-y-4">
                 <p className="text-[11px] text-brand-muted leading-relaxed">
-                  กรอกอีเมลของคุณเพื่อรับรหัสยืนยันสำหรับตั้งรหัสผ่านใหม่ เพื่อความปลอดภัยของบัญชีคุณค่ะ
+                  กรอกอีเมลของบัญชีคุณ ระบบจะส่งรหัสยืนยันไปที่ LINE ที่เชื่อมต่อไว้กับบัญชีนี้ (ต้องเชื่อมต่อ LINE ไว้ก่อนแล้วในหน้าตั้งค่าของแอป)
                 </p>
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
@@ -348,12 +362,12 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      กำลังส่งลิงก์กู้คืนรหัสผ่าน...
+                      กำลังส่งรหัสไปที่ LINE...
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      ส่งคำขอกู้คืนรหัสผ่าน
+                      ส่งรหัสยืนยันเข้า LINE
                     </>
                   )}
                 </button>
@@ -362,7 +376,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               /* OTP Verification + New Password Form */
               <form onSubmit={handleVerifyAndReset} className="space-y-4">
                 <p className="text-[11px] text-brand-muted leading-relaxed">
-                  กรอกรหัสยืนยันที่ส่งไปยัง <strong className="text-brand-text">{email}</strong> เพื่อยืนยันตัวตนและเข้าสู่ขั้นตอนตั้งรหัสผ่านใหม่
+                  กรอกรหัสยืนยันที่ส่งไปที่ LINE ของ <strong className="text-brand-text">{email}</strong> พร้อมตั้งรหัสผ่านใหม่ด้านล่างนี้ได้เลย
                 </p>
 
                 <div>
@@ -388,20 +402,58 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
+                    รหัสผ่านใหม่ (New Password)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
+                      <Lock className="w-4.5 h-4.5" />
+                    </span>
+                    <input
+                      type="password"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="ตั้งรหัสผ่าน 6 ตัวขึ้นไป"
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
+                    ยืนยันรหัสผ่านใหม่ (Confirm Password)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
+                      <Lock className="w-4.5 h-4.5" />
+                    </span>
+                    <input
+                      type="password"
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading || otpToken.length < 6}
+                  disabled={loading || otpToken.length < 6 || resetNewPassword.length < 6}
                   className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      กำลังตรวจสอบรหัส...
+                      กำลังตั้งรหัสผ่านใหม่...
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      ยืนยันรหัส
+                      ยืนยันและตั้งรหัสผ่านใหม่
                     </>
                   )}
                 </button>
