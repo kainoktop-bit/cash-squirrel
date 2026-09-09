@@ -31,11 +31,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     }
   }, [error, success]);
 
-  // Password recovery states -- delivered over LINE (api/request-password-reset-line.ts /
-  // verify-password-reset-line.ts) instead of Supabase's built-in email-based recovery, which
-  // depends on the project's SMTP staying healthy. The code + the new password are submitted
-  // together in one step here, since there's no Supabase recovery session to hand off to once
-  // the code checks out server-side -- see the comment in verify-password-reset-line.ts.
+  // Password recovery states -- delivered over LINE (api/password-reset-line.ts) instead of
+  // Supabase's built-in email-based recovery, which depends on the project's SMTP staying
+  // healthy. The code + the new password are submitted together in one step here, since there's
+  // no Supabase recovery session to hand off to once the code checks out server-side.
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify'>('request');
   const [otpToken, setOtpToken] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -100,10 +99,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await fetch('/api/request-password-reset-line', {
+      const res = await fetch('/api/password-reset-line', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
@@ -135,10 +134,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await fetch('/api/verify-password-reset-line', {
+      const res = await fetch('/api/password-reset-line', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otpToken, newPassword: resetNewPassword }),
+        body: JSON.stringify({ step: 'verify', email, code: otpToken, newPassword: resetNewPassword }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง');
@@ -161,10 +160,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/request-password-reset-line', {
+      const res = await fetch('/api/password-reset-line', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');

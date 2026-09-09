@@ -876,8 +876,8 @@ function buildStatementRow(label: string, value: string, opts?: { size?: string;
 }
 
 // Minimal shape buildJobSavedMessage actually needs -- looser than buildJobFromDraft's return
-// type so api/notify-record-added.ts can hand it a plain Job object straight from the web app
-// (src/types.ts's Job satisfies this structurally) without going through the draft/chat flow.
+// type so api/notify.ts can hand it a plain Job object straight from the web app (src/types.ts's
+// Job satisfies this structurally) without going through the draft/chat flow.
 export interface JobCardData {
   id: string;
   name: string;

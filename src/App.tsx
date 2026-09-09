@@ -1334,10 +1334,10 @@ export default function App() {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         if (!token) return;
-        await fetch('/api/notify-record-added', {
+        await fetch('/api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ kind, record, monthNet }),
+          body: JSON.stringify({ event: 'record-added', kind, record, monthNet }),
         });
       } catch (err) {
         console.warn('notifyLineRecordAdded failed:', err);
@@ -1358,10 +1358,10 @@ export default function App() {
         const body = kind === 'job'
           ? { kind, record: { name: (record as Job).name, client: (record as Job).client, value: (record as Job).value, isPosted: (record as Job).isPosted }, monthNet }
           : { kind, record: { name: (record as Expense).name, category: (record as Expense).category, amount: (record as Expense).amount }, monthNet };
-        await fetch('/api/notify-record-deleted', {
+        await fetch('/api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ event: 'record-deleted', ...body }),
         });
       } catch (err) {
         console.warn('notifyLineRecordDeleted failed:', err);
@@ -1385,10 +1385,10 @@ export default function App() {
         const body = kind === 'created'
           ? { kind, goal: { name: goal.name, target: goal.target, deadline: goal.deadline } }
           : { kind, goal: { name: goal.name, target: goal.target, current: goal.current }, tx };
-        await fetch('/api/notify-goal-event', {
+        await fetch('/api/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ event: 'goal-event', ...body }),
         });
       } catch (err) {
         console.warn('notifyLineGoalEvent failed:', err);

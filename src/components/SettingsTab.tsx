@@ -170,13 +170,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           const { data: sessionData } = await supabase.auth.getSession();
           const notifyToken = sessionData.session?.access_token;
           if (notifyToken) {
-            await fetch('/api/notify-line-disconnected', {
+            await fetch('/api/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${notifyToken}` },
+              body: JSON.stringify({ event: 'line-disconnected' }),
             });
           }
         } catch (err) {
-          console.warn('notify-line-disconnected failed:', err);
+          console.warn('notify (line-disconnected) failed:', err);
         }
 
         // lineUserId is deliberately excluded from the generic debounced/flush autosave (see
