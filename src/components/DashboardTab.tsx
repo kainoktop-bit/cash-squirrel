@@ -1241,7 +1241,12 @@ export default function DashboardTab({
                               received: j.value - Math.round(j.value * ((j.whtRate || 0) / 100)),
                               pending: 0,
                               paymentStatus: 'paid',
-                              payDate: localDateStr
+                              payDate: localDateStr,
+                              // This quick-list includes WIP/stock jobs too (unpaidJobs isn't
+                              // filtered by isPosted) -- without this, marking one paid from here
+                              // left it stuck flagged as "not yet delivered" even though it's now
+                              // fully paid, unlike the equivalent button in JobsTab.
+                              isPosted: true
                             });
                           }
                         }

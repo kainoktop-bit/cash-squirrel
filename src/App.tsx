@@ -1478,9 +1478,16 @@ export default function App() {
       return freshJobs;
     });
 
-    // If job was completed or fully paid, trigger a massive celebration!
+    // If job was completed or fully paid, trigger a massive celebration! Checked three ways, not
+    // just the status/paymentStatus string fields -- those can drift out of sync with reality
+    // (e.g. a job still showing in Dashboard's "unpaid" quick-list, which is driven by
+    // pending > 0, while status already happens to read 'done' for an unrelated reason), which
+    // was silently swallowing both the celebration and the LINE notification. `pending` hitting
+    // exactly 0 is the one signal every other part of the app already treats as the source of
+    // truth for "fully paid", so it's included as its own, independent trigger here too.
     const wasCompleted = (updated.status === 'done' && oldJob?.status !== 'done') ||
-                         (updated.paymentStatus === 'paid' && oldJob?.paymentStatus !== 'paid');
+                         (updated.paymentStatus === 'paid' && oldJob?.paymentStatus !== 'paid') ||
+                         (updated.pending === 0 && (oldJob?.pending ?? 0) > 0);
 
     if (wasCompleted) {
       fireMascot({
