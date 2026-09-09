@@ -7,6 +7,7 @@ import {
   buildExpenseSavedMessage,
   buildJobDeletedMessage,
   buildExpenseDeletedMessage,
+  buildJobEditedMessage,
   JobCardData,
 } from './_lineAssistant.js';
 import { sendLineMessage, sendLineMessagePayload } from './_line.js';
@@ -93,6 +94,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(400).json({ error: 'Invalid payload' });
         return;
       }
+      const sent = await sendLineMessagePayload(lineUserId, message);
+      res.status(200).json({ ok: sent });
+      return;
+    }
+
+    if (event === 'record-edited') {
+      const monthNet = typeof body.monthNet === 'number' ? body.monthNet : undefined;
+      if (body.kind !== 'job' || !body.record || typeof body.record.name !== 'string') {
+        res.status(400).json({ error: 'Invalid payload' });
+        return;
+      }
+      const message = buildJobEditedMessage(body.record as JobCardData, monthNet);
       const sent = await sendLineMessagePayload(lineUserId, message);
       res.status(200).json({ ok: sent });
       return;

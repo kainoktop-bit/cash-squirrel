@@ -1085,6 +1085,28 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
   return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
 }
 
+// Sent when a job is edited through JobsTab's edit form without that edit also being a full
+// payment completion (that case already gets the "รับเงิน" card via buildJobSavedMessage, reused
+// so a payment landing on an existing project reads the same as one landing on a brand-new job).
+// Distinguishing "edited" from narrower internal onEditJob calls (marking a follow-up, bumping
+// isPosted alone, a partial-deposit button) is the caller's job -- see App.tsx's handleEditJob,
+// which only reaches this path when the payload looks like a real edit-form save.
+export function buildJobEditedMessage(job: JobCardData, monthNet?: number): LineMessage {
+  const isWip = job.isPosted === false;
+  const statusLabel = isWip ? 'สต็อกเตรียมผลิต (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const bodyContents = [
+    buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: '#2563EB' }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('ชื่องาน', job.name, { bold: false }),
+    ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
+    buildStatementRow('สถานะ', statusLabel, { bold: false }),
+    ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ยอดค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
+    buildStatementRow('วันที่แก้ไข', formatThaiTimestamp(), { bold: false }),
+    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
+  ];
+  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`);
+}
+
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
 export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }, monthNet?: number): LineMessage {
   const bodyContents = [

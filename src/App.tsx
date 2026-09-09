@@ -1345,6 +1345,28 @@ export default function App() {
     })();
   };
 
+  // Job edits that aren't a full payment completion (that case reuses notifyLineRecordAdded's
+  // "รับเงิน" card via handleEditJob's wasCompleted branch) previously sent no LINE notification
+  // at all -- editing a job's name/client/value/status through JobsTab's edit form landed
+  // silently. This covers that gap with its own "แก้ไขงาน" card.
+  const notifyLineRecordEdited = (record: Job, monthNet: number | undefined) => {
+    if (!session?.user?.email || session.isGuest) return;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ event: 'record-edited', kind: 'job', record, monthNet }),
+        });
+      } catch (err) {
+        console.warn('notifyLineRecordEdited failed:', err);
+      }
+    })();
+  };
+
   // LINE has no API to delete/unsend a previously-sent message, so deleting a job or expense
   // here can't remove its old "บันทึกสำเร็จ" card from the chat -- this pushes a follow-up
   // "ยกเลิก/ลบ" card instead, so the chat at least shows it was voided.
@@ -1496,6 +1518,14 @@ export default function App() {
         mood: 'happy',
         message: `อัปเดตข้อมูลดีลเรียบร้อยแล้วค้าบ! ข้อมูลถูกต้องแม่นยำร้อยเปอร์เซ็นต์!`
       });
+      // `updated.name` is only ever present on JobsTab's real edit-form save (see its onEditJob
+      // call) -- every other onEditJob caller (follow-up marking, a lone isPosted toggle, the
+      // partial-deposit button) only ever touches a couple of narrow fields and never `name`, so
+      // gating on it here is what keeps this from firing a LINE card on every one of those.
+      if (oldJob && updated.name !== undefined) {
+        const mergedJob = { ...oldJob, ...updated };
+        notifyLineRecordEdited(mergedJob, monthNetSafe(freshJobs, expenses));
+      }
     }
   };
 
