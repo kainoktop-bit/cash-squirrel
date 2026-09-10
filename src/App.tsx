@@ -1587,6 +1587,22 @@ export default function App() {
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
 
+    // Marking a deposit as "from recorded income" is supposed to take that money out of
+    // circulation -- but SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" only ever read
+    // settings.allocatedMonths, which until now was only ever written by the bulk "จัดสรรงบรวม"
+    // button. A manual deposit checking that box reduced Dashboard's cash-on-hand but left
+    // SplitTab still showing the same money as available, risking it being allocated twice.
+    if (amount > 0 && deductFromCash) {
+      const monthKey = getMonthKey(todayStr);
+      setSettings(prev => ({
+        ...prev,
+        allocatedMonths: {
+          ...(prev.allocatedMonths || {}),
+          [monthKey]: (prev.allocatedMonths?.[monthKey] || 0) + amount,
+        },
+      }));
+    }
+
     if (nextVal >= g.target && g.current < g.target) {
       // Goal completed! Massive leaf party!
       fireMascot({
@@ -1624,6 +1640,20 @@ export default function App() {
       }
       return { ...goal, current: nextCurrent, history: newHistory };
     }));
+
+    // Mirror of the allocatedMonths bump in handleUpdateGoalProgress -- undoing a deposit that
+    // was marked "from recorded income" must free that amount back up in SplitTab too, or it
+    // stays permanently counted as allocated even though the deposit itself was undone.
+    if (revertBalance && targetTx.type === 'deposit' && targetTx.deductedFromCash) {
+      const monthKey = getMonthKey(targetTx.date);
+      setSettings(prev => ({
+        ...prev,
+        allocatedMonths: {
+          ...(prev.allocatedMonths || {}),
+          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) - targetTx.amount),
+        },
+      }));
+    }
   };
 
   const handleTransferBetweenGoals = (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => {
