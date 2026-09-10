@@ -1587,13 +1587,13 @@ export default function App() {
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
 
-    // Any money moved into or out of a goal here changes how much of this month's pot is still
-    // un-earmarked, so SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" (settings.allocatedMonths) needs
-    // to move with it in real time -- unconditionally, not gated behind the "หักออกจากยอดรายรับ"
-    // checkbox above (that flag is only about whether Dashboard's cash-on-hand total should also
-    // move; this is a separate figure and moving money into a goal earmarks it either way).
-    // Symmetric with withdrawals so a withdraw-then-redeposit round trip never drifts.
-    {
+    // Ticking "หักออกจากยอดรายรับ" is what says this money came from this month's tracked
+    // income -- only then should it also leave SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร"
+    // (settings.allocatedMonths), in real time, the moment the deposit is confirmed. Left
+    // unticked, the money is money from outside the app's tracked income, so this figure must
+    // stay untouched -- the two are deliberately separate, gated by the same checkbox.
+    // Withdrawals reverse it the same way when they're undoing a deductFromCash deposit.
+    if (deductFromCash) {
       const monthKey = getMonthKey(todayStr);
       setSettings(prev => ({
         ...prev,
@@ -1642,17 +1642,16 @@ export default function App() {
       return { ...goal, current: nextCurrent, history: newHistory };
     }));
 
-    // Mirror of the unconditional allocatedMonths move in handleUpdateGoalProgress -- undoing a
-    // deposit or withdrawal must free/re-earmark that amount back in SplitTab too, or it drifts
-    // out of sync with what handleUpdateGoalProgress would produce for the same net effect.
-    if (revertBalance) {
+    // Mirror of the deductFromCash-gated allocatedMonths move in handleUpdateGoalProgress --
+    // only a deposit that was itself made with "หักออกจากยอดรายรับ" ticked (targetTx.deductedFromCash)
+    // ever touched this figure, so only undoing that same kind of deposit should free it back up.
+    if (revertBalance && targetTx.type === 'deposit' && targetTx.deductedFromCash) {
       const monthKey = getMonthKey(targetTx.date);
-      const signedAmount = targetTx.type === 'deposit' ? -targetTx.amount : targetTx.amount;
       setSettings(prev => ({
         ...prev,
         allocatedMonths: {
           ...(prev.allocatedMonths || {}),
-          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) + signedAmount),
+          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) - targetTx.amount),
         },
       }));
     }
