@@ -3,6 +3,7 @@ import { supabaseAdmin } from './_supabaseAdmin.js';
 import {
   buildGoalCreatedMessage,
   buildGoalTransactionMessage,
+  buildGoalTransactionDeletedMessage,
   buildJobSavedMessage,
   buildExpenseSavedMessage,
   buildJobDeletedMessage,
@@ -74,6 +75,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         message = buildGoalCreatedMessage(body.goal);
       } else if ((body.kind === 'deposit' || body.kind === 'withdraw') && body.goal && body.tx) {
         message = buildGoalTransactionMessage(body.goal, { ...body.tx, type: body.kind });
+      } else if (body.kind === 'transaction-deleted' && body.goal && body.tx) {
+        message = buildGoalTransactionDeletedMessage(body.goal, body.tx);
       } else {
         res.status(400).json({ error: 'Invalid payload' });
         return;

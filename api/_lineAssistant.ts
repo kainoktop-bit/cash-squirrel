@@ -1152,6 +1152,26 @@ export function buildGoalTransactionMessage(
   return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
 }
 
+// Sent when a goal deposit/withdraw history entry is deleted (the trash icon on each row in the
+// goal detail modal) -- same "cancelled" framing as buildJobDeletedMessage/buildExpenseDeletedMessage,
+// since LINE has no API to delete/unsend a message the bot already sent for the original transaction.
+export function buildGoalTransactionDeletedMessage(
+  goal: { name: string; target: number; current: number },
+  tx: { type: 'deposit' | 'withdraw'; amount: number; reason?: string }
+): LineMessage {
+  const wasDeposit = tx.type === 'deposit';
+  const bodyContents = [
+    buildStatementRow('ลบรายการ', formatCurrency(tx.amount), { size: 'xl', color: '#78716C' }),
+    { type: 'separator', margin: 'md', color: '#E8DFD3' },
+    buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
+    buildStatementRow('ประเภทที่ลบ', wasDeposit ? 'ฝากเข้า' : 'ดึงเงินออก', { bold: false }),
+    ...(tx.reason ? [buildStatementRow('เหตุผลเดิม', tx.reason, { bold: false })] : []),
+    buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
+    buildStatementRow('วันที่ลบ', formatThaiTimestamp(), { bold: false }),
+  ];
+  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+}
+
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
   return statuses.find((s) => s.id === statusId)?.behavior || 'pending';
 }

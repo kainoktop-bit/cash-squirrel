@@ -1394,9 +1394,9 @@ export default function App() {
   // Same best-effort push pattern for savings-goal events -- creating a goal, or a deposit/
   // withdraw transaction against one (mirrors handleAddGoal / handleUpdateGoalProgress).
   const notifyLineGoalEvent = (
-    kind: 'created' | 'deposit' | 'withdraw',
+    kind: 'created' | 'deposit' | 'withdraw' | 'transaction-deleted',
     goal: { name: string; target: number; current: number; deadline?: string },
-    tx?: { amount: number; reason: string }
+    tx?: { amount: number; reason?: string; type?: 'deposit' | 'withdraw' }
   ) => {
     if (!session?.user?.email || session.isGuest) return;
     (async () => {
@@ -1630,6 +1630,10 @@ export default function App() {
     const targetTx = g.history.find(t => t.id === txId);
     if (!targetTx) return;
 
+    // setGoals's functional form always sees the true latest current/history, same reasoning as
+    // handleEditJob's oldJob/freshJobs capture -- and its eager-state computation runs
+    // synchronously, so nextCurrentForNotify is populated before it's read just below.
+    let nextCurrentForNotify = g.current;
     setGoals(prev => prev.map(goal => {
       if (goal.id !== goalId || !goal.history) return goal;
       const newHistory = goal.history.filter(t => t.id !== txId);
@@ -1639,8 +1643,15 @@ export default function App() {
           ? Math.max(0, goal.current - targetTx.amount)
           : Math.min(goal.target, goal.current + targetTx.amount);
       }
+      nextCurrentForNotify = nextCurrent;
       return { ...goal, current: nextCurrent, history: newHistory };
     }));
+
+    notifyLineGoalEvent(
+      'transaction-deleted',
+      { name: g.name, target: g.target, current: nextCurrentForNotify },
+      { amount: targetTx.amount, reason: targetTx.reason, type: targetTx.type }
+    );
 
     // Mirror of the deductFromCash-gated allocatedMonths move in handleUpdateGoalProgress --
     // only a deposit that was itself made with "หักออกจากยอดรายรับ" ticked (targetTx.deductedFromCash)
