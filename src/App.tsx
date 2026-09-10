@@ -1587,18 +1587,19 @@ export default function App() {
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
 
-    // Marking a deposit as "from recorded income" is supposed to take that money out of
-    // circulation -- but SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" only ever read
-    // settings.allocatedMonths, which until now was only ever written by the bulk "จัดสรรงบรวม"
-    // button. A manual deposit checking that box reduced Dashboard's cash-on-hand but left
-    // SplitTab still showing the same money as available, risking it being allocated twice.
-    if (amount > 0 && deductFromCash) {
+    // Any money moved into or out of a goal here changes how much of this month's pot is still
+    // un-earmarked, so SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" (settings.allocatedMonths) needs
+    // to move with it in real time -- unconditionally, not gated behind the "หักออกจากยอดรายรับ"
+    // checkbox above (that flag is only about whether Dashboard's cash-on-hand total should also
+    // move; this is a separate figure and moving money into a goal earmarks it either way).
+    // Symmetric with withdrawals so a withdraw-then-redeposit round trip never drifts.
+    {
       const monthKey = getMonthKey(todayStr);
       setSettings(prev => ({
         ...prev,
         allocatedMonths: {
           ...(prev.allocatedMonths || {}),
-          [monthKey]: (prev.allocatedMonths?.[monthKey] || 0) + amount,
+          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) + amount),
         },
       }));
     }
@@ -1641,16 +1642,17 @@ export default function App() {
       return { ...goal, current: nextCurrent, history: newHistory };
     }));
 
-    // Mirror of the allocatedMonths bump in handleUpdateGoalProgress -- undoing a deposit that
-    // was marked "from recorded income" must free that amount back up in SplitTab too, or it
-    // stays permanently counted as allocated even though the deposit itself was undone.
-    if (revertBalance && targetTx.type === 'deposit' && targetTx.deductedFromCash) {
+    // Mirror of the unconditional allocatedMonths move in handleUpdateGoalProgress -- undoing a
+    // deposit or withdrawal must free/re-earmark that amount back in SplitTab too, or it drifts
+    // out of sync with what handleUpdateGoalProgress would produce for the same net effect.
+    if (revertBalance) {
       const monthKey = getMonthKey(targetTx.date);
+      const signedAmount = targetTx.type === 'deposit' ? -targetTx.amount : targetTx.amount;
       setSettings(prev => ({
         ...prev,
         allocatedMonths: {
           ...(prev.allocatedMonths || {}),
-          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) - targetTx.amount),
+          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) + signedAmount),
         },
       }));
     }
