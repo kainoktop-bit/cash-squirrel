@@ -14,9 +14,11 @@ import { sendLineMessagePayload } from './_line.js';
 
 const RESET_CODE_TTL_MS = 15 * 60 * 1000;
 
+const MAX_VERIFY_ATTEMPTS = 5;
+
 interface NotifSettingsRow {
   lineUserId?: string;
-  passwordResetCode?: { code: string; expiresAt: string };
+  passwordResetCode?: { code: string; expiresAt: string; attempts?: number };
   [key: string]: unknown;
 }
 
@@ -50,7 +52,7 @@ async function handleRequest(req: VercelRequest, res: VercelResponse) {
   const code = generateCode();
   const updatedSettings: NotifSettingsRow = {
     ...notifSettings,
-    passwordResetCode: { code, expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS).toISOString() },
+    passwordResetCode: { code, expiresAt: new Date(Date.now() + RESET_CODE_TTL_MS).toISOString(), attempts: 0 },
   };
   const { error: updateErr } = await supabaseAdmin
     .from('user_cashflow_data')
@@ -97,8 +99,30 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
 
   const notifSettings: NotifSettingsRow = row.notif_settings || {};
   const stored = notifSettings.passwordResetCode;
-  const isValid = !!stored && stored.code === code && new Date(stored.expiresAt).getTime() > Date.now();
+  const notExpired = !!stored && new Date(stored.expiresAt).getTime() > Date.now();
+
+  // A 6-digit code is only ~1M possibilities -- with no attempt limit, a scripted attacker could
+  // brute-force it well within the 15-minute window (Vercel auto-scales, so nothing here would
+  // naturally throttle them). Locking the code out after a handful of wrong guesses turns that
+  // into "request a fresh code and try again," not "keep guessing until it works."
+  if (notExpired && (stored.attempts || 0) >= MAX_VERIFY_ATTEMPTS) {
+    res.status(400).json({ error: 'กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่อีกครั้งค่ะ' });
+    return;
+  }
+
+  const isValid = notExpired && stored.code === code;
   if (!isValid) {
+    if (notExpired) {
+      const updatedSettings: NotifSettingsRow = {
+        ...notifSettings,
+        passwordResetCode: { ...stored, attempts: (stored.attempts || 0) + 1 },
+      };
+      const { error: attemptErr } = await supabaseAdmin
+        .from('user_cashflow_data')
+        .update({ notif_settings: updatedSettings })
+        .eq('user_id', row.user_id);
+      if (attemptErr) console.error('password-reset-line verify: failed to record attempt:', attemptErr);
+    }
     res.status(400).json({ error: 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่อีกครั้งค่ะ' });
     return;
   }
