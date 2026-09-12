@@ -289,14 +289,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const notifSettings: NotifSettingsRow = row.notif_settings || {};
 
       if (!isPro(row.user_id, createdAtByUserId, activeSubByUserId)) {
+        console.log(`send-overdue-digest: skip ${row.email} -- not Pro`);
         skipped += 1;
         continue;
       }
       if (!notifSettings.dailyDigestEnabled) {
+        console.log(`send-overdue-digest: skip ${row.email} -- dailyDigestEnabled is off`);
         skipped += 1;
         continue;
       }
       if (notifSettings.lastDigestSentDate === todayStr) {
+        console.log(`send-overdue-digest: skip ${row.email} -- already sent today (lastDigestSentDate=${notifSettings.lastDigestSentDate})`);
         skipped += 1;
         continue;
       }
@@ -306,11 +309,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const attentionJobs = findJobsNeedingAttention(jobs);
 
         if (attentionJobs.length === 0) {
+          console.log(`send-overdue-digest: skip ${row.email} -- no jobs needing attention`);
           skipped += 1;
           continue;
         }
 
         const recipient = notifSettings.alertEmail || row.email;
+        console.log(`send-overdue-digest: processing ${row.email} -- ${attentionJobs.length} job(s), lineUserId=${notifSettings.lineUserId ? 'set' : 'MISSING'}`);
         const emailOk = recipient ? await sendDigestEmail(recipient, attentionJobs) : false;
 
         // Independent of the email outcome above -- LINE and email are separate channels, and
@@ -322,9 +327,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
         if (row.email) {
-          await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) =>
-            console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
-          );
+          const lineOk = await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) => {
+            console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err);
+            return false;
+          });
+          console.log(`send-overdue-digest: LINE send to ${row.email} -- ${lineOk ? 'ok' : 'failed/skipped'}`);
         }
 
         if (!emailOk) {
@@ -356,6 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    console.log(`send-overdue-digest: processed=${processed} sent=${sent} skipped=${skipped}`);
     res.status(200).json({ processed, sent, skipped });
   } catch (err: any) {
     console.error('send-overdue-digest handler error:', err);
