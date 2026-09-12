@@ -454,6 +454,18 @@ export default function SplitTab({
       return;
     }
 
+    // "หักออกจากยอดรายรับ" says this money is coming out of this month's tracked income -- it
+    // can't take out more than netProfit actually has left, or the deposit would be funded by
+    // money that was never really there. Caps against the same live-derived figure shown just
+    // above as "กำไรสุทธิคงเหลือเพื่อจัดสรร", so the two numbers can never disagree.
+    if (txType === 'deposit' && txDeductFromCash && amount > netProfit) {
+      triggerAlert(
+        'ยอดเงินไม่พอ',
+        `กำไรสุทธิคงเหลือเพื่อจัดสรรเดือนนี้มีแค่ ${formatCurrency(netProfit)} แต่พยายามโอนเข้า ${formatCurrency(amount)} กรุณาลดจำนวนเงิน หรือไม่ติ๊ก "หักออกจากยอดรายรับ" ถ้าเงินนี้มาจากที่อื่น`
+      );
+      return;
+    }
+
     const signedAmount = txType === 'deposit' ? amount : -amount;
     const defaultReason = txType === 'deposit' ? 'ฝากเงินออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
     const finalReason = txReason.trim() || defaultReason;

@@ -1572,7 +1572,12 @@ export default function App() {
 
     const todayStr = date || new Date().toISOString().split('T')[0];
     const defaultReason = amount >= 0 ? 'โอนเงินเข้าฝากออมเพิ่ม' : 'ดึงเงินออก / หักค่าใช้จ่าย';
-    const nextVal = Math.max(0, Math.min(g.target, g.current + amount));
+    // Never cap at g.target -- a deposit that overshoots the goal is still real money that
+    // landed in it (the UI already shows that as >100% progress, e.g. "1014.0% สำเร็จแล้ว").
+    // Capping here silently discarded the excess, and then made handleDeleteGoalTransaction's
+    // revert math wrong too: reverting a capped deposit subtracted the FULL original amount from
+    // the capped current, which could wipe out money that was already in the goal before it.
+    const nextVal = Math.max(0, g.current + amount);
     const newTx: GoalTransaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       type: (amount >= 0 ? 'deposit' : 'withdraw') as 'deposit' | 'withdraw',
@@ -1627,9 +1632,10 @@ export default function App() {
       const newHistory = goal.history.filter(t => t.id !== txId);
       let nextCurrent = goal.current;
       if (revertBalance) {
+        // No target cap here either -- see the comment on handleUpdateGoalProgress's nextVal.
         nextCurrent = targetTx.type === 'deposit'
           ? Math.max(0, goal.current - targetTx.amount)
-          : Math.min(goal.target, goal.current + targetTx.amount);
+          : goal.current + targetTx.amount;
       }
       nextCurrentForNotify = nextCurrent;
       return { ...goal, current: nextCurrent, history: newHistory };
@@ -1690,7 +1696,8 @@ export default function App() {
         };
         return {
           ...g,
-          current: Math.min(g.target, g.current + transferAmount),
+          // No target cap -- see the comment on handleUpdateGoalProgress's nextVal.
+          current: g.current + transferAmount,
           history: [newTx, ...(g.history || [])]
         };
       }
@@ -1720,7 +1727,8 @@ export default function App() {
     setGoals(prev => prev.map(g => {
       if (g.id === goalId) {
         goalName = g.name;
-        const nextVal = Math.min(g.target, g.current + amount);
+        // No target cap -- see the comment on handleUpdateGoalProgress's nextVal.
+        const nextVal = g.current + amount;
         const newTx = {
           id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           type: 'deposit' as const,
@@ -1750,7 +1758,8 @@ export default function App() {
     setGoals(prev => prev.map(g => {
       const amount = allocations[g.id];
       if (amount && amount > 0) {
-        const nextVal = Math.min(g.target, g.current + amount);
+        // No target cap -- see the comment on handleUpdateGoalProgress's nextVal.
+        const nextVal = g.current + amount;
         const newTx = {
           id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           type: 'deposit' as const,
