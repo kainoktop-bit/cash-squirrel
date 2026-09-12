@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Job, Invoice, InvoiceItem, InvoiceProfile } from '../types';
 import { formatCurrency } from '../utils';
+import NumberInput from './NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, 
@@ -1674,10 +1675,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
                   <div className="w-full sm:w-36 shrink-0 flex gap-2 sm:block">
                     <span className="sm:hidden text-[9px] font-bold text-brand-muted self-center">ราคาต่อหน่วย:</span>
-                    <input
-                      type="number"
+                    <NumberInput
                       value={item.price}
-                      onChange={(e) => handleItemFieldChange(item.id, 'price', e.target.value)}
+                      onChange={(raw) => handleItemFieldChange(item.id, 'price', raw)}
                       placeholder="ราคา (บาท)"
                       className="w-full bg-brand-white dark:bg-stone-900 border border-brand-border rounded-xl px-3 py-2 text-xs font-black font-mono text-brand-text dark:text-white outline-none focus:border-[#E65F2B] text-right"
                     />

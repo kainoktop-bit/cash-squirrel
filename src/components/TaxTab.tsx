@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { Job, AppSettings, Expense } from '../types';
 import { formatCurrency } from '../utils';
+import NumberInput from './NumberInput';
 import {
   Calculator,
   FileText,
@@ -644,12 +645,10 @@ export default function TaxTab({
                     <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้งานดีลในระบบ (Auto-sync)</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberInput
                         value={firstHalfJobsRevenue || ''}
                         placeholder="0"
-                        onChange={(e) => setFirstHalfJobsRevenue(Math.max(0, Number(e.target.value)))}
+                        onChange={(raw) => setFirstHalfJobsRevenue(Math.max(0, Number(raw)))}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -658,12 +657,10 @@ export default function TaxTab({
                     <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้เสริมอื่นภายนอก</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberInput
                         value={firstHalfOtherRevenue || ''}
                         placeholder="0"
-                        onChange={(e) => setFirstHalfOtherRevenue(Math.max(0, Number(e.target.value)))}
+                        onChange={(raw) => setFirstHalfOtherRevenue(Math.max(0, Number(raw)))}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -681,12 +678,10 @@ export default function TaxTab({
                     <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้งานดีลในระบบ (Auto-sync)</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberInput
                         value={secondHalfJobsRevenue || ''}
                         placeholder="0"
-                        onChange={(e) => setSecondHalfJobsRevenue(Math.max(0, Number(e.target.value)))}
+                        onChange={(raw) => setSecondHalfJobsRevenue(Math.max(0, Number(raw)))}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -695,12 +690,10 @@ export default function TaxTab({
                     <label className="block text-[10px] font-black text-brand-muted mb-1">รายได้เสริมอื่นภายนอก</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberInput
                         value={secondHalfOtherRevenue || ''}
                         placeholder="0"
-                        onChange={(e) => setSecondHalfOtherRevenue(Math.max(0, Number(e.target.value)))}
+                        onChange={(raw) => setSecondHalfOtherRevenue(Math.max(0, Number(raw)))}
                         className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                       />
                     </div>
@@ -762,12 +755,10 @@ export default function TaxTab({
                         <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายจริง ครึ่งปีแรก (ม.ค. - มิ.ย.)</label>
                         <div className="relative">
                           <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumberInput
                             value={firstHalfActualExpense || ''}
                             placeholder="ซิงค์จากระบบหรือกรอกเอง"
-                            onChange={(e) => setFirstHalfActualExpense(Math.max(0, Number(e.target.value)))}
+                            onChange={(raw) => setFirstHalfActualExpense(Math.max(0, Number(raw)))}
                             className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                           />
                         </div>
@@ -776,12 +767,10 @@ export default function TaxTab({
                         <label className="block text-[10px] font-bold text-brand-muted mb-1">ค่าใช้จ่ายจริง ครึ่งปีหลัง (ก.ค. - ธ.ค.)</label>
                         <div className="relative">
                           <span className="absolute left-3 top-2 text-xs font-bold text-brand-muted">฿</span>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumberInput
                             value={secondHalfActualExpense || ''}
                             placeholder="ซิงค์จากระบบหรือกรอกเอง"
-                            onChange={(e) => setSecondHalfActualExpense(Math.max(0, Number(e.target.value)))}
+                            onChange={(raw) => setSecondHalfActualExpense(Math.max(0, Number(raw)))}
                             className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-brand-text dark:text-white placeholder-brand-muted focus:outline-none"
                           />
                         </div>
@@ -845,12 +834,10 @@ export default function TaxTab({
                         {opt.type === 'input' ? (
                           <div className="relative w-36">
                             <span className="absolute left-2.5 top-1.5 text-xs font-bold text-brand-muted">฿</span>
-                            <input
-                              type="number"
-                              min="0"
+                            <NumberInput
                               value={item.value || ''}
                               placeholder="0"
-                              onChange={(e) => handleUpdateAllowanceValue(item.id, Math.max(0, Number(e.target.value)))}
+                              onChange={(raw) => handleUpdateAllowanceValue(item.id, Math.max(0, Number(raw)))}
                               className="w-full bg-brand-white dark:bg-neutral-900 border border-brand-border/60 dark:border-neutral-800 focus:border-emerald-500 rounded-lg pl-6 pr-2 py-1 text-xs font-mono font-bold text-brand-text dark:text-white focus:outline-none"
                             />
                           </div>

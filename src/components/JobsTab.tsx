@@ -3,6 +3,7 @@ import { Job, StatusOption } from '../types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
+import NumberInput from './NumberInput';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from './icons';
 import {
   Briefcase,
@@ -1176,13 +1177,11 @@ export default function JobsTab({
                         {/* Contract value */}
                         <div className="space-y-1.5 col-span-2">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
-                          <input
-                            type="number"
+                          <NumberInput
                             required
-                            min="0"
                             placeholder="เช่น 30000"
                             value={formValue}
-                            onChange={(e) => setFormValue(e.target.value)}
+                            onChange={setFormValue}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                           />
                         </div>
@@ -1342,12 +1341,10 @@ export default function JobsTab({
                         (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumberInput
                             placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
                             value={formReceived}
-                            onChange={(e) => setFormReceived(e.target.value)}
+                            onChange={setFormReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                           />
                         </div>
@@ -1922,13 +1919,11 @@ export default function JobsTab({
                         {/* Contract value */}
                         <div className="space-y-1.5 col-span-2">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
-                          <input
-                            type="number"
+                          <NumberInput
                             required
-                            min="0"
                             placeholder="เช่น 30000"
                             value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
+                            onChange={setEditValue}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
                           />
                         </div>
@@ -2044,12 +2039,10 @@ export default function JobsTab({
                         (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
                           <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumberInput
                             placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
                             value={editReceived}
-                            onChange={(e) => setEditReceived(e.target.value)}
+                            onChange={setEditReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
                           />
                         </div>

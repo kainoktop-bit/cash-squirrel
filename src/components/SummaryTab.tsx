@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Job, Goal, AppSettings, Expense, StatusOption } from '../types';
 import { formatCurrency, getMonthKey, formatMonthKey, exportJobsToCSV } from '../utils';
+import NumberInput from './NumberInput';
 import { 
   Calendar, 
   TrendingUp, 
@@ -770,11 +771,10 @@ export default function SummaryTab({
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Fast payment collection input */}
                     <div className="flex items-center gap-1">
-                      <input
-                        type="number"
+                      <NumberInput
                         placeholder="ระบุส่วนมัดจำเพิ่ม..."
                         value={inputVal}
-                        onChange={(e) => setQuickReceivedInput(prev => ({ ...prev, [j.id]: e.target.value }))}
+                        onChange={(raw) => setQuickReceivedInput(prev => ({ ...prev, [j.id]: raw }))}
                         className="w-[120px] bg-brand-faint dark:bg-neutral-800/60 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2 py-1.5 text-[10px] font-semibold outline-none"
                       />
                       <button

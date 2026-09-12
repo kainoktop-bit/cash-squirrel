@@ -4,6 +4,7 @@ import { Expense } from '../types';
 import { formatCurrency, getMonthKey, formatMonthKey } from '../utils';
 import { Plus, Trash2, Receipt, Pencil } from 'lucide-react';
 import { Mascot } from './Mascot';
+import NumberInput from './NumberInput';
 
 interface ExpenseRecordViewProps {
   expenses: Expense[];
@@ -292,11 +293,10 @@ export default function ExpenseRecordView({
 
                 <div>
                   <label className="text-[9px] font-bold text-brand-muted block mb-1">จำนวนเงิน (บาท)</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     placeholder="เช่น 1500"
                     value={expAmount}
-                    onChange={(e) => setExpAmount(e.target.value)}
+                    onChange={setExpAmount}
                     className="w-full bg-brand-white dark:bg-neutral-800 text-brand-text dark:text-white border border-brand-border dark:border-neutral-800 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none focus:ring-1 focus:ring-orange-500/30"
                   />
                 </div>

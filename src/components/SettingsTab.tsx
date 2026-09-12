@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings, FixedExpenseItem, NotifSettings } from '../types';
 import { formatCurrency, sumFixedExpenseItems } from '../utils';
+import NumberInput from './NumberInput';
 import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -351,10 +352,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     placeholder="เช่น ค่าห้อง, ค่ารถ, ค่าเน็ต"
                     className="flex-1 min-w-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold text-brand-text dark:text-white outline-none focus:border-emerald-500"
                   />
-                  <input
-                    type="number"
+                  <NumberInput
                     value={newFixedExpenseAmount}
-                    onChange={(e) => setNewFixedExpenseAmount(e.target.value)}
+                    onChange={setNewFixedExpenseAmount}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFixedExpenseItem(); } }}
                     placeholder="บาท"
                     className="w-24 shrink-0 bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500"
@@ -384,10 +384,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     {formatCurrency(settings.monthlyRevenueGoal)}
                   </span>
                 </div>
-                <input
-                  type="number"
+                <NumberInput
                   value={settings.monthlyRevenueGoal}
-                  onChange={(e) => onUpdateSettings({ ...settings, monthlyRevenueGoal: parseFloat(e.target.value) || 0 })}
+                  onChange={(raw) => onUpdateSettings({ ...settings, monthlyRevenueGoal: parseFloat(raw) || 0 })}
                   className="bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-xl px-3 py-2.5 text-xs font-bold font-mono text-brand-text dark:text-white outline-none focus:border-emerald-500 w-full"
                   placeholder="เช่น 50000"
                 />

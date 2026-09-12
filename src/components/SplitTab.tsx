@@ -32,6 +32,7 @@ import {
   Tag
 } from 'lucide-react';
 import { Mascot } from './Mascot';
+import NumberInput from './NumberInput';
 import {
   IconTarget,
   IconWarning,
@@ -957,8 +958,8 @@ export default function SplitTab({
                   }));
                 };
 
-                const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                  const val = parseFloat(e.target.value) || 0;
+                const handleInputChange = (raw: string) => {
+                  const val = parseFloat(raw) || 0;
                   const allowed = Math.min(val, maxAllowedForThisGoal);
                   setCustomAllocations(prev => ({
                     ...prev,
@@ -1019,10 +1020,7 @@ export default function SplitTab({
                       {/* Right-side value input box */}
                       <div className="flex items-center gap-1 bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-700 rounded-xl px-2.5 py-1.5 w-28 shrink-0">
                         <span className="text-[10px] font-extrabold text-brand-muted">฿</span>
-                        <input
-                           type="number"
-                           min="0"
-                           max={maxAllowedForThisGoal}
+                        <NumberInput
                            value={currentAllocated || ''}
                            onChange={handleInputChange}
                            className="w-full bg-transparent text-xs font-extrabold font-mono text-brand-text dark:text-neutral-100 outline-none text-right"
@@ -1311,25 +1309,21 @@ export default function SplitTab({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-brand-muted uppercase tracking-wider block">ยอดเงินเป้าหมาย (฿)</label>
-                    <input
-                      type="number"
+                    <NumberInput
                       required
-                      min="1"
                       placeholder="เช่น 50000"
                       value={formTarget}
-                      onChange={(e) => setFormTarget(e.target.value)}
+                      onChange={setFormTarget}
                       className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-brand-muted uppercase tracking-wider block">ยอดเงินต้นสะสมแล้ว (฿)</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <NumberInput
                       placeholder="0"
                       value={formCurrent}
-                      onChange={(e) => setFormCurrent(e.target.value)}
+                      onChange={setFormCurrent}
                       className="w-full bg-brand-faint text-sm text-brand-text placeholder-brand-muted rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
                     />
                   </div>
@@ -1588,26 +1582,22 @@ export default function SplitTab({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-brand-muted uppercase tracking-wider block">เป้ายอดเงินที่อยากจัดเก็บ (฿)</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <NumberInput
                       required
                       placeholder="เป้า เช่น 50000"
                       value={formTarget}
-                      onChange={(e) => setFormTarget(e.target.value)}
+                      onChange={setFormTarget}
                       className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-sm font-bold font-mono text-brand-text outline-none focus:border-emerald-500"
                     />
                   </div>
 
                   <div className="space-y-1">
                     <label className="text-brand-muted uppercase tracking-wider block">เงินตั้งต้นที่มีตอนนี้ (฿)</label>
-                    <input
-                      type="number"
-                      min="0"
+                    <NumberInput
                       required
                       placeholder="ยอดมีอยู่แล้ว เช่น 2000"
                       value={formCurrent}
-                      onChange={(e) => setFormCurrent(e.target.value)}
+                      onChange={setFormCurrent}
                       className="w-full bg-brand-faint dark:bg-stone-800 border border-brand-border dark:border-neutral-700 rounded-xl p-2.5 text-sm font-bold font-mono text-brand-text outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -2196,13 +2186,10 @@ export default function SplitTab({
                     )}
                   </div>
                   <div className="relative">
-                    <input
-                      type="number"
-                      step="any"
-                      min="1"
+                    <NumberInput
                       required
                       value={txAmount}
-                      onChange={(e) => setTxAmount(e.target.value)}
+                      onChange={setTxAmount}
                       placeholder="เช่น 2000"
                       className="w-full pl-9 pr-4 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-sm font-mono font-extrabold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -2371,14 +2358,10 @@ export default function SplitTab({
                     จำนวนเงิน (บาท) <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <input
-                      type="number"
-                      step="any"
-                      min="1"
-                      max={transferFromGoal.current}
+                    <NumberInput
                       required
                       value={transferAmount}
-                      onChange={(e) => setTransferAmount(e.target.value)}
+                      onChange={setTransferAmount}
                       placeholder="เช่น 2000"
                       className="w-full pl-9 pr-4 py-2.5 bg-brand-faint/60 dark:bg-stone-800/80 border border-brand-border/80 dark:border-neutral-700 rounded-xl text-sm font-mono font-extrabold text-brand-text dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
