@@ -311,23 +311,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const recipient = notifSettings.alertEmail || row.email;
-        if (!recipient) {
-          skipped += 1;
-          continue;
-        }
+        const emailOk = recipient ? await sendDigestEmail(recipient, attentionJobs) : false;
 
-        const ok = await sendDigestEmail(recipient, attentionJobs);
-        if (!ok) {
-          skipped += 1;
-          continue;
-        }
-
-        // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
+        // Independent of the email outcome above -- LINE and email are separate channels, and
+        // Gmail has repeatedly been the unreliable one in this app's history. Gating this behind
+        // `emailOk` (as it used to be) meant a single Gmail hiccup silently swallowed the LINE
+        // notification too, even for accounts with LINE properly linked. Best-effort: an unmapped
         // email or a LINE API hiccup just means no LINE message this time.
         if (row.email) {
           sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) =>
             console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
           );
+        }
+
+        if (!emailOk) {
+          skipped += 1;
+          continue;
         }
 
         // Only count genuinely overdue items as a "follow-up" -- a heads-up for something due

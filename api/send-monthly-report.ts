@@ -251,18 +251,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const excelBase64 = buildMonthlyExcelBase64(monthLabel, summary, monthJobs, monthExpenses);
 
-        const ok = await sendReportEmail(recipient, monthLabel, summary, excelBase64);
-        if (!ok) {
-          skipped += 1;
-          continue;
-        }
+        const emailOk = await sendReportEmail(recipient, monthLabel, summary, excelBase64);
 
-        // Best-effort, doesn't affect the email flow's success/failure -- an unmapped
+        // Independent of the email outcome above -- LINE and email are separate channels, and
+        // Gmail has repeatedly been the unreliable one in this app's history. Gating this behind
+        // `emailOk` (as it used to be) meant a single Gmail hiccup silently swallowed the LINE
+        // notification too, even for accounts with LINE properly linked. Best-effort: an unmapped
         // email or a LINE API hiccup just means no LINE message this time.
         if (row.email) {
           sendLineMessageToEmail(row.email, { type: 'text', text: buildReportLineText(monthLabel, summary) }, notifSettings.lineUserId).catch((err) =>
             console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err)
           );
+        }
+
+        if (!emailOk) {
+          skipped += 1;
+          continue;
         }
 
         await supabaseAdmin
