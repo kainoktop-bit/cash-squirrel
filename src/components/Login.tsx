@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Languages } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from './Mascot';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface LoginProps {
   darkMode: boolean;
@@ -11,6 +12,7 @@ interface LoginProps {
 }
 
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
+  const { t, language, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -47,7 +49,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     if (isSignUp && password !== confirmPassword) {
-      setError('รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้งค่ะ');
+      setError(t('login.err.passwordMismatch'));
       setLoading(false);
       return;
     }
@@ -59,11 +61,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
           password,
         });
         if (signUpErr) throw signUpErr;
-        
+
         if (data?.session) {
-          setSuccess('สมัครสมาชิกและเข้าสู่ระบบสำเร็จแล้ว!');
+          setSuccess(t('login.success.signUpWithSession'));
         } else {
-          setSuccess('สมัครสมาชิกสำเร็จแล้ว! กรุณาตรวจสอบอีเมลของคุณเพื่อยืนยันการสมัครสมาชิกก่อนเข้าใช้งานค่ะ (หรือลองเข้าสู่ระบบได้เลยหากระบบของคุณไม่ได้บังคับยืนยันอีเมล)');
+          setSuccess(t('login.success.signUpNeedsConfirm'));
         }
       } else {
         const { error: signInErr } = await supabase.auth.signInWithPassword({
@@ -73,18 +75,18 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         if (signInErr) throw signInErr;
       }
     } catch (err: any) {
-      let message = err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง';
+      let message = err.message || t('login.err.generic');
       if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('wrong password') || message.toLowerCase().includes('user not found') || message.toLowerCase().includes('invalid_credentials')) {
-        message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้งค่ะ';
+        message = t('login.err.invalidCredentials');
       } else if (message.toLowerCase().includes('email already in use') || message.toLowerCase().includes('user already exists')) {
-        message = 'อีเมลนี้ถูกใช้งานแล้วในระบบ กรุณาใช้คุณลักษณะเข้าสู่ระบบหรือกู้คืนรหัสผ่านค่ะ';
+        message = t('login.err.emailInUse');
       } else if (message.toLowerCase().includes('signup disabled')) {
-        message = 'การสมัครสมาชิกถูกปิดใช้งานชั่วคราวในระบบ';
+        message = t('login.err.signupDisabled');
       } else if (
         message.toLowerCase().includes('too many requests') ||
         message.toLowerCase().includes('security purposes')
       ) {
-        message = 'ระบบตรวจพบการส่งคำขอถี่เกินไปชั่วคราว เพื่อความปลอดภัยกรุณารอประมาณ 1-2 นาทีแล้วลองใหม่อีกครั้ง หรือหากต้องการเข้าทดสอบระบบทันทีสามารถกดปุ่ม "เข้าใช้งานโหมดผู้เยี่ยมชม" ด้านล่างได้เลยค่ะ';
+        message = t('login.err.tooManyRequests');
       }
       setError(message);
     } finally {
@@ -105,19 +107,19 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
       if (data.reason === 'not_linked') {
-        setError('บัญชีนี้ยังไม่ได้เชื่อมต่อ LINE ครับ กรุณาไปที่หน้าตั้งค่าในแอป > เชื่อมต่อ LINE ก่อน (หรือติดต่อผู้ดูแลระบบถ้าเข้าแอปไม่ได้)');
+        setError(t('login.err.notLinked'));
         return;
       }
       if (data.reason === 'send_failed') {
-        setError('ส่งรหัสผ่าน LINE ไม่สำเร็จชั่วคราว กรุณาลองใหม่อีกครั้งค่ะ');
+        setError(t('login.err.sendFailed'));
         return;
       }
-      setSuccess('ส่งรหัสยืนยันไปที่ LINE ของคุณเรียบร้อยแล้วค่ะ! กรุณาเปิดแอป LINE เช็ครหัส แล้วกรอกด้านล่างพร้อมตั้งรหัสผ่านใหม่');
+      setSuccess(t('login.success.codeSent'));
       setRecoveryStep('verify');
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      setError(err.message || t('login.err.resetGeneric'));
     } finally {
       setLoading(false);
     }
@@ -126,7 +128,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const handleVerifyAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (resetNewPassword !== resetConfirmPassword) {
-      setError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน กรุณาตรวจสอบอีกครั้งค่ะ');
+      setError(t('login.err.newPasswordMismatch'));
       return;
     }
     setLoading(true);
@@ -140,8 +142,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'verify', email, code: otpToken, newPassword: resetNewPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง');
-      setSuccess('ตั้งรหัสผ่านใหม่สำเร็จแล้วค่ะ! เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย');
+      if (!res.ok) throw new Error(data?.error || t('login.err.verifyGeneric'));
+      setSuccess(t('login.success.passwordReset'));
       setIsForgotPassword(false);
       setRecoveryStep('request');
       setOtpToken('');
@@ -149,7 +151,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       setResetNewPassword('');
       setResetConfirmPassword('');
     } catch (err: any) {
-      setError(err.message || 'รหัสไม่ถูกต้องหรือหมดอายุ กรุณาลองใหม่อีกครั้ง');
+      setError(err.message || t('login.err.verifyGeneric'));
     } finally {
       setLoading(false);
     }
@@ -166,11 +168,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
       setOtpToken('');
-      setSuccess('ส่งรหัสยืนยันใหม่ไปที่ LINE ของคุณเรียบร้อยแล้วค่ะ');
+      setSuccess(t('login.success.codeResent'));
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      setError(err.message || t('login.err.resetGeneric'));
     } finally {
       setLoading(false);
     }
@@ -188,7 +190,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       });
       if (googleErr) throw googleErr;
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อด้วย Google');
+      setError(err.message || t('login.err.googleGeneric'));
       setLoading(false);
     }
   };
@@ -200,12 +202,20 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
 
-      {/* Theme Toggle (Top Right) */}
-      <div className="absolute top-6 right-6">
+      {/* Theme + Language Toggle (Top Right) */}
+      <div className="absolute top-6 right-6 flex items-center gap-2">
+        <button
+          onClick={toggleLanguage}
+          className="px-3 py-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/40 shadow-sm cursor-pointer"
+          title={language === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
+        >
+          <Languages className="w-5 h-5 text-brand-muted" />
+          <span className="text-[10px] font-black text-brand-muted">{t('login.languageToggle')}</span>
+        </button>
         <button
           onClick={() => setDarkMode(!darkMode)}
           className="p-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/40 shadow-sm cursor-pointer"
-          title={darkMode ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
+          title={darkMode ? t('login.darkModeOff') : t('login.darkModeOn')}
         >
           {darkMode ? (
             <Sun className="w-5 h-5 text-amber-500 fill-amber-500/10" />
@@ -220,10 +230,10 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
         <div className="text-center mb-6">
           <Mascot mood={mascotMood} size={100} className="mb-2" />
           <h2 className="text-2xl font-display font-extrabold tracking-tight text-brand-text sm:text-3xl">
-            กระรอกตุนเงิน
+            {t('login.brandName')}
           </h2>
           <p className="mt-1.5 text-xs font-bold text-[#E65F2B] dark:text-[#FFA473] uppercase tracking-wider">
-            คลังกระรอกตุนเสบียง ระบบติดตามกระแสเงินสด
+            {t('login.tagline')}
           </p>
         </div>
 
@@ -254,7 +264,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 }`}
               >
                 <LogIn className="w-4 h-4" />
-                เข้าสู่ระบบ
+                {t('login.tabSignIn')}
               </button>
               <button
                 type="button"
@@ -275,7 +285,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
-                สมัครสมาชิก
+                {t('login.tabSignUp')}
               </button>
             </div>
           ) : (
@@ -296,7 +306,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <h3 className="font-display font-extrabold text-lg text-brand-text">
-                {recoveryStep === 'request' ? 'กู้คืนรหัสผ่าน' : 'ตั้งรหัสผ่านใหม่'}
+                {recoveryStep === 'request' ? t('login.recoveryTitleRequest') : t('login.recoveryTitleVerify')}
               </h3>
             </div>
           )}
@@ -332,11 +342,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             recoveryStep === 'request' ? (
               <form onSubmit={handleResetRequest} className="space-y-4">
                 <p className="text-[11px] text-brand-muted leading-relaxed">
-                  กรอกอีเมลของบัญชีคุณ ระบบจะส่งรหัสยืนยันไปที่ LINE ที่เชื่อมต่อไว้กับบัญชีนี้ (ต้องเชื่อมต่อ LINE ไว้ก่อนแล้วในหน้าตั้งค่าของแอป)
+                  {t('login.resetDescription')}
                 </p>
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                    อีเมลของคุณ (Your Email)
+                    {t('login.yourEmail')}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -346,7 +356,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="example@yourdomain.com"
+                      placeholder={t('login.emailPlaceholder')}
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -361,12 +371,12 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      กำลังส่งรหัสไปที่ LINE...
+                      {t('login.sendingCode')}
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      ส่งรหัสยืนยันเข้า LINE
+                      {t('login.sendCodeButton')}
                     </>
                   )}
                 </button>
@@ -375,12 +385,21 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               /* OTP Verification + New Password Form */
               <form onSubmit={handleVerifyAndReset} className="space-y-4">
                 <p className="text-[11px] text-brand-muted leading-relaxed">
-                  กรอกรหัสยืนยันที่ส่งไปที่ LINE ของ <strong className="text-brand-text">{email}</strong> พร้อมตั้งรหัสผ่านใหม่ด้านล่างนี้ได้เลย
+                  {(() => {
+                    const [before, after] = t('login.verifyDescription').split('{email}');
+                    return (
+                      <>
+                        {before}
+                        <strong className="text-brand-text">{email}</strong>
+                        {after}
+                      </>
+                    );
+                  })()}
                 </p>
 
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                    รหัสยืนยัน (Verification Code)
+                    {t('login.verificationCode')}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -393,7 +412,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       maxLength={12}
                       value={otpToken}
                       onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                      placeholder="กรอกรหัสยืนยัน"
+                      placeholder={t('login.verificationCodePlaceholder')}
                       required
                       autoFocus
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-base tracking-[0.5em] text-center font-mono focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50 placeholder:tracking-normal placeholder:text-xs placeholder:font-sans"
@@ -403,7 +422,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                    รหัสผ่านใหม่ (New Password)
+                    {t('login.newPassword')}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -413,7 +432,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       type="password"
                       value={resetNewPassword}
                       onChange={(e) => setResetNewPassword(e.target.value)}
-                      placeholder="ตั้งรหัสผ่าน 6 ตัวขึ้นไป"
+                      placeholder={t('login.newPasswordPlaceholder')}
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -422,7 +441,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
                 <div>
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                    ยืนยันรหัสผ่านใหม่ (Confirm Password)
+                    {t('login.confirmNewPassword')}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -432,7 +451,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       type="password"
                       value={resetConfirmPassword}
                       onChange={(e) => setResetConfirmPassword(e.target.value)}
-                      placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                      placeholder={t('login.confirmNewPasswordPlaceholder')}
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -447,12 +466,12 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      กำลังตั้งรหัสผ่านใหม่...
+                      {t('login.settingNewPassword')}
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      ยืนยันและตั้งรหัสผ่านใหม่
+                      {t('login.confirmAndReset')}
                     </>
                   )}
                 </button>
@@ -463,7 +482,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   disabled={loading}
                   className="w-full text-center text-[11px] font-bold text-brand-muted hover:text-[#E65F2B] dark:hover:text-[#FFA473] cursor-pointer transition-all disabled:opacity-50"
                 >
-                  ไม่ได้รับรหัส? ส่งอีกครั้ง
+                  {t('login.didntReceiveCode')}
                 </button>
               </form>
             )
@@ -473,7 +492,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             <form onSubmit={handleAuth} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                  อีเมล (Email)
+                  {t('login.email')}
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -483,7 +502,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="example@yourdomain.com"
+                    placeholder={t('login.emailPlaceholder')}
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                   />
@@ -493,7 +512,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted">
-                    รหัสผ่าน (Password)
+                    {t('login.password')}
                   </label>
                   {!isSignUp && (
                     <button
@@ -505,7 +524,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       }}
                       className="text-[11px] font-bold text-[#E65F2B] dark:text-[#FFA473] hover:underline cursor-pointer"
                     >
-                      ลืมรหัสผ่าน?
+                      {t('login.forgotPassword')}
                     </button>
                   )}
                 </div>
@@ -517,7 +536,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isSignUp ? 'ตั้งรหัสผ่าน 6 ตัวขึ้นไป' : 'กรอกรหัสผ่านของคุณ'}
+                    placeholder={isSignUp ? t('login.passwordPlaceholderSignup') : t('login.passwordPlaceholderSignin')}
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                   />
@@ -532,7 +551,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                   transition={{ duration: 0.2 }}
                 >
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-brand-muted mb-1.5">
-                    ยืนยันรหัสผ่าน (Confirm Password)
+                    {t('login.confirmPassword')}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-brand-muted">
@@ -542,7 +561,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="ป้อนรหัสผ่านอีกครั้ง"
+                      placeholder={t('login.confirmPasswordPlaceholder')}
                       required={isSignUp}
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
@@ -558,17 +577,17 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    กำลังดำเนินการ...
+                    {t('login.processing')}
                   </>
                 ) : isSignUp ? (
                   <>
                     <UserPlus className="w-4 h-4" />
-                    สมัครสมาชิกใหม่
+                    {t('login.signUpButton')}
                   </>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4" />
-                    เข้าสู่ระบบ
+                    {t('login.tabSignIn')}
                   </>
                 )}
               </button>
@@ -576,7 +595,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-px bg-brand-border/40" />
-              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">หรือ</span>
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">{t('login.or')}</span>
               <div className="flex-1 h-px bg-brand-border/40" />
             </div>
 
@@ -592,7 +611,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
                 <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
                 <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
               </svg>
-              เข้าสู่ระบบด้วย Google
+              {t('login.googleSignIn')}
             </button>
             </>
           )}
@@ -609,19 +628,19 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
               }}
               className="w-full py-3.5 px-4 bg-orange-500/10 dark:bg-orange-500/5 hover:bg-orange-500/15 text-[#E65F2B] dark:text-[#FFA473] font-extrabold rounded-2xl text-xs border border-orange-500/20 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all shadow-sm"
             >
-              ทดลองใช้งานระบบฟรี
+              {t('login.guestTrial')}
             </button>
           </div>
         </motion.div>
 
         {/* Footer info */}
         <p className="text-center mt-6 text-[10px] text-brand-muted leading-relaxed max-w-[280px] mx-auto">
-          ข้อมูลถูกเข้ารหัสปลอดภัยด้วยบริการรับรองตัวตนสากลจาก Supabase
+          {t('login.securityNote')}
         </p>
         <p className="text-center mt-2 text-[10px] text-brand-muted">
-          <a href="/privacy" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">นโยบายความเป็นส่วนตัว</a>
+          <a href="/privacy" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.privacyPolicy')}</a>
           <span className="mx-1.5">&middot;</span>
-          <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">เงื่อนไขการใช้งาน</a>
+          <a href="/terms" className="hover:text-[#E65F2B] dark:hover:text-[#FFA473] underline underline-offset-2">{t('login.termsOfUse')}</a>
         </p>
       </div>
     </div>

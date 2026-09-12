@@ -18,6 +18,7 @@ import { InvoiceTab } from './components/InvoiceTab';
 import { InsightTab } from './components/InsightTab';
 import { PlansTab } from './components/PlansTab';
 import { supabase } from './supabaseClient';
+import { useLanguage } from './i18n/LanguageContext';
 // Aliased: this file already has its own local `currentMonthKey` (a memoized string further
 // down, computed from local machine time) -- importing the same name here would silently shadow
 // it, and calling the shadowed string as a function is exactly the "Je is not a function" bug
@@ -71,18 +72,21 @@ type TabKey = 'dashboard' | 'jobs' | 'tax' | 'summary' | 'timeline' | 'split' | 
 // collapsible section so first-time users see a simpler menu by default.
 // This is the freelance-persona grouping -- also the fallback when no persona is set
 // (existing accounts, or the setup wizard's persona step was skipped).
-const NAV_ITEMS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
-  { key: 'dashboard', label: 'ภาพรวมกระแสเงินสด', icon: Home, group: 'core' },
-  { key: 'jobs', label: 'บันทึกรายรับ-รายจ่าย', icon: Briefcase, group: 'core' },
-  { key: 'timeline', label: 'ไทม์ไลน์ปฏิทินงาน', icon: Calendar, group: 'core' },
-  { key: 'summary', label: 'สรุปยอดรายรับ & ออม', icon: Wallet, group: 'more' },
-  { key: 'split', label: 'จัดสรรเงิน & เป้าหมายออม', icon: Percent, group: 'more' },
-  { key: 'report', label: 'รายงาน & เครดิตเทอม', icon: TrendingUp, group: 'more' },
-  { key: 'insight', label: 'วิเคราะห์รายได้', icon: BarChart3, group: 'more' },
-  { key: 'tax', label: 'ผู้ช่วยจัดการภาษี', icon: Calculator, group: 'more' },
-  { key: 'invoice', label: 'ออกบิล & ใบเสร็จ', icon: FileText, group: 'more' },
-  { key: 'plans', label: 'แพ็กเกจ & อัปเกรด', icon: IconCrown, group: 'bottom' },
-  { key: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, group: 'bottom' },
+// label is a translation key (resolved via t() at render time), not display text -- this array
+// is a module-level constant built once at load, before any component (and its language context)
+// exists, so it can't call t() itself.
+const NAV_ITEMS: { key: TabKey; labelKey: string; icon: React.ComponentType<{ className?: string }>; group: 'core' | 'more' | 'bottom' }[] = [
+  { key: 'dashboard', labelKey: 'nav.dashboard', icon: Home, group: 'core' },
+  { key: 'jobs', labelKey: 'nav.jobs', icon: Briefcase, group: 'core' },
+  { key: 'timeline', labelKey: 'nav.timeline', icon: Calendar, group: 'core' },
+  { key: 'summary', labelKey: 'nav.summary', icon: Wallet, group: 'more' },
+  { key: 'split', labelKey: 'nav.split', icon: Percent, group: 'more' },
+  { key: 'report', labelKey: 'nav.report', icon: TrendingUp, group: 'more' },
+  { key: 'insight', labelKey: 'nav.insight', icon: BarChart3, group: 'more' },
+  { key: 'tax', labelKey: 'nav.tax', icon: Calculator, group: 'more' },
+  { key: 'invoice', labelKey: 'nav.invoice', icon: FileText, group: 'more' },
+  { key: 'plans', labelKey: 'nav.plans', icon: IconCrown, group: 'bottom' },
+  { key: 'settings', labelKey: 'nav.settings', icon: Settings, group: 'bottom' },
 ];
 
 // Every feature stays reachable regardless of persona -- these lists only decide which
@@ -225,6 +229,7 @@ const TOUR_STEPS: TourStep[] = [
 ];
 
 export default function App() {
+  const { t, language, toggleLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
@@ -245,7 +250,7 @@ export default function App() {
         }`}
       >
         <Icon className="w-4.5 h-4.5" />
-        <span>{item.label}</span>
+        <span>{t(item.labelKey)}</span>
       </button>
     );
   };
@@ -258,7 +263,7 @@ export default function App() {
     >
       <span className="flex items-center gap-3">
         <Wrench className="w-4.5 h-4.5" />
-        <span>เครื่องมือเพิ่มเติม</span>
+        <span>{t('nav.moreTools')}</span>
       </span>
       <ChevronDown className={`w-4 h-4 transition-transform ${showMoreNavItems ? 'rotate-180' : ''}`} />
     </button>
@@ -1929,7 +1934,7 @@ export default function App() {
           type="button"
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-2.5 mb-8 px-2 cursor-pointer text-left hover:opacity-80 transition-opacity"
-          title="กลับไปหน้าภาพรวมกระแสเงินสด"
+          title={t("nav.backToDashboard")}
         >
           <div className="shrink-0">
             <Mascot mood="happy" size={36} />
@@ -2060,6 +2065,17 @@ export default function App() {
               )}
             </button>
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-brand-muted font-bold inline-flex items-center gap-1">ภาษา / Language</span>
+            <button
+              onClick={toggleLanguage}
+              className="px-2.5 py-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1 border border-brand-border/20 cursor-pointer"
+              title={language === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
+            >
+              <span className="text-[10px] font-black">{language === 'th' ? 'ไทย' : 'EN'}</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -2094,7 +2110,7 @@ export default function App() {
                       setIsMobileMenuOpen(false);
                     }}
                     className="flex items-center gap-2.5 cursor-pointer text-left"
-                    title="กลับไปหน้าภาพรวมกระแสเงินสด"
+                    title={t("nav.backToDashboard")}
                   >
                     <div className="shrink-0">
                       <Mascot mood="happy" size={36} />
@@ -2241,6 +2257,15 @@ export default function App() {
                       )}
                     </button>
                   </div>
+                  <div className="flex flex-col gap-1 mt-2.5">
+                    <span className="text-[9px] text-brand-muted font-bold">ภาษา / Language</span>
+                    <button
+                      onClick={toggleLanguage}
+                      className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/20 cursor-pointer text-xs font-bold w-full"
+                    >
+                      <span>{language === 'th' ? 'ไทย / Thai' : 'EN / English'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.aside>
@@ -2258,7 +2283,7 @@ export default function App() {
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-1.5 rounded-xl bg-brand-faint hover:bg-brand-border/30 text-brand-muted hover:text-brand-text transition-all cursor-pointer lg:hidden flex items-center justify-center border border-brand-border/10"
-              title="เปิดเมนูหมวดหมู่"
+              title={t('header.openMenu')}
             >
               <Menu className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
             </button>
@@ -2268,25 +2293,25 @@ export default function App() {
                 <Mascot mood="happy" size={32} className="shrink-0" />
                 <div className="flex flex-col">
                   <span className="font-display font-extrabold text-xs sm:text-sm tracking-tight text-brand-text leading-none uppercase">
-                    ตั้งค่าระบบแอปพลิเคชัน
+                    {t('header.settingsTitle')}
                   </span>
                   <span className="text-[9px] text-brand-muted dark:text-neutral-400 font-medium leading-tight mt-0.5 hidden sm:inline">
-                    จัดการสัดส่วนเป้าหมายทางการเงิน สำรองกู้คืนข้อมูล และเชื่อมต่อระบบคลาวด์
+                    {t('header.settingsSubtitle')}
                   </span>
                 </div>
               </div>
             ) : (
               <span className="font-display font-extrabold text-sm tracking-tight text-brand-text">
-                {activeTab === 'dashboard' && "ภาพรวมกระแสเงินสด"}
-                {activeTab === 'jobs' && "บันทึกงานดีลของคุณ"}
-                {activeTab === 'tax' && "ผู้ช่วยจัดการภาษีบุคคลธรรมดา"}
-                {activeTab === 'invoice' && "เครื่องมือออกใบแจ้งหนี้ & ใบเสร็จรับเงินสำเร็จรูป"}
-                {activeTab === 'summary' && "สรุปยอดรายรับ & เงินคงเหลือประจำเดือน"}
-                {activeTab === 'timeline' && "ไทม์ไลน์งานดีลและวันรับเงิน"}
-                {activeTab === 'split' && "จัดสรรเงิน & เป้าหมายออม"}
-                {activeTab === 'report' && "รายงานวิเคราะห์ & เครดิตเทอม"}
-                {activeTab === 'insight' && "วิเคราะห์รายได้เชิงลึก"}
-                {activeTab === 'plans' && "แพ็กเกจ & อัปเกรดเป็นสมาชิก"}
+                {activeTab === 'dashboard' && t('header.dashboard')}
+                {activeTab === 'jobs' && t('header.jobs')}
+                {activeTab === 'tax' && t('header.tax')}
+                {activeTab === 'invoice' && t('header.invoice')}
+                {activeTab === 'summary' && t('header.summary')}
+                {activeTab === 'timeline' && t('header.timeline')}
+                {activeTab === 'split' && t('header.split')}
+                {activeTab === 'report' && t('header.report')}
+                {activeTab === 'insight' && t('header.insight')}
+                {activeTab === 'plans' && t('header.plans')}
               </span>
             )}
           </div>
