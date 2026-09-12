@@ -3,6 +3,7 @@ import { AppSettings, FixedExpenseItem, NotifSettings } from '../types';
 import { formatCurrency, sumFixedExpenseItems } from '../utils';
 import NumberInput from './NumberInput';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../i18n/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Download,
@@ -21,7 +22,8 @@ import {
   Mail,
   MessageCircle,
   ExternalLink,
-  Copy
+  Copy,
+  Languages
 } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconCrown, IconClose, IconCheck } from './icons';
@@ -90,6 +92,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateNotifSettings,
   isPro
 }) => {
+  const { t, language, toggleLanguage } = useLanguage();
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [newFixedExpenseName, setNewFixedExpenseName] = useState('');
@@ -301,6 +304,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-12">
+          {/* Language */}
+          <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">
+              <Languages className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+              <h3 className="text-xs font-black text-brand-text dark:text-white uppercase tracking-wider">
+                {t('settings.language')}
+              </h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-brand-muted dark:text-neutral-400 max-w-xs">
+                {t('settings.languageDescription')}
+              </p>
+              <div className="flex items-center bg-brand-faint dark:bg-stone-950 border border-brand-border dark:border-neutral-850 rounded-2xl p-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => language !== 'th' && toggleLanguage()}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    language === 'th' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
+                  }`}
+                >
+                  ไทย
+                </button>
+                <button
+                  type="button"
+                  onClick={() => language !== 'en' && toggleLanguage()}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    language === 'en' ? 'bg-emerald-600 text-white shadow-sm' : 'text-brand-muted hover:text-brand-text'
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Card 1: Proportions & Financial Targets */}
           <div className="bg-brand-white dark:bg-neutral-900 border border-brand-border dark:border-neutral-800 rounded-3xl p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-2 border-b border-brand-border/40 pb-3">

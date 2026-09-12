@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { IconArrowUpRight, IconBolt, IconCoin } from './icons';
 import { VineDivider } from './VineDivider';
+import { useLanguage } from '../i18n/LanguageContext';
 import {
   TrendingUp,
   TrendingDown,
@@ -101,6 +102,7 @@ export default function DashboardTab({
   triggerAlert,
   triggerConfirm,
 }: DashboardTabProps) {
+  const { t } = useLanguage();
   const [isAlertExpanded, setIsAlertExpanded] = React.useState(false);
   const [isRadarExpanded, setIsRadarExpanded] = React.useState(false);
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -636,25 +638,32 @@ export default function DashboardTab({
 
   if (selectedMonthJobs.length === 0) {
     alertStatus = 'warning';
-    alertHeadline = `ยังไม่มีบันทึกเสบียงในเดือน ${monthName}`;
-    alertFullMessage = `คลังเสบียงเดือน ${monthName} ยังไม่มีการบันทึกการเก็บลูกนัทเข้ามาในระบบ`;
+    alertHeadline = t('dash.noRecordsThisMonth', { month: monthName });
+    alertFullMessage = t('dash.noRecordsThisMonthFull', { month: monthName });
   } else if (profit < 0) {
     alertStatus = 'danger';
-    alertHeadline = `วิกฤตเสบียงไม่พอรายจ่าย (ขาดอีก ${formatCurrency(Math.abs(profit))})`;
-    alertFullMessage = `วิกฤตหน้าหนาวเดือน ${monthName}: ลูกนัทในรังมีเพียง (${formatCurrency(totalReceived)}) ซึ่งยังไม่พอประทังชีวิตจากรายจ่ายทั้งหมด (คงที่ ${formatCurrency(settings.monthlyExpense)}${variableExpenseThisMonth > 0 ? ` + รายจ่ายผันแปร ${formatCurrency(variableExpenseThisMonth)}` : ''}${goalDeductionsThisMonth > 0 ? ` + เงินที่ฝากเข้าเป้าหมายออม ${formatCurrency(goalDeductionsThisMonth)}` : ''}) คุณยังขาดลูกนัทอีกจำนวน ${formatCurrency(Math.abs(profit))}`;
+    alertHeadline = t('dash.crisisHeadline', { amount: formatCurrency(Math.abs(profit)) });
+    alertFullMessage = t('dash.crisisFull', {
+      month: monthName,
+      received: formatCurrency(totalReceived),
+      fixed: formatCurrency(settings.monthlyExpense),
+      variable: variableExpenseThisMonth > 0 ? t('dash.crisisVariablePart', { amount: formatCurrency(variableExpenseThisMonth) }) : '',
+      goal: goalDeductionsThisMonth > 0 ? t('dash.crisisGoalPart', { amount: formatCurrency(goalDeductionsThisMonth) }) : '',
+      short: formatCurrency(Math.abs(profit)),
+    });
   } else if (profit >= 0 && profit < 5000) {
     alertStatus = 'warning';
-    alertHeadline = `เสบียงสะสมเดือน ${monthName} อยู่ระดับหมิ่นเหม่ (${formatCurrency(profit)})`;
-    alertFullMessage = `คลังเสบียงเดือน ${monthName}: มีลูกนัทสำรองหลังจากหักรายจ่ายคงที่อยู่หมิ่นเหม่ (${formatCurrency(profit)}) แนะนำให้เร่งหาลูกนัทเพิ่มเข้าโพรงไม้`;
+    alertHeadline = t('dash.lowHeadline', { month: monthName, amount: formatCurrency(profit) });
+    alertFullMessage = t('dash.lowFull', { month: monthName, amount: formatCurrency(profit) });
   } else {
     alertStatus = 'success';
-    alertHeadline = `เสบียงอุดมสมบูรณ์ดี! มีเสบียงส่วนเกินสะสม (+${formatCurrency(profit)})`;
-    alertFullMessage = `เสบียงอุดมสมบูรณ์ในเดือน ${monthName}: มีลูกนัทกินเหลือเก็บสุทธิเพิ่มขึ้นจำนวน ${formatCurrency(profit)} สำหรับจัดสรรลงรังออม`;
+    alertHeadline = t('dash.goodHeadline', { amount: formatCurrency(profit) });
+    alertFullMessage = t('dash.goodFull', { month: monthName, amount: formatCurrency(profit) });
   }
 
   const fixedItemsBase = settings.fixedExpenseItems && settings.fixedExpenseItems.length > 0
     ? settings.fixedExpenseItems
-    : (settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: 'ค่าใช้จ่ายคงที่รวม', amount: settings.monthlyExpense }] : []);
+    : (settings.monthlyExpense > 0 ? [{ id: 'legacy-total', name: t('dash.legacyFixedExpenseName'), amount: settings.monthlyExpense }] : []);
   let fixedItemsCumulative = 0;
   const fixedItemsCoverage = fixedItemsBase.map(item => {
     fixedItemsCumulative += item.amount;
@@ -760,11 +769,11 @@ export default function DashboardTab({
       
       {/* 1. Header Bar */}
       <div className="px-1">
-        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title="คลังพยากรณ์ประจำรังกระรอก">
-          พยากรณ์รังเสบียง
+        <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase font-bold" title={t('dash.forecastLabelTooltip')}>
+          {t('dash.forecastLabel')}
         </span>
         <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-          ภาพรวมเสบียง
+          {t('dash.title')}
         </h2>
       </div>
 
@@ -780,10 +789,10 @@ export default function DashboardTab({
               type="button"
               onClick={() => setBreakdownFilter('contract')}
               className="text-left cursor-pointer group"
-              title="คลิกเพื่อดูรายละเอียดว่าเป็นงานอะไรบ้าง"
+              title={t('dash.contractValueTooltip')}
             >
-              <p className="text-xs font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="มูลค่างานตามสัญญาทั้งหมด">
-                มูลค่างานตามสัญญา ({formatMonthKey(selectedMonthKey)})
+              <p className="text-xs font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.contractValueFullTooltip')}>
+                {t('dash.contractValueLabel', { month: formatMonthKey(selectedMonthKey) })}
               </p>
               <h3 className="text-4xl font-extrabold font-mono tracking-tight text-[#E65F2B] mt-1.5 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedContractVal)}
@@ -806,10 +815,10 @@ export default function DashboardTab({
               type="button"
               onClick={() => setBreakdownFilter('received')}
               className="text-left cursor-pointer group"
-              title="คลิกเพื่อดูว่างานไหนบ้างที่รับเงินแล้ว"
+              title={t('dash.receivedTooltip')}
             >
               <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase flex items-center gap-1.5 group-hover:text-white/80">
-                <span>รับเงินแล้ว</span>
+                <span>{t('dash.received')}</span>
                 {receivedChangePct !== null && receivedChangePct !== 0 && (
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-black normal-case ${
                     receivedChangePct > 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -823,8 +832,8 @@ export default function DashboardTab({
                 {formatCurrency(animatedReceived)}
               </p>
               {totalCashOutThisMonth > 0 && (
-                <p className="text-[9px] font-bold text-white/50 mt-0.5" title="รับเงินแล้ว หักด้วยรายจ่ายผันแปรและเงินที่ฝากเข้าเป้าหมายออมในเดือนนี้">
-                  คงเหลือหลังหักรายจ่าย: {formatCurrency(receivedAfterVariableExpense)}
+                <p className="text-[9px] font-bold text-white/50 mt-0.5" title={t('dash.afterExpenseTooltip')}>
+                  {t('dash.afterExpense', { amount: formatCurrency(receivedAfterVariableExpense) })}
                 </p>
               )}
             </button>
@@ -832,10 +841,10 @@ export default function DashboardTab({
               type="button"
               onClick={() => setBreakdownFilter('pending')}
               className="text-left cursor-pointer group"
-              title="คลิกเพื่อดูว่างานไหนบ้างที่ยังค้างรับ"
+              title={t('dash.pendingTooltip')}
             >
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="ยอดเงินที่ยังไม่ได้รับ">
-                ยอดค้างรับ
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.pendingSubTooltip')}>
+                {t('dash.pending')}
               </p>
               <p className="text-lg font-black font-mono text-white mt-0.5 group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedPending)}
@@ -845,17 +854,17 @@ export default function DashboardTab({
               type="button"
               onClick={() => setBreakdownFilter('profit')}
               className="text-left cursor-pointer group"
-              title="คลิกเพื่อดูว่ายอดนี้คำนวณมาจากอะไรบ้าง"
+              title={t('dash.netProfitTooltip')}
             >
-              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title="รับเงินแล้ว หักด้วยรายจ่ายคงที่ต่อเดือน">
-                กำไรสุทธิ
+              <p className="text-[10px] font-medium text-white/60 tracking-wider uppercase group-hover:text-white/80" title={t('dash.netProfitSubTooltip')}>
+                {t('dash.netProfit')}
               </p>
               <p className="text-lg font-black font-mono mt-0.5 text-[#E65F2B] group-hover:underline decoration-2 underline-offset-4">
                 {formatCurrency(animatedProfit)}
               </p>
               {profit < 0 && (
                 <p className="text-[9px] font-bold text-rose-400 mt-0.5">
-                  ขาดอีก {formatCurrency(Math.abs(profit))}
+                  {t('dash.stillShort', { amount: formatCurrency(Math.abs(profit)) })}
                 </p>
               )}
             </button>
@@ -894,7 +903,7 @@ export default function DashboardTab({
             onClick={() => setIsAlertExpanded(!isAlertExpanded)}
             className="text-[10px] font-black underline shrink-0 px-2.5 py-1 rounded-lg text-brand-muted hover:bg-brand-faint transition-colors cursor-pointer"
           >
-            {isAlertExpanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}
+            {isAlertExpanded ? t('dash.hideDetails') : t('dash.viewDetails')}
           </button>
         </div>
 
@@ -909,7 +918,7 @@ export default function DashboardTab({
             {fixedItemsCoverage.length > 0 && (
               <div className="mt-3 pt-3 border-t border-brand-border/30 space-y-1.5">
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-wide">
-                  ค่าใช้จ่ายคงที่ประจำเดือน ({formatCurrency(settings.monthlyExpense)})
+                  {t('dash.fixedExpenseHeader', { amount: formatCurrency(settings.monthlyExpense) })}
                 </p>
                 {fixedItemsCoverage.map(item => (
                   <div key={item.id} className="flex items-center justify-between gap-2">
@@ -929,7 +938,7 @@ export default function DashboardTab({
                   </div>
                 ))}
                 <p className="text-[9px] text-brand-muted/80 pt-1">
-                  รายได้ที่รับมาแล้วเดือนนี้ ({formatCurrency(totalReceived)}) ครอบคลุมได้ {fixedItemsCoveredCount}/{fixedItemsCoverage.length} รายการ
+                  {t('dash.fixedExpenseCoverage', { received: formatCurrency(totalReceived), covered: fixedItemsCoveredCount, total: fixedItemsCoverage.length })}
                 </p>
               </div>
             )}
@@ -945,34 +954,34 @@ export default function DashboardTab({
         >
           <div className="flex items-center gap-2">
             <div>
-              <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title="เรดาร์สแกนความอุดมสมบูรณ์โพรงไม้ 4 เดือนล่วงหน้า">
-                เรดาร์เสบียง 4 เดือน
+              <h4 className="text-xs font-black tracking-wider text-brand-muted uppercase" title={t('dash.radarTitleTooltip')}>
+                {t('dash.radarTitle')}
               </h4>
               <p className="text-[10px] text-brand-muted mt-0.5">
-                {isRadarExpanded 
-                  ? "วิเคราะห์และคาดการณ์ปริมาณลูกนัทสะสมล่วงหน้า" 
-                  : `ภาพรวมเสบียงล่วงหน้า: พอใช้ ${projectedMonthsData.filter(m => m.isSufficient).length}/4 เดือน`}
+                {isRadarExpanded
+                  ? t('dash.radarExpandedSubtitle')
+                  : t('dash.radarCollapsedSubtitle', { count: projectedMonthsData.filter(m => m.isSufficient).length })}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <span className="text-[9px] font-extrabold text-brand-muted bg-brand-faint px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {isRadarExpanded ? 'ย่อแผนภูมิ' : 'ดูรายเดือน'}
+              {isRadarExpanded ? t('dash.radarCollapseButton') : t('dash.radarExpandButton')}
             </span>
           </div>
         </div>
-        
+
         {isRadarExpanded && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             className="pt-3 border-t border-brand-border/40 space-y-3"
           >
             <div className="flex justify-between items-center text-[10px] text-brand-muted">
-              <span>* เกณฑ์ประเมินอิงรายจ่ายคงที่ {formatCurrency(settings.monthlyExpense)} / เดือน บวกรายจ่ายผันแปรที่บันทึกไว้จริงของแต่ละเดือน</span>
+              <span>{t('dash.radarFootnote', { amount: formatCurrency(settings.monthlyExpense) })}</span>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {projectedMonthsData.map((m, idx) => {
                 const isCurrent = m.monthKey === currentMonthKey;
@@ -995,11 +1004,11 @@ export default function DashboardTab({
                           </span>
                           {isCurrent && (
                             <span className="text-[8px] bg-brand-text text-brand-bg px-1.5 py-0.2 rounded font-black uppercase">
-                              ฤดูนี้
+                              {t('dash.thisSeason')}
                             </span>
                           )}
                         </div>
-                        <p className="text-[9px] text-brand-muted">รวมผลผลิตที่คาดฝัน</p>
+                        <p className="text-[9px] text-brand-muted">{t('dash.expectedYield')}</p>
                       </div>
 
                       <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-brand-faint border border-brand-border/40">
@@ -1022,7 +1031,7 @@ export default function DashboardTab({
                           {formatCurrency(m.totalIncome)}
                         </span>
                         <span className="text-[8px] font-bold text-brand-muted uppercase tracking-wider mt-0.5">
-                          {fillPercentage.toFixed(0)}% ของรัง
+                          {t('dash.percentOfNest', { pct: fillPercentage.toFixed(0) })}
                         </span>
                       </div>
                     </div>
@@ -1030,14 +1039,14 @@ export default function DashboardTab({
                     {/* ด้านล่างการ์ด: ข้อมูลดุลบัญชีเสบียงประจำเดือน */}
                     <div className="pt-2 border-t border-brand-border/40 space-y-1">
                       <div className="flex justify-between items-center text-[10px] font-bold">
-                        <span className="text-brand-muted">เสบียงส่วนเกิน:</span>
+                        <span className="text-brand-muted">{t('dash.surplus')}</span>
                         <span className={`font-mono text-xs font-black ${m.isSufficient ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#A63F1B] dark:text-[#FA7E52]'}`}>
                           {m.balance >= 0 ? '+' : ''}{formatCurrency(m.balance)}
                         </span>
                       </div>
                       {!m.isSufficient && (
                         <p className="text-[9px] text-[#A63F1B] dark:text-[#FA7E52] font-black leading-normal animate-pulse">
-                          * ขาดเสบียงรอดตายอีก {formatCurrency(Math.abs(m.balance))}
+                          {t('dash.stillShortSurvive', { amount: formatCurrency(Math.abs(m.balance)) })}
                         </p>
                       )}
                     </div>
@@ -1053,15 +1062,15 @@ export default function DashboardTab({
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div>
-            <h4 className="text-xs font-black tracking-widest text-brand-muted uppercase" title="เป้าหมายการจัดเก็บรังสำรองชิ้นใหญ่">
-              เป้าออมสะสม
+            <h4 className="text-xs font-black tracking-widest text-brand-muted uppercase" title={t('dash.savingsGoalsTooltip')}>
+              {t('dash.savingsGoalsTitle')}
             </h4>
           </div>
-          <button 
+          <button
             onClick={() => onSwitchTab('split')}
             className="text-xs font-black text-[#E65F2B] dark:text-[#FFA473] hover:text-[#D98324] flex items-center gap-0.5"
           >
-            ไปที่คลังขุดออม <ChevronRight className="w-3.5 h-3.5" />
+            {t('dash.goToVault')} <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
         
@@ -1089,7 +1098,7 @@ export default function DashboardTab({
                 </div>
                 <h5 className="text-sm font-bold text-brand-text truncate">{g.name}</h5>
                 <p className="text-[10px] text-brand-muted mt-0.5">
-                  สะสมแล้ว: <span className="font-extrabold text-stone-950 dark:text-white font-mono text-xs">{formatCurrency(g.current)}</span>
+                  {t('dash.accumulated')} <span className="font-extrabold text-stone-950 dark:text-white font-mono text-xs">{formatCurrency(g.current)}</span>
                 </p>
                 <div className="w-full h-1.5 bg-brand-faint rounded-full overflow-hidden mt-3 mb-1">
                   <div 
@@ -1099,7 +1108,7 @@ export default function DashboardTab({
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-semibold text-brand-muted">
                   <span className="text-[#E65F2B] dark:text-[#FFA473] font-black text-xs">{pct.toFixed(0)}%</span>
-                  <span>เป้า <span className="font-extrabold text-stone-900 dark:text-stone-100 font-mono">{formatAbbreviatedTarget(g.target)}</span></span>
+                  <span>{t('dash.target')} <span className="font-extrabold text-stone-900 dark:text-stone-100 font-mono">{formatAbbreviatedTarget(g.target)}</span></span>
                 </div>
               </motion.div>
             );
@@ -1113,7 +1122,7 @@ export default function DashboardTab({
             <div className="w-10 h-10 rounded-full bg-brand-white border border-brand-border flex items-center justify-center text-brand-muted">
               <Plus className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold">ขุดรังเก็บออมเพิ่ม</span>
+            <span className="text-xs font-bold">{t('dash.digNewGoal')}</span>
           </motion.button>
         </div>
       </div>
@@ -1125,14 +1134,14 @@ export default function DashboardTab({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
           <div>
             <h4 className="text-base font-extrabold font-display text-brand-text flex items-center gap-1.5">
-              บันทึกรับเงินด่วน <IconBolt className="w-3.5 h-3.5" />
+              {t('dash.quickPayTitle')} <IconBolt className="w-3.5 h-3.5" />
             </h4>
             <p className="text-[11px] text-brand-muted">
-              ค้นหาดีลงานค้างชำระจากทุกช่วงเวลา แล้วกดปุ่มรับเงินได้ทันทีโดยไม่ต้องเลื่อนหา!
+              {t('dash.quickPaySubtitle')}
             </p>
           </div>
           <span className="self-start sm:self-center text-[11px] font-extrabold text-brand-text bg-brand-faint px-3 py-1 rounded-full uppercase tracking-wider">
-            ดีลรอเก็บเงินทั้งหมด: {unpaidJobs.length} งาน
+            {t('dash.pendingDealsCount', { count: unpaidJobs.length })}
           </span>
         </div>
 
@@ -1144,14 +1153,14 @@ export default function DashboardTab({
             value={quickSearch}
             onChange={(e) => setQuickSearch(e.target.value)}
             className="w-full bg-brand-white border border-brand-border/60 hover:border-brand-border focus:border-[#E65F2B] rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-brand-text placeholder-brand-muted/70 outline-none transition-all"
-            placeholder="พิมพ์ค้นชื่อโปรเจกต์ หรือชื่อแบรนด์ลูกค้า เช่น 'ดีลวิดีโอ', 'Shopee'..."
+            placeholder={t('dash.searchPlaceholder')}
           />
           {quickSearch && (
-            <button 
+            <button
               onClick={() => setQuickSearch('')}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-muted hover:text-brand-text"
             >
-              ล้าง
+              {t('dash.clear')}
             </button>
           )}
         </div>
@@ -1172,7 +1181,7 @@ export default function DashboardTab({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-brand-text group-hover:underline">
-                ตรวจพบดีลค้างชำระ! มีแบรนด์ส่งมอบช้ากว่าดีลเครดิตเทอม (คลิกเพื่อเปิดแดชบอร์ดติดตามทวงถามเครดิตเทอม <IconArrowUpRight className="w-3 h-3 inline-block align-middle" />)
+                {t('dash.overdueAlert')} <IconArrowUpRight className="w-3 h-3 inline-block align-middle" />
               </p>
             </div>
           </div>
@@ -1205,12 +1214,12 @@ export default function DashboardTab({
                       </span>
                       {isOverdue && (
                         <span className="text-[9px] font-extrabold text-pink-acc bg-pink-bg px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shrink-0">
-                          เกินดีล!
+                          {t('dash.overdueTag')}
                         </span>
                       )}
                     </div>
                     <span className="text-[11px] text-brand-muted font-semibold truncate block mt-0.5">
-                      {j.client || 'เป้าหมายไม่ระบุแบรนด์'}
+                      {j.client || t('dash.noClientSpecified')}
                     </span>
                   </div>
                 </div>
@@ -1222,7 +1231,7 @@ export default function DashboardTab({
                       {formatCurrency(j.pending)}
                     </span>
                     <span className={`text-[10px] font-bold block mt-0.5 ${isOverdue ? 'text-pink-acc' : 'text-brand-muted'}`}>
-                      {j.daysText || 'ยังไม่ระบุวัน'}
+                      {j.daysText || t('dash.noDateSpecified')}
                     </span>
                   </div>
 
@@ -1230,10 +1239,10 @@ export default function DashboardTab({
                     onClick={() => {
                       const today = new Date();
                       const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                      
+
                       triggerConfirm(
-                        'บันทึกรับเงินครบถ้วน',
-                        `คุณได้รับเงินจำนวน ${formatCurrency(j.pending)} จากดีลงาน "${j.name}" เรียบร้อยแล้วใช่ไหม?`,
+                        t('dash.confirmFullPaymentTitle'),
+                        t('dash.confirmFullPaymentBody', { amount: formatCurrency(j.pending), name: j.name }),
                         () => {
                           if (onEditJob) {
                             onEditJob(j.id, {
@@ -1255,7 +1264,7 @@ export default function DashboardTab({
                     className="py-1.5 px-3.5 bg-brand-text hover:bg-brand-muted text-brand-white text-[10px] font-extrabold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
-                    <span>ได้เงินครบแล้ว</span>
+                    <span>{t('dash.fullyPaidButton')}</span>
                   </button>
                 </div>
               </motion.div>
@@ -1265,7 +1274,7 @@ export default function DashboardTab({
           {filteredUnpaidJobs.length === 0 && (
             <div className="text-center py-10 bg-brand-white/40 border border-dashed border-brand-border rounded-2xl text-xs text-brand-muted font-medium flex flex-col items-center gap-1.5">
               <IconCoin className="w-5 h-5" />
-              <span>ยินดีด้วยค้าบ! ไม่มีดีลงานค้างเก็บเงินเหลืออยู่เลย ทุกแบรนด์จ่ายครบหมดแล้ว!</span>
+              <span>{t('dash.noUnpaidDeals')}</span>
             </div>
           )}
         </div>
@@ -1278,14 +1287,14 @@ export default function DashboardTab({
                 onClick={() => setVisibleCount(prev => prev + 4)}
                 className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
-                แสดงเพิ่มอีก {filteredUnpaidJobs.length - visibleCount} งาน (เหลือค้างอีก {unpaidJobs.length - visibleCount} งาน)
+                {t('dash.showMore', { count: filteredUnpaidJobs.length - visibleCount, remaining: unpaidJobs.length - visibleCount })}
               </button>
             ) : visibleCount > 4 ? (
               <button
                 onClick={() => setVisibleCount(4)}
                 className="w-full sm:w-auto py-2.5 px-6 bg-brand-faint hover:bg-brand-border/30 text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer border border-brand-border/40 text-center flex-1"
               >
-                ย่อรายการกลับ
+                {t('dash.collapseList')}
               </button>
             ) : (
               <div className="flex-1" />
@@ -1295,7 +1304,7 @@ export default function DashboardTab({
               onClick={() => onSwitchTab('jobs')}
               className="w-full sm:w-auto py-2.5 px-5 bg-brand-white hover:bg-brand-faint border border-brand-border text-brand-text text-xs font-extrabold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-1"
             >
-              <span>จัดการดีลทั้งหมด</span>
+              <span>{t('dash.manageAllDeals')}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -1330,17 +1339,17 @@ export default function DashboardTab({
 
                 <div>
                   <h3 className="font-display font-extrabold text-base text-brand-text dark:text-white">
-                    {breakdownFilter === 'contract' && `งานทั้งหมดของเดือน ${formatMonthKey(selectedMonthKey)}`}
-                    {breakdownFilter === 'received' && 'งานที่รับเงินแล้ว'}
-                    {breakdownFilter === 'pending' && 'งานที่ยังค้างรับ'}
-                    {breakdownFilter === 'profit' && 'กำไรสุทธิคำนวณมาจากอะไรบ้าง'}
+                    {breakdownFilter === 'contract' && t('dash.breakdownAllJobsTitle', { month: formatMonthKey(selectedMonthKey) })}
+                    {breakdownFilter === 'received' && t('dash.breakdownReceivedTitle')}
+                    {breakdownFilter === 'pending' && t('dash.breakdownPendingTitle')}
+                    {breakdownFilter === 'profit' && t('dash.breakdownProfitTitle')}
                   </h3>
                   {breakdownFilter !== 'profit' && (
                     <p className="text-xs text-brand-muted mt-0.5">
                       {breakdownFilter === 'contract' && formatCurrency(totalContractVal)}
                       {breakdownFilter === 'received' && formatCurrency(totalReceived)}
                       {breakdownFilter === 'pending' && formatCurrency(totalPending)}
-                      {' '}รวมจาก{' '}{breakdownJobs.length}{' '}งาน
+                      {t('dash.breakdownTotalFrom', { count: breakdownJobs.length })}
                     </p>
                   )}
                 </div>
@@ -1350,26 +1359,26 @@ export default function DashboardTab({
                     {/* Calculation steps */}
                     <div className="space-y-1.5 p-3 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
                       <div className="flex justify-between">
-                        <span className="text-brand-muted">รับเงินแล้ว</span>
+                        <span className="text-brand-muted">{t('dash.breakdownReceivedRow')}</span>
                         <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+{formatCurrency(totalReceived)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-brand-muted">หัก ค่าใช้จ่ายคงที่รายเดือน</span>
+                        <span className="text-brand-muted">{t('dash.breakdownFixedExpenseRow')}</span>
                         <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(settings.monthlyExpense)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-brand-muted">หัก รายจ่ายผันแปร ({monthVariableExpenses.length} รายการ)</span>
+                        <span className="text-brand-muted">{t('dash.breakdownVariableExpenseRow', { count: monthVariableExpenses.length })}</span>
                         <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(variableExpenseThisMonth)}</span>
                       </div>
                       {goalDeductionsThisMonth > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-brand-muted">หัก เงินฝากเข้าเป้าหมายออม ({monthGoalDeductions.length} รายการ)</span>
+                          <span className="text-brand-muted">{t('dash.breakdownGoalDeductionRow', { count: monthGoalDeductions.length })}</span>
                           <span className="font-mono font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(goalDeductionsThisMonth)}</span>
                         </div>
                       )}
                       <div className="h-px bg-brand-border/50 dark:bg-neutral-700 my-1" />
                       <div className="flex justify-between">
-                        <span className="font-bold text-brand-text dark:text-white">= กำไรสุทธิ</span>
+                        <span className="font-bold text-brand-text dark:text-white">{t('dash.breakdownNetProfitRow')}</span>
                         <span className={`font-mono font-black ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                           {formatCurrency(profit)}
                         </span>
@@ -1379,7 +1388,7 @@ export default function DashboardTab({
                     {/* Itemized variable expenses */}
                     {monthVariableExpenses.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">รายจ่ายผันแปร</p>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{t('dash.breakdownVariableExpenseHeader')}</p>
                         <div className="space-y-1.5">
                           {monthVariableExpenses.map(e => (
                             <div key={e.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
@@ -1394,7 +1403,7 @@ export default function DashboardTab({
                     {/* Itemized goal deductions */}
                     {monthGoalDeductions.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">เงินฝากเข้าเป้าหมายออม</p>
+                        <p className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1.5">{t('dash.breakdownGoalDeductionHeader')}</p>
                         <div className="space-y-1.5">
                           {monthGoalDeductions.map(tx => (
                             <div key={tx.id} className="flex items-center justify-between gap-2 p-2.5 bg-brand-faint/60 dark:bg-neutral-800/60 rounded-xl text-xs">
@@ -1420,7 +1429,7 @@ export default function DashboardTab({
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-brand-text dark:text-white truncate">{j.name}</p>
-                          <p className="text-[10px] text-brand-muted truncate">{j.client || 'ไม่ระบุลูกค้า'}</p>
+                          <p className="text-[10px] text-brand-muted truncate">{j.client || t('dash.noClientListed')}</p>
                         </div>
                         <span className="text-xs font-mono font-black text-brand-text dark:text-white shrink-0">
                           {formatCurrency(
@@ -1433,7 +1442,7 @@ export default function DashboardTab({
                     ))}
 
                     {breakdownJobs.length === 0 && (
-                      <p className="text-xs text-brand-muted text-center py-6">ยังไม่มีงานในหมวดนี้สำหรับเดือนนี้</p>
+                      <p className="text-xs text-brand-muted text-center py-6">{t('dash.noJobsThisCategory')}</p>
                     )}
                   </div>
                 )}

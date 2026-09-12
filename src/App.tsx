@@ -229,7 +229,7 @@ const TOUR_STEPS: TourStep[] = [
 ];
 
 export default function App() {
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [moreNavOpen, setMoreNavOpen] = useState(false);
@@ -2065,17 +2065,6 @@ export default function App() {
               )}
             </button>
           </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-brand-muted font-bold inline-flex items-center gap-1">ภาษา / Language</span>
-            <button
-              onClick={toggleLanguage}
-              className="px-2.5 py-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1 border border-brand-border/20 cursor-pointer"
-              title={language === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
-            >
-              <span className="text-[10px] font-black">{language === 'th' ? 'ไทย' : 'EN'}</span>
-            </button>
-          </div>
         </div>
       </aside>
 
@@ -2255,15 +2244,6 @@ export default function App() {
                           <span>มืด</span>
                         </>
                       )}
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-1 mt-2.5">
-                    <span className="text-[9px] text-brand-muted font-bold">ภาษา / Language</span>
-                    <button
-                      onClick={toggleLanguage}
-                      className="p-2 rounded-xl bg-brand-faint hover:bg-brand-border/40 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/20 cursor-pointer text-xs font-bold w-full"
-                    >
-                      <span>{language === 'th' ? 'ไทย / Thai' : 'EN / English'}</span>
                     </button>
                   </div>
                 </div>

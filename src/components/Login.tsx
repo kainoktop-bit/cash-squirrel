@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft, Languages } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, CheckCircle2, Moon, Sun, ArrowRight, UserPlus, LogIn, KeyRound, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from './Mascot';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -12,7 +12,7 @@ interface LoginProps {
 }
 
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -202,16 +202,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
 
-      {/* Theme + Language Toggle (Top Right) */}
+      {/* Theme Toggle (Top Right) -- language toggle lives in Settings only */}
       <div className="absolute top-6 right-6 flex items-center gap-2">
-        <button
-          onClick={toggleLanguage}
-          className="px-3 py-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 border border-brand-border/40 shadow-sm cursor-pointer"
-          title={language === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
-        >
-          <Languages className="w-5 h-5 text-brand-muted" />
-          <span className="text-[10px] font-black text-brand-muted">{t('login.languageToggle')}</span>
-        </button>
         <button
           onClick={() => setDarkMode(!darkMode)}
           className="p-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/40 shadow-sm cursor-pointer"
