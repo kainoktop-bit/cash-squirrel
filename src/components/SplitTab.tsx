@@ -142,6 +142,12 @@ export default function SplitTab({
     return sum + monthDeposits.reduce((s, tx) => s + tx.amount, 0);
   }, 0);
   const netProfit = Math.max(0, rawNetProfit - alreadyAllocatedThisMonth);
+  // What the "หักออกจากยอดรายรับ" deposit check validates against -- deliberately NOT netProfit.
+  // netProfit already nets out fixed/variable expenses, which is right for "how much is free to
+  // allocate to savings" but wrong for "do I actually have this money" -- expenses get paid from
+  // the same received income, they don't make already-received money not exist. This is just
+  // received income minus whatever's already been moved into a goal this month.
+  const availableFromReceivedThisMonth = Math.max(0, receivedThisMonth - alreadyAllocatedThisMonth);
 
   // 3. Split calculations based on individual goal's allocatedPercentage
   const expPercent = Math.min(100, (settings.monthlyExpense / Math.max(1, receivedThisMonth)) * 100);
@@ -454,14 +460,16 @@ export default function SplitTab({
       return;
     }
 
-    // "หักออกจากยอดรายรับ" says this money is coming out of this month's tracked income -- it
-    // can't take out more than netProfit actually has left, or the deposit would be funded by
-    // money that was never really there. Caps against the same live-derived figure shown just
-    // above as "กำไรสุทธิคงเหลือเพื่อจัดสรร", so the two numbers can never disagree.
-    if (txType === 'deposit' && txDeductFromCash && amount > netProfit) {
+    // "หักออกจากยอดรายรับ" says this money is coming out of income already received this month --
+    // it can't exceed what's actually been received (minus whatever's already gone into a goal),
+    // or the deposit would be funded by money that doesn't exist. Deliberately checked against
+    // received income, not netProfit -- netProfit also nets out fixed/variable expenses, which
+    // matters for "how much is free to allocate" but not for "do I actually have this money":
+    // expenses get paid out of the same received income, they don't erase it.
+    if (txType === 'deposit' && txDeductFromCash && amount > availableFromReceivedThisMonth) {
       triggerAlert(
         'ยอดเงินไม่พอ',
-        `กำไรสุทธิคงเหลือเพื่อจัดสรรเดือนนี้มีแค่ ${formatCurrency(netProfit)} แต่พยายามโอนเข้า ${formatCurrency(amount)} กรุณาลดจำนวนเงิน หรือไม่ติ๊ก "หักออกจากยอดรายรับ" ถ้าเงินนี้มาจากที่อื่น`
+        `เดือนนี้ได้รับเงินมาแล้ว ${formatCurrency(receivedThisMonth)} และมีเหลือที่ยังไม่ได้จัดสรรเข้าที่ไหน ${formatCurrency(availableFromReceivedThisMonth)} แต่พยายามโอนเข้า ${formatCurrency(amount)} กรุณาลดจำนวนเงิน หรือไม่ติ๊ก "หักออกจากยอดรายรับ" ถ้าเงินนี้มาจากที่อื่น`
       );
       return;
     }
