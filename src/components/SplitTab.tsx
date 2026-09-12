@@ -121,7 +121,18 @@ export default function SplitTab({
 
   // 2. Net Profit calculation (Received - Expenses)
   const rawNetProfit = Math.max(0, receivedThisMonth - settings.monthlyExpense);
-  const alreadyAllocatedThisMonth = settings.allocatedMonths?.[currentMonthKey] || 0;
+  // Derived live from goal deposit history (deductedFromCash deposits this month), same source
+  // DashboardTab's own "กำไรสุทธิ" breakdown uses -- previously this read a separately
+  // incrementally-updated settings.allocatedMonths counter, which drifted out of sync with the
+  // real transaction history (a deposit made before a given fix shipped never got counted, a
+  // deleted deposit needed its own manual reversal, etc). Deriving it live here means both
+  // figures always agree, and deleting a transaction just works with no bookkeeping needed.
+  const alreadyAllocatedThisMonth = goals.reduce((sum, g) => {
+    const monthDeposits = (g.history || []).filter(
+      tx => tx.type === 'deposit' && tx.deductedFromCash && getMonthKey(tx.date) === currentMonthKey
+    );
+    return sum + monthDeposits.reduce((s, tx) => s + tx.amount, 0);
+  }, 0);
   const netProfit = Math.max(0, rawNetProfit - alreadyAllocatedThisMonth);
 
   // 3. Split calculations based on individual goal's allocatedPercentage
@@ -212,13 +223,10 @@ export default function SplitTab({
     });
 
     if (allocatedCount > 0) {
-      // Calculate settings updates
-      const updatedAllocatedMonths = { ...(settings.allocatedMonths || {}) };
-      updatedAllocatedMonths[currentMonthKey] = (updatedAllocatedMonths[currentMonthKey] || 0) + totalCustomAllocated;
-
-      onAllocateMultipleSavings(currentAllocationsRecord, {
-        allocatedMonths: updatedAllocatedMonths
-      });
+      // netProfit above is derived live from deductedFromCash deposit history, so no separate
+      // settings bookkeeping is needed here -- handleAllocateMultipleSavings marks the goal
+      // transactions it creates as deductedFromCash itself.
+      onAllocateMultipleSavings(currentAllocationsRecord);
 
       triggerAlert(
         'จัดสรรกำไรสุทธิสำเร็จ!',
@@ -315,11 +323,10 @@ export default function SplitTab({
       'ยืนยันจัดสุดด่วนตามสัดส่วน',
       messageHtml,
       () => {
-        const updatedAllocatedMonths = { ...(settings.allocatedMonths || {}) };
-        updatedAllocatedMonths[currentMonthKey] = (updatedAllocatedMonths[currentMonthKey] || 0) + netProfit;
-
+        // netProfit above is derived live from deductedFromCash deposit history -- see the
+        // comment on handleConfirmAllocations above for why no allocatedMonths bookkeeping
+        // belongs here anymore.
         onAllocateMultipleSavings(allocations, {
-          allocatedMonths: updatedAllocatedMonths,
           accumulatedRemainder: finalRemainder
         });
 

@@ -4,7 +4,6 @@ export const defaultSettings: AppSettings = {
   monthlyExpense: 12000,
   monthlyRevenueGoal: 35000,
   savingsPercentage: 40,
-  allocatedMonths: {},
   accumulatedRemainder: 0,
 };
 

@@ -103,7 +103,6 @@ export interface AppSettings {
     socialSecurity?: number;
     otherAllowances?: number;
   };
-  allocatedMonths?: Record<string, number>; // records how much was already allocated for each month key
   accumulatedRemainder?: number; // stores leftover Bahts from calculations
   profileSetupCompleted?: boolean; // whether the first-time account setup wizard has been completed
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)

@@ -1587,22 +1587,10 @@ export default function App() {
       ...(amount > 0 && deductFromCash ? { deductedFromCash: true } : {}),
     };
 
-    // Ticking "หักออกจากยอดรายรับ" is what says this money came from this month's tracked
-    // income -- only then should it also leave SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร"
-    // (settings.allocatedMonths), in real time, the moment the deposit is confirmed. Left
-    // unticked, the money is money from outside the app's tracked income, so this figure must
-    // stay untouched -- the two are deliberately separate, gated by the same checkbox.
-    // Withdrawals reverse it the same way when they're undoing a deductFromCash deposit.
-    if (deductFromCash) {
-      const monthKey = getMonthKey(todayStr);
-      setSettings(prev => ({
-        ...prev,
-        allocatedMonths: {
-          ...(prev.allocatedMonths || {}),
-          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) + amount),
-        },
-      }));
-    }
+    // Ticking "หักออกจากยอดรายรับ" (deductedFromCash, set on newTx above) is what makes this
+    // deposit count toward SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" -- that figure derives live
+    // from deductedFromCash deposit history, so setting the flag on newTx is all that's needed;
+    // no separate settings bookkeeping here, and nothing to reverse on delete either.
 
     if (nextVal >= g.target && g.current < g.target) {
       // Goal completed! Massive leaf party!
@@ -1653,19 +1641,9 @@ export default function App() {
       { amount: targetTx.amount, reason: targetTx.reason, type: targetTx.type }
     );
 
-    // Mirror of the deductFromCash-gated allocatedMonths move in handleUpdateGoalProgress --
-    // only a deposit that was itself made with "หักออกจากยอดรายรับ" ticked (targetTx.deductedFromCash)
-    // ever touched this figure, so only undoing that same kind of deposit should free it back up.
-    if (revertBalance && targetTx.type === 'deposit' && targetTx.deductedFromCash) {
-      const monthKey = getMonthKey(targetTx.date);
-      setSettings(prev => ({
-        ...prev,
-        allocatedMonths: {
-          ...(prev.allocatedMonths || {}),
-          [monthKey]: Math.max(0, (prev.allocatedMonths?.[monthKey] || 0) - targetTx.amount),
-        },
-      }));
-    }
+    // No settings bookkeeping needed here -- SplitTab's "กำไรสุทธิคงเหลือเพื่อจัดสรร" derives
+    // live from deductedFromCash deposits still present in goal history, so removing the
+    // transaction above (when revertBalance is true) already un-counts it automatically.
   };
 
   const handleTransferBetweenGoals = (fromGoalId: string, toGoalId: string, amount: number, reason?: string, date?: string) => {
@@ -1779,7 +1757,11 @@ export default function App() {
           amount,
           date: todayStr,
           reason: 'จัดสรรกำไรสุทธิประจำเดือน',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          // This money is, by definition, this month's net profit -- SplitTab's
+          // "กำไรสุทธิคงเหลือเพื่อจัดสรร" derives live from deductedFromCash deposits, so this has
+          // to be marked the same way a manual deposit would be for that figure to account for it.
+          deductedFromCash: true,
         };
         return {
           ...g,
