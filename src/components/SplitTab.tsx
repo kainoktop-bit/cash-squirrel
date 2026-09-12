@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Job, Goal, AppSettings, GoalTransaction } from '../types';
+import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../types';
 import { formatCurrency, getMonthKey } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -58,6 +58,7 @@ import {
 interface SplitTabProps {
   jobs: Job[];
   goals: Goal[];
+  expenses: Expense[];
   settings: AppSettings;
   onAddGoal: (goal: Omit<Goal, 'id'>) => void;
   onDeleteGoal: (id: string) => void;
@@ -91,6 +92,7 @@ interface SplitTabProps {
 export default function SplitTab({
   jobs,
   goals,
+  expenses,
   settings,
   onAddGoal,
   onDeleteGoal,
@@ -119,8 +121,14 @@ export default function SplitTab({
     .filter(j => getMonthKey(j.payDate || j.postDate) === currentMonthKey)
     .reduce((sum, j) => sum + j.received, 0);
 
-  // 2. Net Profit calculation (Received - Expenses)
-  const rawNetProfit = Math.max(0, receivedThisMonth - settings.monthlyExpense);
+  // 2. Net Profit calculation (Received - fixed monthly expense - this month's logged variable
+  // expenses) -- previously only subtracted the fixed monthly expense, so a month with real
+  // logged expenses (DashboardTab's "กำไรสุทธิ" breakdown already accounts for these) could show
+  // an overstated profit here that didn't match Dashboard's figure at all.
+  const variableExpenseThisMonth = expenses
+    .filter(e => getMonthKey(e.date) === currentMonthKey)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const rawNetProfit = Math.max(0, receivedThisMonth - settings.monthlyExpense - variableExpenseThisMonth);
   // Derived live from goal deposit history (deductedFromCash deposits this month), same source
   // DashboardTab's own "กำไรสุทธิ" breakdown uses -- previously this read a separately
   // incrementally-updated settings.allocatedMonths counter, which drifted out of sync with the

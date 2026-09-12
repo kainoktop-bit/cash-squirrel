@@ -2488,6 +2488,7 @@ export default function App() {
                 <SplitTab
                   jobs={jobs}
                   goals={goals}
+                  expenses={expenses}
                   settings={settings}
                   onAddGoal={handleAddGoal}
                   onDeleteGoal={handleDeleteGoal}
