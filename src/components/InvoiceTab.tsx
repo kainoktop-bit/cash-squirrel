@@ -392,6 +392,17 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     triggerAlert('คัดลอกบิลสำเร็จ', `สร้างเอกสารใบใหม่โดยคัดลอกโครงร่างจากใบ ${inv.documentNo} เรียบร้อยแล้ว`);
   };
 
+  // handlePrintDocument builds a full HTML document via string interpolation and writes it into
+  // a same-origin window with document.write -- every user-editable field going in (client/issuer
+  // name/address/contact info, bank details, item descriptions, notes, document numbers) has to
+  // go through this first, or a client/issuer name like `<script>...</script>` would execute in
+  // that window with access to this app's own origin (including whatever the Supabase session is
+  // stored in), not just render as inert text.
+  const escapeHtml = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  };
+
   // Native Vector PDF export (Opens in a new window to bypass iframe print sandbox limitations, ensuring perfect Thai fonts)
   const handlePrintDocument = () => {
     if (!selectedInvoice) return;
@@ -418,7 +429,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       ? 'RECEIPT' 
       : 'QUOTATION';
 
-    const docTitle = `${docTypeLabel}_${selectedInvoice.documentNo}`;
+    const docTitle = `${docTypeLabel}_${escapeHtml(selectedInvoice.documentNo)}`;
     
     const sTotals = calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate);
     
@@ -430,7 +441,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       itemRows += `
         <tr style="border-bottom: 1px solid #e5e7eb; font-size: 10.5px;">
           <td style="padding: 7px 10px; text-align: center; color: #6b7280; font-family: monospace; border-right: 1px solid #f3f4f6;">${i + 1}</td>
-          <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${item.description || '-'}</td>
+          <td style="padding: 7px 10px; font-weight: 600; color: #111827; line-height: 1.35; border-right: 1px solid #f3f4f6;">${escapeHtml(item.description) || '-'}</td>
           <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; border-right: 1px solid #f3f4f6;">${item.quantity}</td>
           <td style="padding: 7px 10px; text-align: right; font-family: monospace; border-right: 1px solid #f3f4f6;">${formatCurrency(item.price).replace('฿', '')}</td>
           <td style="padding: 7px 10px; text-align: right; font-weight: bold; font-family: monospace; color: #111827;">${formatCurrency(item.quantity * item.price).replace('฿', '')}</td>
@@ -457,12 +468,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </div>
         ${selectedInvoice.issuer.bankAccount ? `
           <div style="padding: 8px 12px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 10px; margin-top: 4px; display: inline-block;">
-            <div style="font-weight: bold; color: #111827;">ธนาคาร: ${selectedInvoice.issuer.bankName}</div>
+            <div style="font-weight: bold; color: #111827;">ธนาคาร: ${escapeHtml(selectedInvoice.issuer.bankName)}</div>
             <div style="color: #4b5563; margin-top: 2px;">
-              เลขที่บัญชี: <span style="font-family: monospace; font-weight: bold; color: #000; font-size: 12px;">${selectedInvoice.issuer.bankAccount}</span>
+              เลขที่บัญชี: <span style="font-family: monospace; font-weight: bold; color: #000; font-size: 12px;">${escapeHtml(selectedInvoice.issuer.bankAccount)}</span>
             </div>
             <div style="color: #6b7280; font-weight: 500; margin-top: 2px;">
-              ชื่อบัญชี: ${selectedInvoice.issuer.bankAccountName || selectedInvoice.issuer.name}
+              ชื่อบัญชี: ${escapeHtml(selectedInvoice.issuer.bankAccountName || selectedInvoice.issuer.name)}
             </div>
           </div>
         ` : ''}
@@ -472,7 +483,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     const noteSection = selectedInvoice.note ? `
       <div style="font-size: 10.5px; margin-top: 8px;">
         <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em;">หมายเหตุ / REMARK</p>
-        <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.35;">${selectedInvoice.note}</p>
+        <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.35;">${escapeHtml(selectedInvoice.note)}</p>
       </div>
     ` : '';
 
@@ -585,10 +596,10 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               </div>
               <div style="text-align: right;">
                 ${selectedInvoice.issuer.logoUrl ? `
-                  <img src="${selectedInvoice.issuer.logoUrl}" style="max-height: 48px; max-width: 180px; object-fit: contain;" alt="Logo" />
+                  <img src="${escapeHtml(selectedInvoice.issuer.logoUrl)}" style="max-height: 48px; max-width: 180px; object-fit: contain;" alt="Logo" />
                 ` : `
                   <div style="font-size: 16px; font-weight: 800; color: #e65f2b; letter-spacing: 0.05em; max-width: 220px; word-wrap: break-word;">
-                    ${selectedInvoice.issuer.name || '-'}
+                    ${escapeHtml(selectedInvoice.issuer.name) || '-'}
                   </div>
                 `}
               </div>
@@ -600,15 +611,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <!-- Left: ISSUER -->
               <div style="flex: 1.3;">
                 <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ผู้ให้บริการ / ผู้ออกเอกสาร (ISSUER)</p>
-                <div style="font-weight: 800; font-size: 13px; color: #111827;">${selectedInvoice.issuer.name || '-'}</div>
-                ${selectedInvoice.issuer.address ? `<div style="font-size: 11px; color: #4b5563; margin-top: 4px; white-space: pre-line; line-height: 1.4;">${selectedInvoice.issuer.address}</div>` : ''}
+                <div style="font-weight: 800; font-size: 13px; color: #111827;">${escapeHtml(selectedInvoice.issuer.name) || '-'}</div>
+                ${selectedInvoice.issuer.address ? `<div style="font-size: 11px; color: #4b5563; margin-top: 4px; white-space: pre-line; line-height: 1.4;">${escapeHtml(selectedInvoice.issuer.address)}</div>` : ''}
                 <div style="font-size: 11px; color: #4b5563; margin-top: 6px;">
-                  ${selectedInvoice.issuer.taxId ? `<div>เลขประจำตัวผู้เสียภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${selectedInvoice.issuer.taxId}</span></div>` : ''}
+                  ${selectedInvoice.issuer.taxId ? `<div>เลขประจำตัวผู้เสียภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${escapeHtml(selectedInvoice.issuer.taxId)}</span></div>` : ''}
                   ${selectedInvoice.issuer.phone || selectedInvoice.issuer.email ? `
                     <div style="margin-top: 2px;">
-                      ${selectedInvoice.issuer.phone ? `เบอร์โทร: ${selectedInvoice.issuer.phone}` : ''}
+                      ${selectedInvoice.issuer.phone ? `เบอร์โทร: ${escapeHtml(selectedInvoice.issuer.phone)}` : ''}
                       ${selectedInvoice.issuer.phone && selectedInvoice.issuer.email ? ' | ' : ''}
-                      ${selectedInvoice.issuer.email ? `อีเมล: ${selectedInvoice.issuer.email}` : ''}
+                      ${selectedInvoice.issuer.email ? `อีเมล: ${escapeHtml(selectedInvoice.issuer.email)}` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -620,34 +631,34 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 10.5px;">
                   <tr>
                     <td style="padding: 2px 0; font-weight: bold; color: #4b5563; width: 100px;">เลขที่เอกสาร:</td>
-                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.documentNo}</td>
+                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.documentNo)}</td>
                   </tr>
                   <tr>
                     <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">วันที่ออก:</td>
-                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${selectedInvoice.createdDate}</td>
+                    <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.createdDate)}</td>
                   </tr>
                   ${selectedInvoice.dueDate ? `
                     <tr>
                       <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">${dueDateLabel}</td>
-                      <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: ${dueDateColor}; text-align: right;">${selectedInvoice.dueDate}</td>
+                      <td style="padding: 2px 0; font-family: monospace; font-weight: 800; color: ${dueDateColor}; text-align: right;">${escapeHtml(selectedInvoice.dueDate)}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.paymentTerm ? `
                     <tr>
                       <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">เงื่อนไขการชำระ:</td>
-                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.paymentTerm}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.paymentTerm)}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.documentType === 'quotation' && selectedInvoice.deliveryTerm ? `
                     <tr>
                       <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">ระยะเวลาส่งมอบ:</td>
-                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.deliveryTerm}</td>
+                      <td style="padding: 2px 0; font-weight: bold; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.deliveryTerm)}</td>
                     </tr>
                   ` : ''}
                   ${selectedInvoice.documentType !== 'quotation' && selectedInvoice.refNo ? `
                     <tr>
                       <td style="padding: 2px 0; font-weight: bold; color: #4b5563;">อ้างอิงเลขที่:</td>
-                      <td style="padding: 2px 0; font-family: monospace; font-weight: bold; color: #111827; text-align: right;">${selectedInvoice.refNo}</td>
+                      <td style="padding: 2px 0; font-family: monospace; font-weight: bold; color: #111827; text-align: right;">${escapeHtml(selectedInvoice.refNo)}</td>
                     </tr>
                   ` : ''}
                 </table>
@@ -661,21 +672,21 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 11px;">
                 <tr>
                   <td style="padding: 2px 0; font-weight: bold; color: #4b5563; width: 100px; vertical-align: top;">ชื่อลูกค้า/บริษัท:</td>
-                  <td style="padding: 2px 0; font-weight: 800; color: #111827; vertical-align: top;">${selectedInvoice.client.name}</td>
+                  <td style="padding: 2px 0; font-weight: 800; color: #111827; vertical-align: top;">${escapeHtml(selectedInvoice.client.name)}</td>
                 </tr>
                 ${selectedInvoice.client.address ? `
                   <tr>
                     <td style="padding: 2px 0; font-weight: bold; color: #4b5563; vertical-align: top;">ที่อยู่:</td>
-                    <td style="padding: 2px 0; color: #374151; white-space: pre-line; line-height: 1.4; vertical-align: top;">${selectedInvoice.client.address}</td>
+                    <td style="padding: 2px 0; color: #374151; white-space: pre-line; line-height: 1.4; vertical-align: top;">${escapeHtml(selectedInvoice.client.address)}</td>
                   </tr>
                 ` : ''}
                 <tr>
                   <td style="padding: 2px 0; font-weight: bold; color: #4b5563; vertical-align: top;">ข้อมูลติดต่อ:</td>
                   <td style="padding: 2px 0; color: #4b5563; vertical-align: top;">
-                    ${selectedInvoice.client.phone ? `โทร: ${selectedInvoice.client.phone}` : ''}
+                    ${selectedInvoice.client.phone ? `โทร: ${escapeHtml(selectedInvoice.client.phone)}` : ''}
                     ${selectedInvoice.client.phone && selectedInvoice.client.email ? ' | ' : ''}
-                    ${selectedInvoice.client.email ? `อีเมล: ${selectedInvoice.client.email}` : ''}
-                    ${selectedInvoice.client.taxId ? ` ${selectedInvoice.client.phone || selectedInvoice.client.email ? ' | ' : ''}เลขประจำตัวผู้เสียภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${selectedInvoice.client.taxId}</span>` : ''}
+                    ${selectedInvoice.client.email ? `อีเมล: ${escapeHtml(selectedInvoice.client.email)}` : ''}
+                    ${selectedInvoice.client.taxId ? ` ${selectedInvoice.client.phone || selectedInvoice.client.email ? ' | ' : ''}เลขประจำตัวผู้เสียภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${escapeHtml(selectedInvoice.client.taxId)}</span>` : ''}
                   </td>
                 </tr>
               </table>
@@ -733,14 +744,14 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                 <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 24px;">${leftSignatureLabel}</p>
                 <div style="border-bottom: 1px dashed #9ca3af; width: 170px; margin-bottom: 4px;"></div>
-                <p style="font-weight: bold; color: #111827; margin: 0;">${selectedInvoice.issuer.name || '..........................................................'}</p>
+                <p style="font-weight: bold; color: #111827; margin: 0;">${escapeHtml(selectedInvoice.issuer.name) || '..........................................................'}</p>
                 <p style="color: #9ca3af; font-size: 9px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
               </div>
 
               <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                 <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 8px; margin-bottom: 24px;">${rightSignatureLabel}</p>
                 <div style="border-bottom: 1px dashed #9ca3af; width: 170px; margin-bottom: 4px;"></div>
-                <p style="font-weight: bold; color: #111827; margin: 0;">${selectedInvoice.client.name || '..........................................................'}</p>
+                <p style="font-weight: bold; color: #111827; margin: 0;">${escapeHtml(selectedInvoice.client.name) || '..........................................................'}</p>
                 <p style="color: #9ca3af; font-size: 9px; margin-top: 3px;">วันที่ ........ / ........ / ................</p>
               </div>
             </div>
