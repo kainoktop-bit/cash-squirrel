@@ -601,8 +601,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             <button
               type="button"
               onClick={() => {
-                const guestEmail = email.trim() || 'guest_demo@cashflow.com';
-                onGuestLogin(guestEmail);
+                // Always the generic placeholder -- this is a no-signup guest trial, so it must
+                // never pick up whatever happens to be sitting in the email field (the browser's
+                // own autofill routinely fills that with the visitor's real saved email before
+                // they've touched anything, which isn't a guest login at all).
+                onGuestLogin('guest_demo@cashflow.com');
               }}
               className="w-full py-3.5 px-4 bg-orange-500/10 dark:bg-orange-500/5 hover:bg-orange-500/15 text-[#E65F2B] dark:text-[#FFA473] font-extrabold rounded-2xl text-xs border border-orange-500/20 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all shadow-sm"
             >
