@@ -3,6 +3,7 @@ import { Job, StatusOption } from '../types';
 import { formatCurrency, calculatePayDate, getRelativeDaysText, safeFormatThaiDate, DEFAULT_JOB_TYPES } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mascot } from './Mascot';
+import { useLanguage } from '../i18n/LanguageContext';
 import NumberInput from './NumberInput';
 import { IconCheck, IconClose, IconCalendar, IconHourglass, IconNote, IconArrowLeft, IconArrowRight } from './icons';
 import {
@@ -52,7 +53,7 @@ interface JobsTabProps {
   ) => void;
   // Deep-link that scrolls straight to a job's card in the list and briefly highlights it,
   // instead of opening the edit form -- used by the credit-term board and Dashboard's summary
-  // breakdown so clicking a job jumps to the exact "ได้เงินครบแล้ว/ได้มัดจำ" quick-action row.
+  // breakdown so clicking a job jumps to the exact "paid in full / partial deposit" quick-action row.
   scrollToJobId?: string | null;
   onScrollToJobHandled?: () => void;
 }
@@ -75,6 +76,7 @@ export default function JobsTab({
   scrollToJobId,
   onScrollToJobHandled,
 }: JobsTabProps) {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedJobId, setHighlightedJobId] = useState<string | null>(null);
 
@@ -150,7 +152,7 @@ export default function JobsTab({
 
   // Editing logic (optional but amazing!)
   const [editingJob, setEditingJob] = useState<Job | null>(null);
-  // Lets a caller (e.g. the "โพสต์แล้ว รอรับเงิน" quick action) open the edit modal straight on
+  // Lets a caller (e.g. the "posted, awaiting payment" quick action) open the edit modal straight on
   // a specific step instead of always starting at step 1. Consumed once, then reset.
   const editStartStepRef = React.useRef(1);
 
@@ -223,14 +225,14 @@ export default function JobsTab({
     if (editFormStep < 3) {
       if (editFormStep === 1) {
         if (!editName.trim()) {
-          triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          triggerAlert(t('jobs.alertNameRequiredTitle'), t('jobs.alertNameRequiredMsg'));
           return;
         }
       }
       if (editFormStep === 2) {
         const val = parseFloat(editValue);
         if (!editValue.trim() || isNaN(val) || val < 0) {
-          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
           return;
         }
       }
@@ -249,7 +251,7 @@ export default function JobsTab({
     if (editType === '__custom__') {
       const trimmed = editCustomTypeInput.trim();
       if (!trimmed) {
-        triggerAlert('กรุณากรอกประเภทงาน', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        triggerAlert(t('jobs.alertTypeRequiredTitle'), t('jobs.alertTypeRequiredMsg'));
         return;
       }
       finalType = trimmed;
@@ -263,7 +265,7 @@ export default function JobsTab({
     if (editStatus === '__custom__') {
       const labelTrimmed = editCustomStatusLabelInput.trim();
       if (!labelTrimmed) {
-        triggerAlert('กรุณากรอกชื่อสถานะ', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        triggerAlert(t('jobs.alertStatusNameRequiredTitle'), t('jobs.alertStatusNameRequiredMsg'));
         return;
       }
       finalStatus = `status-${Date.now()}`;
@@ -315,7 +317,7 @@ export default function JobsTab({
       excludeHolidays: editExcludeHolidays
     });
 
-    triggerAlert('แก้ไขสำเร็จ!', 'ปรับปรุงข้อมูลดีลงานชิ้นนี้เรียบร้อยแล้ว');
+    triggerAlert(t('jobs.alertEditSuccessTitle'), t('jobs.alertEditSuccessMsg'));
     setEditingJob(null);
   };
 
@@ -326,14 +328,14 @@ export default function JobsTab({
     if (formStep < 3) {
       if (formStep === 1) {
         if (!formName.trim()) {
-          triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+          triggerAlert(t('jobs.alertNameRequiredTitle'), t('jobs.alertNameRequiredMsg'));
           return;
         }
       }
       if (formStep === 2) {
         const val = parseFloat(formValue);
         if (!formValue.trim() || isNaN(val) || val < 0) {
-          triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+          triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
           return;
         }
       }
@@ -347,14 +349,14 @@ export default function JobsTab({
     }
 
     if (!formName.trim()) {
-      triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณ');
+      triggerAlert(t('jobs.alertNameRequiredTitle'), t('jobs.alertNameRequiredMsgFinal'));
       return;
     }
 
     // formPostDate starts blank on purpose (see its useState comment) -- for a posted job it
     // feeds payDate/monthly reporting directly, so it can't be left empty like formStartDate can.
     if (formIsPosted && !formPostDate) {
-      triggerAlert('กรุณาเลือกวันส่งมอบงาน', 'กรุณาระบุวันส่งมอบงานหรือวันออนแอร์จริงก่อนบันทึก');
+      triggerAlert(t('jobs.alertPostDateRequiredTitle'), t('jobs.alertPostDateRequiredMsg'));
       return;
     }
 
@@ -362,7 +364,7 @@ export default function JobsTab({
     if (formType === '__custom__') {
       const trimmed = customTypeInput.trim();
       if (!trimmed) {
-        triggerAlert('กรุณากรอกประเภทงาน', 'กรุณาระบุชื่อประเภทงานใหม่ของคุณ');
+        triggerAlert(t('jobs.alertTypeRequiredTitle'), t('jobs.alertTypeRequiredMsg'));
         return;
       }
       finalType = trimmed;
@@ -376,7 +378,7 @@ export default function JobsTab({
     if (formStatus === '__custom__') {
       const labelTrimmed = customStatusLabelInput.trim();
       if (!labelTrimmed) {
-        triggerAlert('กรุณากรอกชื่อสถานะ', 'กรุณาระบุชื่อสถานะใหม่ของคุณ');
+        triggerAlert(t('jobs.alertStatusNameRequiredTitle'), t('jobs.alertStatusNameRequiredMsg'));
         return;
       }
       finalStatus = `status-${Date.now()}`;
@@ -471,10 +473,10 @@ export default function JobsTab({
   const getStatusDisplay = (statusId: string) => {
     const s = statuses.find(opt => opt.id === statusId);
     if (!s) {
-      if (statusId === 'unspecified') return { label: 'ยังไม่ระบุ', behavior: 'pending' as const };
-      if (statusId === 'done') return { label: 'จ่ายเงินครบแล้ว', behavior: 'done' as const };
-      if (statusId === 'partial') return { label: 'มัดจำแล้ว', behavior: 'partial' as const };
-      return { label: 'ยังไม่จ่าย', behavior: 'pending' as const };
+      if (statusId === 'unspecified') return { label: t('jobs.statusUnspecifiedLabel'), behavior: 'pending' as const };
+      if (statusId === 'done') return { label: t('jobs.statusDoneLabel'), behavior: 'done' as const };
+      if (statusId === 'partial') return { label: t('jobs.statusPartialLabel'), behavior: 'partial' as const };
+      return { label: t('jobs.statusPendingLabel'), behavior: 'pending' as const };
     }
     return { label: s.label, behavior: s.behavior };
   };
@@ -505,10 +507,10 @@ export default function JobsTab({
       <div className="flex items-center justify-between px-1">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase">
-            ผู้ช่วยจัดการดีล
+            {t('jobs.subtitle')}
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            จัดการงาน ({jobs.length})
+            {t('jobs.title', { count: jobs.length })}
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -536,7 +538,7 @@ export default function JobsTab({
             }}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <Briefcase className="w-3.5 h-3.5" /> + เพิ่มงานใหม่
+            <Briefcase className="w-3.5 h-3.5" /> {t('jobs.addNew')}
           </motion.button>
         </div>
       </div>
@@ -547,7 +549,7 @@ export default function JobsTab({
           <Search className="absolute left-3.5 top-3 w-4 h-4 text-brand-muted" />
           <input
             type="text"
-            placeholder="ค้นหาชื่องาน หรือแบรนด์..."
+            placeholder={t('jobs.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-brand-faint text-xs text-brand-text placeholder-brand-muted rounded-xl pl-10 pr-4 py-3 outline-none border border-transparent focus:border-emerald-500/50 transition-all font-medium"
@@ -563,7 +565,7 @@ export default function JobsTab({
               onChange={(e: any) => setStatusFilter(e.target.value)}
               className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
             >
-              <option value="all">สถานะ: ทั้งหมด</option>
+              <option value="all">{t('jobs.filterStatusAll')}</option>
               {statuses.map(s => (
                 <option key={s.id} value={s.id}>
                   {s.label}
@@ -580,7 +582,7 @@ export default function JobsTab({
               onChange={(e) => setTypeFilter(e.target.value)}
               className="w-full bg-transparent text-xs font-semibold text-brand-text outline-none cursor-pointer"
             >
-              <option value="all">ประเภท: ทั้งหมด</option>
+              <option value="all">{t('jobs.filterTypeAll')}</option>
               {Array.from(new Set(jobTypes)).filter(Boolean).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -604,7 +606,7 @@ export default function JobsTab({
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
-          ดีลทั้งหมด ({totalCount})
+          {t('jobs.tabAll', { count: totalCount })}
         </button>
         <button
           onClick={() => setSubTab('wip')}
@@ -614,7 +616,7 @@ export default function JobsTab({
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
-          สต๊อกคิดงาน/เตรียมผลิต ({wipCount})
+          {t('jobs.tabWip', { count: wipCount })}
         </button>
         <button
           onClick={() => setSubTab('posted')}
@@ -624,7 +626,7 @@ export default function JobsTab({
               : 'text-brand-muted hover:text-brand-text'
           }`}
         >
-          โพสต์คลิปแล้ว & ดิวเก็บเงิน ({postedCount})
+          {t('jobs.tabPosted', { count: postedCount })}
         </button>
       </div>
 
@@ -634,8 +636,8 @@ export default function JobsTab({
           <div className="bg-brand-white border border-brand-border rounded-[var(--radius-lg)] p-10 text-center text-brand-muted flex flex-col items-center justify-center gap-3">
             <Mascot mood="sleepy" size={100} />
             <div>
-              <p className="text-xs font-semibold text-brand-text">ไม่พบข้อมูลงานตามเงื่อนไขที่เลือก</p>
-              <p className="text-[10px] mt-1">ลองปรับตัวกรอง หรือสร้างงานใหม่ด้านบน</p>
+              <p className="text-xs font-semibold text-brand-text">{t('jobs.emptyTitle')}</p>
+              <p className="text-[10px] mt-1">{t('jobs.emptyHint')}</p>
             </div>
           </div>
         ) : (
@@ -689,7 +691,7 @@ export default function JobsTab({
                 <div className="flex items-center gap-2 flex-wrap">
                   {j.isPosted === false && (
                     <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-brand-faint text-brand-muted">
-                      กำลังเตรียมงาน / ถ่ายทำ
+                      {t('jobs.badgeWip')}
                     </span>
                   )}
                   {(() => {
@@ -713,25 +715,25 @@ export default function JobsTab({
                 {/* Dates & Credit Terms or WIP section — one quiet line, not a boxed grid */}
                 {j.isPosted === false ? (
                   <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
-                    <span>เริ่ม {safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' })}</span>
+                    <span>{t('jobs.startedOn', { date: safeFormatThaiDate(j.startDate || j.postDate, { day: 'numeric', month: 'short' }) })}</span>
                     <span className="opacity-40">|</span>
-                    <span>เป้าออนแอร์ {j.postDate ? safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) : 'ยังไม่ระบุ'}</span>
+                    <span>{j.postDate ? t('jobs.targetOnAir', { date: safeFormatThaiDate(j.postDate, { day: 'numeric', month: 'short' }) }) : t('jobs.statusUnspecifiedLabel')}</span>
                     <span className="opacity-40">|</span>
                     <span className="font-bold">
-                      เครดิต: {j.creditTerm === 0 ? 'รับทันที' : `+${j.creditTerm} วัน`}
+                      {t('jobs.creditColon', { text: j.creditTerm === 0 ? t('jobs.creditImmediate') : t('jobs.creditDaysSuffix', { n: j.creditTerm }) })}
                     </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-[11px] text-brand-muted font-medium border-t border-brand-faint pt-3 flex-wrap">
-                    <span>วันดีล/ออนแอร์ {safeFormatThaiDate(j.postDate)}</span>
+                    <span>{t('jobs.dealDate', { date: safeFormatThaiDate(j.postDate) })}</span>
                     <span className="opacity-40">|</span>
                     {j.creditTerm === 0 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">รับทันที (No Credit)</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">{t('jobs.noCreditLabel')}</span>
                     ) : (
                       <>
-                        <span className="font-bold">เครดิต +{j.creditTerm} วัน</span>
+                        <span className="font-bold">{t('jobs.creditDaysLabel', { n: j.creditTerm })}</span>
                         {j.payDate && (
-                          <span>(ดิว {safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' })})</span>
+                          <span>{t('jobs.dueDateParen', { date: safeFormatThaiDate(j.payDate, { day: 'numeric', month: 'short' }) })}</span>
                         )}
                       </>
                     )}
@@ -741,11 +743,11 @@ export default function JobsTab({
                 {/* Financial breakdown — full value is already shown up top, so only the two numbers that move */}
                 <div className="grid grid-cols-2 gap-2 text-center text-xs">
                   <div className="bg-brand-faint p-2.5 rounded-xl">
-                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">รับแล้ว</span>
+                    <span className="text-[9px] text-brand-muted uppercase font-extrabold tracking-wider block">{t('jobs.received')}</span>
                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono text-sm">{formatCurrency(j.received)}</span>
                   </div>
                   <div className={`p-2.5 rounded-xl ${j.pending > 0 ? 'bg-amber-500/10' : 'bg-brand-faint'}`}>
-                    <span className={`text-[9px] uppercase font-extrabold tracking-wider block ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400/80' : 'text-brand-muted'}`}>ค้างจ่าย</span>
+                    <span className={`text-[9px] uppercase font-extrabold tracking-wider block ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400/80' : 'text-brand-muted'}`}>{t('jobs.pendingAmount')}</span>
                     <span className={`font-extrabold font-mono text-sm ${j.pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-brand-muted'}`}>
                       {formatCurrency(j.pending)}
                     </span>
@@ -754,7 +756,7 @@ export default function JobsTab({
 
                 {j.whtRate && j.whtRate > 0 ? (
                   <div className="flex items-center justify-between text-[10px] bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl text-amber-800 dark:text-amber-400 font-bold leading-none select-none">
-                    <span className="flex items-center gap-1">หัก ณ ที่จ่าย {j.whtRate}%</span>
+                    <span className="flex items-center gap-1">{t('jobs.whtDeducted', { rate: j.whtRate })}</span>
                     <span className="font-mono">-{formatCurrency(j.whtAmount || 0)}</span>
                   </div>
                 ) : null}
@@ -767,7 +769,7 @@ export default function JobsTab({
                       : 'bg-amber-50/50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-100/40 dark:border-amber-500/10'
                   }`}>
                     <span className="flex items-center gap-1">
-                      <Clock className={`w-4 h-4 shrink-0 ${relText.isOverdue ? 'text-rose-500' : 'text-amber-500'}`} /> กำหนดชำระเงินที่เหลือ
+                      <Clock className={`w-4 h-4 shrink-0 ${relText.isOverdue ? 'text-rose-500' : 'text-amber-500'}`} /> {t('jobs.timeUntilDue')}
                     </span>
                     <span className="font-black">{relText.text}</span>
                   </div>
@@ -781,7 +783,7 @@ export default function JobsTab({
                       : 'bg-brand-faint text-brand-text border-brand-border/40'
                   }`}>
                     <span className="flex items-center gap-1">
-                      <Clock className={`w-4 h-4 shrink-0 ${getRelativeDaysText(j.postDate).isOverdue ? 'text-rose-500' : 'text-brand-muted'}`} /> ระยะเวลาผลิตที่เหลือ (เป้าหมายออนแอร์)
+                      <Clock className={`w-4 h-4 shrink-0 ${getRelativeDaysText(j.postDate).isOverdue ? 'text-rose-500' : 'text-brand-muted'}`} /> {t('jobs.productionTimeLeft')}
                     </span>
                     <span className="font-black">{getRelativeDaysText(j.postDate).text}</span>
                   </div>
@@ -789,7 +791,7 @@ export default function JobsTab({
 
                 {j.note && (
                   <p className="text-xs text-brand-muted bg-brand-faint p-2.5 rounded-xl border border-brand-border/40 italic">
-                    โน้ต: {j.note}
+                    {t('jobs.noteLabel', { note: j.note })}
                   </p>
                 )}
 
@@ -826,7 +828,7 @@ export default function JobsTab({
                               }}
                               className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
-                              <Send className="w-3.5 h-3.5" /> โพสต์แล้ว รอรับเงิน
+                              <Send className="w-3.5 h-3.5" /> {t('jobs.actionMarkPosted')}
                             </button>
                           )}
                           {!isDone && (
@@ -849,7 +851,7 @@ export default function JobsTab({
                                   : "text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                               }
                             >
-                              <CheckCircle className="w-3.5 h-3.5" /> ได้เงินครบแล้ว
+                              <CheckCircle className="w-3.5 h-3.5" /> {t('jobs.actionMarkPaidFull')}
                             </button>
                           )}
                           {isPending && (
@@ -857,10 +859,10 @@ export default function JobsTab({
                               onClick={() => {
                                 const partialVal = Math.round(j.value * 0.3); // suggest 30% deposit
                                 triggerPrompt(
-                                  'รับเงินมัดจำบางส่วน',
-                                  `ใส่ยอดเงินมัดจำที่ได้รับสำหรับงาน "${j.name}" (แนะนำ 30% คือ ${partialVal.toLocaleString()} ฿):`,
+                                  t('jobs.partialPromptTitle'),
+                                  t('jobs.partialPromptMessage', { name: j.name, amount: partialVal.toLocaleString() }),
                                   String(partialVal),
-                                  'ป้อนยอดเงิน (฿)',
+                                  t('jobs.enterAmountPlaceholder'),
                                   'number',
                                   (val) => {
                                     const amt = parseFloat(val) || 0;
@@ -880,7 +882,7 @@ export default function JobsTab({
                               }}
                               className="text-xs font-bold text-brand-muted hover:text-amber-600 dark:hover:text-amber-300 px-2.5 py-1.5 rounded-lg transition-colors border border-brand-border cursor-pointer"
                             >
-                              ได้มัดจำ
+                              {t('jobs.actionMarkPartial')}
                             </button>
                           )}
                         </>
@@ -892,14 +894,14 @@ export default function JobsTab({
                     <button
                       onClick={() => setEditingJob(j)}
                       className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/15 rounded-lg transition-colors cursor-pointer"
-                      title="แก้ไขดีลงาน"
+                      title={t('jobs.editTooltip')}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onDeleteJob(j.id)}
                       className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/15 rounded-lg transition-colors cursor-pointer"
-                      title="ลบงาน"
+                      title={t('jobs.deleteTooltip')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -938,10 +940,10 @@ export default function JobsTab({
               <div className="flex justify-between items-center shrink-0">
                 <div>
                   <span className="text-[9px] font-black tracking-wider text-[#E65F2B] dark:text-[#FFA473] uppercase">
-                    ขั้นตอน {formStep} จาก 3
+                    {t('jobs.stepOf', { step: formStep })}
                   </span>
                   <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5">
-                    เพิ่มโปรเจกต์งานใหม่
+                    {t('jobs.addModalTitle')}
                   </h3>
                 </div>
                 <button 
@@ -955,9 +957,9 @@ export default function JobsTab({
               {/* Progress Stepper Indicator */}
               <div className="flex items-center justify-between py-2 border-b border-brand-border/30 shrink-0">
                 {[
-                  { step: 1, name: 'ข้อมูลดีล' },
-                  { step: 2, name: 'เงินและภาษี' },
-                  { step: 3, name: 'ส่งมอบงาน' },
+                  { step: 1, name: t('jobs.stepDealInfo') },
+                  { step: 2, name: t('jobs.stepMoneyTax') },
+                  { step: 3, name: t('jobs.stepDelivery') },
                 ].map((s) => (
                   <div key={s.step} className="flex items-center gap-2">
                     <div
@@ -992,12 +994,12 @@ export default function JobsTab({
                 </div>
                 <div className="space-y-0.5">
                   <h4 className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
-                    คำแนะนำจากลูกนัท
+                    {t('jobs.mascotAdviceTitle')}
                   </h4>
                   <p className="text-[11px] text-brand-text/80 dark:text-neutral-200 font-medium leading-relaxed">
-                    {formStep === 1 && "เย้! เริ่มบันทึกเสบียงใหม่กัน กรอก 'ชื่อโปรเจกต์' แล้วคลิกเลือก 'ประเภทงาน' ด้านล่างได้เลยนะ (เปลี่ยนหรือเพิ่มเองได้เสมอ!)"}
-                    {formStep === 2 && "ใส่ค่าตัวได้เลยน้า ฟรีแลนซ์ส่วนใหญ่จะโดนหัก ณ ที่จ่าย 3% ระบบจะจำลองใบเสร็จรับเงินจริงและหักภาษีให้อัตโนมัติทันที!"}
-                    {formStep === 3 && "สุดท้ายแล้ว! เลือกว่าตอนนี้งานเสร็จหรือยังไม่เสร็จ (WIP) และกำหนดวันเพื่อเตือนเวลาเสบียงเข้าคลังในเมนูหน้าหลักได้เลย!"}
+                    {formStep === 1 && t('jobs.addAdviceStep1')}
+                    {formStep === 2 && t('jobs.addAdviceStep2')}
+                    {formStep === 3 && t('jobs.addAdviceStep3')}
                   </p>
                 </div>
               </div>
@@ -1015,11 +1017,11 @@ export default function JobsTab({
                     >
                       {/* Name */}
                       <div className="space-y-1.5">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชื่องาน / ดีลสัญญา <span className="text-rose-500">*</span></label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldName')} <span className="text-rose-500">*</span></label>
                         <input
                           type="text"
                           required
-                          placeholder="เช่น รับเขียนบทความรีวิว / รีวิวลิปสติกแบรนด์ A"
+                          placeholder={t('jobs.fieldNamePlaceholder')}
                           value={formName}
                           onChange={(e) => setFormName(e.target.value)}
                           className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 transition-all font-medium"
@@ -1028,10 +1030,10 @@ export default function JobsTab({
 
                       {/* Brand Client */}
                       <div className="space-y-1.5">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">แบรนด์ / ลูกค้าที่จ้าง</label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldClient')}</label>
                         <input
                           type="text"
-                          placeholder="เช่น Biore / Shopee ประเทศไทย"
+                          placeholder={t('jobs.fieldClientPlaceholder')}
                           value={formClient}
                           onChange={(e) => setFormClient(e.target.value)}
                           className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 transition-all font-medium"
@@ -1040,11 +1042,11 @@ export default function JobsTab({
 
                       {/* Category Type as Pills */}
                       <div className="space-y-2">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
 
                         <div className="space-y-2.5">
                           <div className="space-y-1.5">
-                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
+                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeBasicLabel')}</p>
                             <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                               {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
                                 const isSelected = formType === t;
@@ -1073,13 +1075,13 @@ export default function JobsTab({
                             const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
                             return customTypes.length > 0 ? (
                               <div className="space-y-1.5">
-                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
+                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeCustomLabel')}</p>
                                 <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                                  {customTypes.map(t => {
-                                    const isSelected = formType === t;
+                                  {customTypes.map(tp => {
+                                    const isSelected = formType === tp;
                                     return (
                                       <span
-                                        key={t}
+                                        key={tp}
                                         className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
                                           isSelected
                                             ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
@@ -1089,21 +1091,21 @@ export default function JobsTab({
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            setFormType(t);
+                                            setFormType(tp);
                                             setCustomTypeInput('');
                                           }}
                                           className="cursor-pointer"
                                         >
-                                          {t}
+                                          {tp}
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            setJobTypes(prev => prev.filter(x => x !== t));
-                                            if (formType === t) setFormType('ยังไม่ระบุ');
+                                            setJobTypes(prev => prev.filter(x => x !== tp));
+                                            if (formType === tp) setFormType('ยังไม่ระบุ');
                                           }}
                                           className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
-                                          title="ลบประเภทนี้"
+                                          title={t('jobs.removeTypeTooltip')}
                                         >
                                           <IconClose className="w-2.5 h-2.5" />
                                         </button>
@@ -1126,17 +1128,17 @@ export default function JobsTab({
                                 : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
-                            + เขียนประเภทงานเอง...
+                            {t('jobs.addCustomType')}
                           </button>
                         </div>
 
                         {formType === '__custom__' && (
                           <div className="animate-fade-in space-y-2 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/15">
-                            <label className="text-[10px] text-emerald-800 dark:text-emerald-400 font-extrabold uppercase block">เขียนประเภทงานใหม่</label>
+                            <label className="text-[10px] text-emerald-800 dark:text-emerald-400 font-extrabold uppercase block">{t('jobs.customTypeNameLabel')}</label>
                             <div className="flex gap-2">
                               <input
                                 type="text"
-                                placeholder="เช่น ถ่ายรูปโปรไฟล์, วิดีโอ TikTok"
+                                placeholder={t('jobs.customTypePlaceholder')}
                                 value={customTypeInput}
                                 onChange={(e) => setCustomTypeInput(e.target.value)}
                                 className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold"
@@ -1155,7 +1157,7 @@ export default function JobsTab({
                                 }}
                                 className="px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
                               >
-                                ตกลง
+                                {t('jobs.confirmOk')}
                               </button>
                             </div>
                           </div>
@@ -1176,10 +1178,10 @@ export default function JobsTab({
                       <div className="grid grid-cols-2 gap-3">
                         {/* Contract value */}
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldValue')} <span className="text-rose-500">*</span></label>
                           <NumberInput
                             required
-                            placeholder="เช่น 30000"
+                            placeholder={t('jobs.fieldValuePlaceholder')}
                             value={formValue}
                             onChange={setFormValue}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
@@ -1188,12 +1190,12 @@ export default function JobsTab({
 
                         {/* Hours spent (optional, for ฿/hour insight) */}
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชั่วโมงที่ใช้ทำงาน (ไม่บังคับ)</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldHours')}</label>
                           <input
                             type="number"
                             min="0"
                             step="0.5"
-                            placeholder="เช่น 5"
+                            placeholder={t('jobs.fieldHoursPlaceholder')}
                             value={formHoursSpent}
                             onChange={(e) => setFormHoursSpent(e.target.value)}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
@@ -1204,7 +1206,7 @@ export default function JobsTab({
                       {/* Withholding Tax -- clean dropdown instead of a card grid */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
-                          หัก ณ ที่จ่าย (Withholding Tax)
+                          {t('jobs.fieldWht')}
                         </label>
                         <div className="relative">
                           <select
@@ -1212,10 +1214,10 @@ export default function JobsTab({
                             onChange={(e) => setFormWhtRate(Number(e.target.value))}
                             className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-emerald-500 cursor-pointer transition-colors"
                           >
-                            <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
-                            <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
-                            <option value={3}>3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
-                            <option value={5}>5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+                            <option value={0}>{t('jobs.wht0')}</option>
+                            <option value={1}>{t('jobs.wht1')}</option>
+                            <option value={3}>{t('jobs.wht3')}</option>
+                            <option value={5}>{t('jobs.wht5')}</option>
                           </select>
                           <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
@@ -1225,7 +1227,7 @@ export default function JobsTab({
                           "other" pulled out as its own subtle radio rather than another segment */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
-                          สถานะโครงการ <span className="text-rose-500">*</span>
+                          {t('jobs.fieldProjectStatus')} <span className="text-rose-500">*</span>
                         </label>
                         <div className="flex bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
                           {statuses.map(s => {
@@ -1269,7 +1271,7 @@ export default function JobsTab({
                             className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
                           />
                           <span className={`text-[11px] font-bold ${formStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
-                            อื่นๆ (เขียนสถานะเอง...)
+                            {t('jobs.customStatusOption')}
                           </span>
                         </label>
                       </div>
@@ -1277,17 +1279,17 @@ export default function JobsTab({
                       {/* Live calculated mockup tax receipt */}
                       <div className="bg-[#E65F2B]/5 dark:bg-[#FFA473]/5 border border-[#E65F2B]/15 dark:border-[#FFA473]/15 rounded-2xl p-3.5 space-y-2.5">
                         <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
-                          <span>ใบจำลองคำนวณเงินและภาษี</span>
+                          <span>{t('jobs.taxReceiptTitle')}</span>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-y-1.5 text-xs">
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">มูลค่าโครงการเต็ม:</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.grossValueLabel')}</div>
                           <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(formValue) || 0).toLocaleString()}</div>
                           
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({formWhtRate}%):</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.whtDeductedLabel', { rate: formWhtRate })}</div>
                           <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)).toLocaleString()}</div>
 
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.netAfterTaxLabel')}</div>
                           <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
                             ฿{( (parseFloat(formValue) || 0) - Math.round((parseFloat(formValue) || 0) * (formWhtRate / 100)) ).toLocaleString()}
                           </div>
@@ -1298,18 +1300,18 @@ export default function JobsTab({
                       {formStatus === '__custom__' && (
                         <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
                           <div>
-                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ระบุชื่อสถานะใหม่</label>
+                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusNameLabelAdd')}</label>
                             <input
                               type="text"
                               required
-                              placeholder="เช่น รอส่งมอบงาน, รองวดที่ 2"
+                              placeholder={t('jobs.customStatusNamePlaceholderAdd')}
                               value={customStatusLabelInput}
                               onChange={(e) => setCustomStatusLabelInput(e.target.value)}
                               className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
                             />
                           </div>
                           <div>
-                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ประเภทการรับเงินของสถานะนี้</label>
+                            <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusBehaviorLabelAdd')}</label>
                             <select
                               value={customStatusBehavior}
                               onChange={(e: any) => {
@@ -1327,9 +1329,9 @@ export default function JobsTab({
                               }}
                               className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
                             >
-                              <option value="pending">ยังไม่จ่าย (Pending)</option>
-                              <option value="partial">ได้มัดจำบางส่วนแล้ว (Partial)</option>
-                              <option value="done">ได้รับเงินครบถ้วนแล้ว (Done)</option>
+                              <option value="pending">{t('jobs.statusOptPending')}</option>
+                              <option value="partial">{t('jobs.statusOptPartialAdd')}</option>
+                              <option value="done">{t('jobs.statusOptDoneAdd')}</option>
                             </select>
                           </div>
                         </div>
@@ -1340,9 +1342,9 @@ export default function JobsTab({
                         (formStatus !== '__custom__' && statuses.find(s => s.id === formStatus)?.behavior === 'partial') ||
                         (formStatus === '__custom__' && customStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
-                            placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
+                            placeholder={t('jobs.fieldReceivedNowPlaceholder')}
                             value={formReceived}
                             onChange={setFormReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-emerald-500 font-mono"
@@ -1365,7 +1367,7 @@ export default function JobsTab({
                           highlight instead of two separate boxes, so it reads as a single
                           switch rather than two things to compare and read. */}
                       <div className="space-y-2">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงานตอนนี้</label>
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
                         <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button
                             type="button"
@@ -1379,8 +1381,8 @@ export default function JobsTab({
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                               />
                             )}
-                            <span className={`relative z-10 text-xs font-black block ${!formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>สต๊อกเตรียมผลิต</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${!formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>ยังไม่ส่งงาน (WIP)</span>
+                            <span className={`relative z-10 text-xs font-black block ${!formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.wipShort')}</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${!formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.wipSub')}</span>
                           </button>
                           <button
                             type="button"
@@ -1394,8 +1396,8 @@ export default function JobsTab({
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                               />
                             )}
-                            <span className={`relative z-10 text-xs font-black block ${formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>ส่งงานแล้ว</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>รอเก็บเงิน (POSTED)</span>
+                            <span className={`relative z-10 text-xs font-black block ${formIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.postedShort')}</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${formIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.postedSub')}</span>
                           </button>
                         </div>
                       </div>
@@ -1413,14 +1415,14 @@ export default function JobsTab({
                             {/* วันเริ่มดีลงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
-                                <label className="text-amber-900 dark:text-amber-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันเริ่มดีลงาน / ได้รับสัญญา</label>
+                                <label className="text-amber-900 dark:text-amber-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> {t('jobs.startDateLabel')}</label>
                                 {formStartDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setFormStartDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    <IconClose className="w-2.5 h-2.5" /> ล้างวันที่
+                                    <IconClose className="w-2.5 h-2.5" /> {t('jobs.clearDate')}
                                   </button>
                                 )}
                               </div>
@@ -1438,15 +1440,15 @@ export default function JobsTab({
                                 className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
                               />
                               <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
-                                * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
+                                {t('jobs.startDateHint')}
                               </p>
                             </div>
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> {t('jobs.noteFieldLabel')}</label>
                               <textarea
-                                placeholder="เช่น มัดจำก่อนถ่าย 50%, สัญญาหลักเก็บไว้ในโน้ตไลน์กลุ่ม แบรนด์ขอตรวจดราฟท์แรกวันที่..."
+                                placeholder={t('jobs.noteWipPlaceholder')}
                                 rows={3}
                                 value={formNote}
                                 onChange={(e) => setFormNote(e.target.value)}
@@ -1467,19 +1469,19 @@ export default function JobsTab({
                             <div className="space-y-2.5 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
                               <div className="flex items-center justify-between">
                                 <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider">
-                                  <IconHourglass className="w-3 h-3" /> ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
+                                  <IconHourglass className="w-3 h-3" /> {t('jobs.creditTermLabel')}
                                 </label>
                                 <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold">
-                                  (คำนวณอัตโนมัติ)
+                                  {t('jobs.autoCalculated')}
                                 </span>
                               </div>
                               <div className="grid grid-cols-5 gap-1.5">
                                 {[
-                                  { value: 0, label: 'ทันที' },
-                                  { value: 30, label: '30 วัน' },
-                                  { value: 45, label: '45 วัน' },
-                                  { value: 60, label: '60 วัน' },
-                                  { value: 90, label: '90 วัน' },
+                                  { value: 0, label: t('jobs.creditNow') },
+                                  { value: 30, label: t('jobs.creditDaysOpt', { n: 30 }) },
+                                  { value: 45, label: t('jobs.creditDaysOpt', { n: 45 }) },
+                                  { value: 60, label: t('jobs.creditDaysOpt', { n: 60 }) },
+                                  { value: 90, label: t('jobs.creditDaysOpt', { n: 90 }) },
                                 ].map((opt) => {
                                   const isSelected = formCreditTerm === opt.value;
                                   return (
@@ -1509,11 +1511,11 @@ export default function JobsTab({
                                       className="w-4 h-4 rounded border-brand-border/60 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
                                     />
                                     <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400">
-                                      ไม่นับวันหยุดราชการและเสาร์-อาทิตย์
+                                      {t('jobs.excludeHolidaysLabel')}
                                     </span>
                                   </label>
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
-                                    วันทำการเท่านั้น
+                                    {t('jobs.businessDaysOnly')}
                                   </span>
                                 </div>
                               )}
@@ -1522,14 +1524,14 @@ export default function JobsTab({
                             {/* วันส่งมอบงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
-                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> วันส่งมอบงาน หรือวันออนแอร์จริง</label>
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> {t('jobs.deliveryDateLabel')}</label>
                                 {formPostDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setFormPostDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    <IconClose className="w-2.5 h-2.5" /> ล้างวันที่
+                                    <IconClose className="w-2.5 h-2.5" /> {t('jobs.clearDate')}
                                   </button>
                                 )}
                               </div>
@@ -1551,14 +1553,14 @@ export default function JobsTab({
                               {formPostDate && formCreditTerm > 0 && (
                                 <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
                                   <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold inline-flex items-center gap-1"><IconCalendar className="w-3 h-3" /> วันกำหนดชำระเงิน (Due Date):</span>
+                                    <span className="font-bold inline-flex items-center gap-1"><IconCalendar className="w-3 h-3" /> {t('jobs.dueDateLabel')}</span>
                                     <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
                                       {safeFormatThaiDate(calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays))}
                                     </span>
                                   </div>
                                   <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
                                     <span className="font-bold flex items-center gap-1">
-                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> กำหนดชำระเงินที่เหลือ:
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
                                     </span>
                                     {(() => {
                                       const payDateVal = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
@@ -1580,9 +1582,9 @@ export default function JobsTab({
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black flex items-center gap-1"><IconNote className="w-2.5 h-2.5" /> {t('jobs.noteFieldLabel')}</label>
                               <textarea
-                                placeholder="เช่น ส่งมอบไฟล์ผ่าน Google Drive แล้ว, ดำเนินการวางบิลรอบสิ้นเดือนนี้..."
+                                placeholder={t('jobs.notePostedPlaceholder')}
                                 rows={3}
                                 value={formNote}
                                 onChange={(e) => setFormNote(e.target.value)}
@@ -1604,7 +1606,7 @@ export default function JobsTab({
                       onClick={() => setFormStep(prev => prev - 1)}
                       className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
                     >
-                      <IconArrowLeft className="w-3 h-3" /> ย้อนกลับ
+                      <IconArrowLeft className="w-3 h-3" /> {t('jobs.back')}
                     </button>
                   )}
                   
@@ -1615,14 +1617,14 @@ export default function JobsTab({
                       onClick={() => {
                         if (formStep === 1) {
                           if (!formName.trim()) {
-                            triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            triggerAlert(t('jobs.alertNameRequiredTitle'), t('jobs.alertNameRequiredMsg'));
                             return;
                           }
                         }
                         if (formStep === 2) {
                           const val = parseFloat(formValue);
                           if (!formValue.trim() || isNaN(val) || val < 0) {
-                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
                             return;
                           }
                         }
@@ -1630,7 +1632,7 @@ export default function JobsTab({
                       }}
                       className="flex-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                     >
-                      ขั้นตอนถัดไป <IconArrowRight className="w-3 h-3" />
+                      {t('jobs.next')} <IconArrowRight className="w-3 h-3" />
                     </button>
                   ) : (
                     <button
@@ -1643,7 +1645,7 @@ export default function JobsTab({
                           : 'bg-emerald-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      บันทึกข้อมูลดีลงาน
+                      {t('jobs.saveNewJob')}
                     </button>
                   )}
                 </div>
@@ -1680,10 +1682,10 @@ export default function JobsTab({
               <div className="flex justify-between items-center shrink-0">
                 <div>
                   <span className="text-[9px] font-black tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">
-                    ขั้นตอน {editFormStep} จาก 3
+                    {t('jobs.stepOf', { step: editFormStep })}
                   </span>
                   <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5">
-                    แก้ไขโปรเจกต์งานดีล
+                    {t('jobs.editModalTitle')}
                   </h3>
                 </div>
                 <button 
@@ -1697,9 +1699,9 @@ export default function JobsTab({
               {/* Progress Stepper Indicator */}
               <div className="flex items-center justify-between py-2 border-b border-brand-border/30 shrink-0">
                 {[
-                  { step: 1, name: 'ข้อมูลดีล' },
-                  { step: 2, name: 'เงินและภาษี' },
-                  { step: 3, name: 'ส่งมอบงาน' },
+                  { step: 1, name: t('jobs.stepDealInfo') },
+                  { step: 2, name: t('jobs.stepMoneyTax') },
+                  { step: 3, name: t('jobs.stepDelivery') },
                 ].map((s) => (
                   <div key={s.step} className="flex items-center gap-2">
                     <div
@@ -1734,12 +1736,12 @@ export default function JobsTab({
                 </div>
                 <div className="space-y-0.5">
                   <h4 className="text-[10px] font-black text-indigo-800 dark:text-indigo-400 uppercase tracking-wider">
-                    คำแนะนำจากลูกนัท
+                    {t('jobs.mascotAdviceTitle')}
                   </h4>
                   <p className="text-[11px] text-brand-text/80 dark:text-neutral-200 font-medium leading-relaxed">
-                    {editFormStep === 1 && "ปรับเปลี่ยนรายละเอียดดีล 'ชื่อดีลงาน' หรือ 'ประเภทงาน' ของคุณเพื่อความเหมาะสมได้เลยนะค้าบ!"}
-                    {editFormStep === 2 && "ปรับแก้ตัวเลขค่าจ้าง หรือเลือกเปอร์เซ็นต์หัก ณ ที่จ่ายใหม่ได้เลย ระบบหักคำนวณภาษีให้อัตโนมัติทันที!"}
-                    {editFormStep === 3 && "อัปเดตความคืบหน้า (WIP/Posted) กำหนดระยะเวลาเครดิตเทอม และใส่โน้ตช่วยจำสุดท้ายก่อนจัดเก็บเสบียงกัน!"}
+                    {editFormStep === 1 && t('jobs.editAdviceStep1')}
+                    {editFormStep === 2 && t('jobs.editAdviceStep2')}
+                    {editFormStep === 3 && t('jobs.editAdviceStep3')}
                   </p>
                 </div>
               </div>
@@ -1757,11 +1759,11 @@ export default function JobsTab({
                     >
                       {/* Name */}
                       <div className="space-y-1.5">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชื่องาน / ดีลสัญญา <span className="text-rose-500">*</span></label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldName')} <span className="text-rose-500">*</span></label>
                         <input
                           type="text"
                           required
-                          placeholder="เช่น รับเขียนบทความรีวิว / รีวิวลิปสติกแบรนด์ A"
+                          placeholder={t('jobs.fieldNamePlaceholder')}
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 transition-all font-medium"
@@ -1770,10 +1772,10 @@ export default function JobsTab({
 
                       {/* Brand Client */}
                       <div className="space-y-1.5">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">แบรนด์ / ลูกค้าที่จ้าง</label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldClient')}</label>
                         <input
                           type="text"
-                          placeholder="เช่น Biore / Shopee ประเทศไทย"
+                          placeholder={t('jobs.fieldClientPlaceholder')}
                           value={editClient}
                           onChange={(e) => setEditClient(e.target.value)}
                           className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 transition-all font-medium"
@@ -1782,11 +1784,11 @@ export default function JobsTab({
 
                       {/* Category Type as Pills */}
                       <div className="space-y-2">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">เลือกประเภทงาน</label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldType')}</label>
 
                         <div className="space-y-2.5">
                           <div className="space-y-1.5">
-                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทพื้นฐาน</p>
+                            <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeBasicLabel')}</p>
                             <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
                               {['ยังไม่ระบุ', ...DEFAULT_JOB_TYPES].map(t => {
                                 const isSelected = editType === t;
@@ -1815,13 +1817,13 @@ export default function JobsTab({
                             const customTypes = Array.from(new Set(jobTypes)).filter(t => t && !DEFAULT_JOB_TYPES.includes(t));
                             return customTypes.length > 0 ? (
                               <div className="space-y-1.5">
-                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">ประเภทที่คุณเพิ่มเอง</p>
+                                <p className="text-[9px] font-extrabold text-brand-muted uppercase tracking-wider">{t('jobs.typeCustomLabel')}</p>
                                 <div className="p-3 bg-brand-white dark:bg-stone-800 border border-brand-border/50 rounded-2xl flex flex-wrap gap-1.5">
-                                  {customTypes.map(t => {
-                                    const isSelected = editType === t;
+                                  {customTypes.map(tp => {
+                                    const isSelected = editType === tp;
                                     return (
                                       <span
-                                        key={t}
+                                        key={tp}
                                         className={`pl-3 pr-1.5 py-1 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1 ${
                                           isSelected
                                             ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
@@ -1831,21 +1833,21 @@ export default function JobsTab({
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            setEditType(t);
+                                            setEditType(tp);
                                             setEditCustomTypeInput('');
                                           }}
                                           className="cursor-pointer"
                                         >
-                                          {t}
+                                          {tp}
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            setJobTypes(prev => prev.filter(x => x !== t));
-                                            if (editType === t) setEditType('ยังไม่ระบุ');
+                                            setJobTypes(prev => prev.filter(x => x !== tp));
+                                            if (editType === tp) setEditType('ยังไม่ระบุ');
                                           }}
                                           className={`p-0.5 rounded-full cursor-pointer transition-colors ${isSelected ? 'hover:bg-white/20' : 'text-brand-muted hover:bg-rose-500/10 hover:text-rose-600'}`}
-                                          title="ลบประเภทนี้"
+                                          title={t('jobs.removeTypeTooltip')}
                                         >
                                           <IconClose className="w-2.5 h-2.5" />
                                         </button>
@@ -1868,17 +1870,17 @@ export default function JobsTab({
                                 : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 hover:border-brand-text/30 text-brand-text dark:text-neutral-300'
                             }`}
                           >
-                            + เขียนประเภทงานเอง...
+                            {t('jobs.addCustomType')}
                           </button>
                         </div>
 
                         {editType === '__custom__' && (
                           <div className="animate-fade-in space-y-2 bg-indigo-500/5 dark:bg-indigo-500/10 p-3 rounded-2xl border border-indigo-500/15">
-                            <label className="text-[10px] text-indigo-800 dark:text-indigo-400 font-extrabold uppercase block">เขียนประเภทงานใหม่</label>
+                            <label className="text-[10px] text-indigo-800 dark:text-indigo-400 font-extrabold uppercase block">{t('jobs.customTypeNameLabel')}</label>
                             <div className="flex gap-2">
                               <input
                                 type="text"
-                                placeholder="เช่น ถ่ายรูปโปรไฟล์, วิดีโอ TikTok"
+                                placeholder={t('jobs.customTypePlaceholder')}
                                 value={editCustomTypeInput}
                                 onChange={(e) => setEditCustomTypeInput(e.target.value)}
                                 className="flex-1 bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold"
@@ -1897,7 +1899,7 @@ export default function JobsTab({
                                 }}
                                 className="px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black cursor-pointer transition-colors"
                               >
-                                ตกลง
+                                {t('jobs.confirmOk')}
                               </button>
                             </div>
                           </div>
@@ -1918,10 +1920,10 @@ export default function JobsTab({
                       <div className="grid grid-cols-2 gap-3">
                         {/* Contract value */}
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">มูลค่าค่าจ้างเต็ม (฿) <span className="text-rose-500">*</span></label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldValue')} <span className="text-rose-500">*</span></label>
                           <NumberInput
                             required
-                            placeholder="เช่น 30000"
+                            placeholder={t('jobs.fieldValuePlaceholder')}
                             value={editValue}
                             onChange={setEditValue}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
@@ -1930,12 +1932,12 @@ export default function JobsTab({
 
                         {/* Hours spent (optional, for ฿/hour insight) */}
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ชั่วโมงที่ใช้ทำงาน (ไม่บังคับ)</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldHours')}</label>
                           <input
                             type="number"
                             min="0"
                             step="0.5"
-                            placeholder="เช่น 5"
+                            placeholder={t('jobs.fieldHoursPlaceholder')}
                             value={editHoursSpent}
                             onChange={(e) => setEditHoursSpent(e.target.value)}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm font-black text-brand-text dark:text-white placeholder-brand-muted dark:placeholder-neutral-500 rounded-2xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
@@ -1945,9 +1947,9 @@ export default function JobsTab({
 
                       {/* Status Selection -- segmented control, matching the add-job flow */}
                       <div className="space-y-1.5">
-                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">สถานะโครงการ</label>
+                        <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldProjectStatus')}</label>
                         <div className="flex flex-wrap bg-brand-faint dark:bg-stone-850 rounded-xl p-1 gap-1">
-                          {[{ id: 'unspecified', label: 'ยังไม่ระบุ', behavior: 'pending' as const }, ...statuses].map(s => {
+                          {[{ id: 'unspecified', label: t('jobs.statusUnspecifiedLabel'), behavior: 'pending' as const }, ...statuses].map(s => {
                             const isSelected = editStatus === s.id;
                             const activeColor =
                               s.behavior === 'done'
@@ -1988,25 +1990,25 @@ export default function JobsTab({
                             className="w-3.5 h-3.5 accent-[#E65F2B] cursor-pointer"
                           />
                           <span className={`text-[11px] font-bold ${editStatus === '__custom__' ? 'text-[#E65F2B]' : 'text-brand-muted'}`}>
-                            อื่นๆ (เขียนสถานะเอง...)
+                            {t('jobs.customStatusOption')}
                           </span>
                         </label>
 
                         {editStatus === '__custom__' && (
                           <div className="bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/15 rounded-2xl p-3.5 space-y-3 animate-fade-in mt-2">
                             <div>
-                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">ระบุชื่อสถานะใหม่</label>
+                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusNameLabelAdd')}</label>
                               <input
                                 type="text"
                                 required
-                                placeholder="ระบุสถานะใหม่ เช่น รอตรวจบรีฟ"
+                                placeholder={t('jobs.customStatusNamePlaceholderEdit')}
                                 value={editCustomStatusLabelInput}
                                 onChange={(e) => setEditCustomStatusLabelInput(e.target.value)}
                                 className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-2.5 outline-none border border-brand-border/40 font-semibold"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">พฤติกรรมการจ่ายเงิน</label>
+                              <label className="text-[10px] text-purple-800 dark:text-purple-400 font-extrabold uppercase block mb-1">{t('jobs.customStatusBehaviorLabelEdit')}</label>
                               <select
                                 value={editCustomStatusBehavior}
                                 onChange={(e: any) => {
@@ -2024,9 +2026,9 @@ export default function JobsTab({
                                 }}
                                 className="w-full bg-brand-white dark:bg-stone-800 text-xs text-brand-text dark:text-white rounded-xl p-2.5 outline-none border border-brand-border/40 cursor-pointer font-semibold"
                               >
-                                <option value="pending">ยังไม่จ่าย (Pending)</option>
-                                <option value="partial">มัดจำแล้ว (Partial)</option>
-                                <option value="done">จ่ายเงินครบแล้ว (Done)</option>
+                                <option value="pending">{t('jobs.statusOptPending')}</option>
+                                <option value="partial">{t('jobs.statusOptPartialEdit')}</option>
+                                <option value="done">{t('jobs.statusOptDoneEdit')}</option>
                               </select>
                             </div>
                           </div>
@@ -2038,9 +2040,9 @@ export default function JobsTab({
                         (editStatus !== '__custom__' && statuses.find(s => s.id === editStatus)?.behavior === 'partial') ||
                         (editStatus === '__custom__' && editCustomStatusBehavior === 'partial')) && (
                         <div className="space-y-1.5 animate-fade-in">
-                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">ป้อนมัดจำที่ได้รับแล้ว ณ ตอนนี้ (฿)</label>
+                          <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">{t('jobs.fieldReceivedNow')}</label>
                           <NumberInput
-                            placeholder="เช่น 10000 (ใส่ 0 หรือเว้นว่างหากยังไม่มีมัดจำ)"
+                            placeholder={t('jobs.fieldReceivedNowPlaceholder')}
                             value={editReceived}
                             onChange={setEditReceived}
                             className="w-full bg-brand-faint dark:bg-stone-850 text-sm text-brand-text dark:text-white placeholder-brand-muted rounded-xl p-3.5 outline-none border border-brand-border/40 focus:border-indigo-500 font-mono"
@@ -2051,7 +2053,7 @@ export default function JobsTab({
                       {/* Withholding Tax -- clean dropdown instead of a card grid */}
                       <div className="space-y-1.5">
                         <label className="text-brand-muted dark:text-neutral-300 uppercase tracking-wider block">
-                          หัก ณ ที่จ่าย (Withholding Tax)
+                          {t('jobs.fieldWht')}
                         </label>
                         <div className="relative">
                           <select
@@ -2059,10 +2061,10 @@ export default function JobsTab({
                             onChange={(e) => setEditWhtRate(Number(e.target.value))}
                             className="w-full appearance-none bg-brand-white dark:bg-stone-900 text-sm font-bold text-brand-text dark:text-white rounded-xl py-3.5 pl-3.5 pr-10 outline-none border border-brand-border/50 focus:border-indigo-500 cursor-pointer transition-colors"
                           >
-                            <option value={0}>0% (ไม่มีหัก) — รับยอดเต็ม เช่น ไม่เข้าระบบภาษี</option>
-                            <option value={1}>1% (ขนส่ง) — งานโฆษณาขนส่งบริการพิเศษ</option>
-                            <option value={3}>3% (ทั่วไป) — งานจ้างทำของ ฟรีแลนซ์ไทย</option>
-                            <option value={5}>5% (ค่าเช่า) — ค่านักแสดง งานเช่าพื้นที่ถ่ายทำ</option>
+                            <option value={0}>{t('jobs.wht0')}</option>
+                            <option value={1}>{t('jobs.wht1')}</option>
+                            <option value={3}>{t('jobs.wht3')}</option>
+                            <option value={5}>{t('jobs.wht5')}</option>
                           </select>
                           <ChevronDown className="w-4 h-4 text-brand-muted absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
@@ -2071,17 +2073,17 @@ export default function JobsTab({
                       {/* Live calculated mockup tax receipt */}
                       <div className="bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/15 dark:border-indigo-500/15 rounded-2xl p-3.5 space-y-2.5">
                         <div className="flex items-center justify-between text-[10px] text-brand-muted dark:text-neutral-400 font-black uppercase">
-                          <span>ใบจำลองคำนวณเงินและภาษี (แก้ไข)</span>
+                          <span>{t('jobs.taxReceiptTitleEdit')}</span>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-y-1.5 text-xs">
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">มูลค่าโครงการเต็ม:</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.grossValueLabel')}</div>
                           <div className="text-right font-black font-mono dark:text-white">฿{(parseFloat(editValue) || 0).toLocaleString()}</div>
 
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ภาษีโดนหัก ณ ที่จ่าย ({editWhtRate}%):</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.whtDeductedLabel', { rate: editWhtRate })}</div>
                           <div className="text-right font-black font-mono text-amber-600 dark:text-amber-400">- ฿{Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100)).toLocaleString()}</div>
 
-                          <div className="text-brand-muted dark:text-neutral-400 font-bold">ยอดเงินสุทธิหลังหักภาษี:</div>
+                          <div className="text-brand-muted dark:text-neutral-400 font-bold">{t('jobs.netAfterTaxLabel')}</div>
                           <div className="text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
                             ฿{((parseFloat(editValue) || 0) - Math.round((parseFloat(editValue) || 0) * (editWhtRate / 100))).toLocaleString()}
                           </div>
@@ -2103,7 +2105,7 @@ export default function JobsTab({
                           highlight instead of two separate boxes, so it reads as a single
                           switch rather than two things to compare and read. */}
                       <div className="space-y-2">
-                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">สถานะงานตอนนี้</label>
+                        <label className="text-[10px] text-brand-muted dark:text-neutral-400 uppercase tracking-widest font-black block">{t('jobs.currentStatusLabel')}</label>
                         <div className="relative flex bg-brand-faint dark:bg-stone-850 border border-brand-border/60 rounded-2xl p-1">
                           <button
                             type="button"
@@ -2117,8 +2119,8 @@ export default function JobsTab({
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                               />
                             )}
-                            <span className={`relative z-10 text-xs font-black block ${!editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>สต๊อกเตรียมผลิต</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${!editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>ยังไม่ส่งงาน (WIP)</span>
+                            <span className={`relative z-10 text-xs font-black block ${!editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.wipShort')}</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${!editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.wipSub')}</span>
                           </button>
                           <button
                             type="button"
@@ -2132,8 +2134,8 @@ export default function JobsTab({
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                               />
                             )}
-                            <span className={`relative z-10 text-xs font-black block ${editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>ส่งงานแล้ว</span>
-                            <span className={`relative z-10 text-[9px] font-bold ${editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>รอเก็บเงิน (POSTED)</span>
+                            <span className={`relative z-10 text-xs font-black block ${editIsPosted ? 'text-white' : 'text-brand-text dark:text-neutral-300'}`}>{t('jobs.postedShort')}</span>
+                            <span className={`relative z-10 text-[9px] font-bold ${editIsPosted ? 'text-white/80' : 'text-brand-muted'}`}>{t('jobs.postedSub')}</span>
                           </button>
                         </div>
                       </div>
@@ -2151,14 +2153,14 @@ export default function JobsTab({
                             {/* วันเริ่มดีลงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
-                                <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">วันเริ่มดีลงาน / ได้รับสัญญา</label>
+                                <label className="text-amber-900 dark:text-amber-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.startDateLabel')}</label>
                                 {editStartDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setEditStartDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    ล้างวันที่
+                                    {t('jobs.clearDate')}
                                   </button>
                                 )}
                               </div>
@@ -2176,15 +2178,15 @@ export default function JobsTab({
                                 className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-amber-500 font-semibold cursor-pointer transition-all"
                               />
                               <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed font-medium">
-                                * บันทึกเพื่อเตือนความคืบหน้าของดีล หรือระยะเวลาเตรียมการผลิตคอนเทนต์ชิ้นนี้
+                                {t('jobs.startDateHint')}
                               </p>
                             </div>
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">{t('jobs.noteFieldLabel')}</label>
                               <textarea
-                                placeholder="เช่น มัดจำก่อนถ่าย 50%, สัญญาหลักเก็บไว้ในโน้ตไลน์กลุ่ม แบรนด์ขอตรวจดราฟท์แรกวันที่..."
+                                placeholder={t('jobs.noteWipPlaceholder')}
                                 rows={3}
                                 value={editNote}
                                 onChange={(e) => setEditNote(e.target.value)}
@@ -2205,19 +2207,19 @@ export default function JobsTab({
                             <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
                               <div className="flex items-center justify-between">
                                 <label className="text-[#E65F2B] dark:text-[#FFA473] font-extrabold block text-[11px] uppercase tracking-wider">
-                                  ระยะเวลาชำระเงินเครดิตเทอม (Credit Term)
+                                  {t('jobs.creditTermLabel')}
                                 </label>
                                 <span className="text-[10px] text-[#E65F2B] dark:text-[#FFA473] font-bold">
-                                  (คำนวณอัตโนมัติ)
+                                  {t('jobs.autoCalculated')}
                                 </span>
                               </div>
                               <div className="grid grid-cols-5 gap-1.5">
                                 {[
-                                  { value: 0, label: 'ทันที' },
-                                  { value: 30, label: '30 วัน' },
-                                  { value: 45, label: '45 วัน' },
-                                  { value: 60, label: '60 วัน' },
-                                  { value: 90, label: '90 วัน' },
+                                  { value: 0, label: t('jobs.creditNow') },
+                                  { value: 30, label: t('jobs.creditDaysOpt', { n: 30 }) },
+                                  { value: 45, label: t('jobs.creditDaysOpt', { n: 45 }) },
+                                  { value: 60, label: t('jobs.creditDaysOpt', { n: 60 }) },
+                                  { value: 90, label: t('jobs.creditDaysOpt', { n: 90 }) },
                                 ].map((opt) => {
                                   const isSelected = editCreditTerm === opt.value;
                                   return (
@@ -2247,11 +2249,11 @@ export default function JobsTab({
                                       className="w-4 h-4 rounded border-[#E65F2B]/30 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
                                     />
                                     <span className="text-[10px] font-bold text-[#E65F2B] dark:text-[#FFA473]">
-                                      ไม่นับวันหยุดราชการและเสาร์-อาทิตย์
+                                      {t('jobs.excludeHolidaysLabel')}
                                     </span>
                                   </label>
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] font-bold">
-                                    วันทำการเท่านั้น
+                                    {t('jobs.businessDaysOnly')}
                                   </span>
                                 </div>
                               )}
@@ -2260,14 +2262,14 @@ export default function JobsTab({
                             {/* วันส่งมอบงาน */}
                             <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
                               <div className="flex items-center justify-between">
-                                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">วันส่งมอบงาน หรือวันออนแอร์จริง</label>
+                                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.deliveryDateLabel')}</label>
                                 {editPostDate && (
                                   <button 
                                     type="button"
                                     onClick={() => setEditPostDate('')}
                                     className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    ล้างวันที่
+                                    {t('jobs.clearDate')}
                                   </button>
                                 )}
                               </div>
@@ -2289,14 +2291,14 @@ export default function JobsTab({
                               {editPostDate && editCreditTerm > 0 && (
                                 <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
                                   <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold">วันกำหนดชำระเงิน (Due Date):</span>
+                                    <span className="font-bold">{t('jobs.dueDateLabel')}</span>
                                     <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
                                       {safeFormatThaiDate(calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays))}
                                     </span>
                                   </div>
                                   <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
                                     <span className="font-bold flex items-center gap-1">
-                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> กำหนดชำระเงินที่เหลือ:
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
                                     </span>
                                     {(() => {
                                       const payDateVal = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
@@ -2318,9 +2320,9 @@ export default function JobsTab({
 
                             {/* Notes */}
                             <div className="space-y-1.5">
-                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">บันทึกช่วยจำ / ข้อตกลงเพิ่มเติม</label>
+                              <label className="text-[10px] text-brand-muted dark:text-neutral-300 uppercase tracking-widest font-black block">{t('jobs.noteFieldLabel')}</label>
                               <textarea
-                                placeholder="เช่น ส่งมอบไฟล์ผ่าน Google Drive แล้ว, ดำเนินการวางบิลรอบสิ้นเดือนนี้..."
+                                placeholder={t('jobs.notePostedPlaceholder')}
                                 rows={3}
                                 value={editNote}
                                 onChange={(e) => setEditNote(e.target.value)}
@@ -2342,7 +2344,7 @@ export default function JobsTab({
                       onClick={() => setEditFormStep(prev => prev - 1)}
                       className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
                     >
-                      <IconArrowLeft className="w-3 h-3" /> ย้อนกลับ
+                      <IconArrowLeft className="w-3 h-3" /> {t('jobs.back')}
                     </button>
                   )}
                   
@@ -2353,14 +2355,14 @@ export default function JobsTab({
                       onClick={() => {
                         if (editFormStep === 1) {
                           if (!editName.trim()) {
-                            triggerAlert('กรุณากรอกชื่องาน', 'กรุณาระบุชื่องานหรือดีลสัญญาของคุณก่อนไปขั้นตอนถัดไป');
+                            triggerAlert(t('jobs.alertNameRequiredTitle'), t('jobs.alertNameRequiredMsg'));
                             return;
                           }
                         }
                         if (editFormStep === 2) {
                           const val = parseFloat(editValue);
                           if (!editValue.trim() || isNaN(val) || val < 0) {
-                            triggerAlert('กรุณากรอกมูลค่าค่าจ้าง', 'กรุณาระบุมูลค่าค่าจ้างเต็ม (฿) เป็นจำนวนตัวเลขที่ถูกต้องก่อนไปขั้นตอนถัดไป');
+                            triggerAlert(t('jobs.alertValueRequiredTitle'), t('jobs.alertValueRequiredMsg'));
                             return;
                           }
                         }
@@ -2368,7 +2370,7 @@ export default function JobsTab({
                       }}
                       className="flex-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                     >
-                      ขั้นตอนถัดไป <IconArrowRight className="w-3 h-3" />
+                      {t('jobs.next')} <IconArrowRight className="w-3 h-3" />
                     </button>
                   ) : (
                     <button
@@ -2381,7 +2383,7 @@ export default function JobsTab({
                           : 'bg-indigo-600/50 cursor-not-allowed opacity-75'
                       }`}
                     >
-                      บันทึกการแก้ไขดีลงาน
+                      {t('jobs.saveEditJob')}
                     </button>
                   )}
                 </div>
