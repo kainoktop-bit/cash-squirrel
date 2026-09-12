@@ -316,10 +316,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Independent of the email outcome above -- LINE and email are separate channels, and
         // Gmail has repeatedly been the unreliable one in this app's history. Gating this behind
         // `emailOk` (as it used to be) meant a single Gmail hiccup silently swallowed the LINE
-        // notification too, even for accounts with LINE properly linked. Best-effort: an unmapped
-        // email or a LINE API hiccup just means no LINE message this time.
+        // notification too, even for accounts with LINE properly linked. Best-effort in that a
+        // failure here doesn't fail the whole request -- but it IS awaited: a fire-and-forget
+        // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
+        // serverless function returns its response and gets frozen/torn down, which was silently
+        // dropping the LINE push even when this code was reached.
         if (row.email) {
-          sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) =>
+          await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) =>
             console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err)
           );
         }
