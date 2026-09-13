@@ -5,6 +5,8 @@ import { formatCurrency, getMonthKey, formatMonthKey } from '../utils';
 import {
   BarChart,
   Bar,
+  PieChart as RechartsPieChart,
+  Pie,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,7 +14,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, Clock, ArrowRight, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { Mascot } from './Mascot';
 
 interface InsightTabProps {
@@ -38,8 +40,18 @@ interface Bucket {
 }
 
 const TOP_N = 8;
+// Kept separate from TOP_N -- a pie/donut only reads "at a glance" up to ~6 segments (per this
+// app's dataviz guidelines), so it caps at fewer real categories than the bar chart before the
+// rest fold into "อื่นๆ".
+const PIE_N = 5;
 const CONCENTRATION_RISK_THRESHOLD = 0.4;
 const CHART_COLORS = ['#E65F2B', '#C96B5A', '#D98324', '#C17817', '#7A4419', '#A63F1B', '#557c72', '#7A5C43'];
+// A CVD-validated categorical set (see scripts/validate_palette.js) used only for the pie/donut
+// view -- unlike the bar chart, where each category is also identified by its axis text label,
+// a pie's slices lean on color as the primary way to tell them apart at a glance, so this palette
+// is held to the stricter separation bar than CHART_COLORS above.
+const PIE_COLORS = ['#eb6834', '#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
+const OTHER_BUCKET_COLOR = '#a89689';
 
 function clientKey(j: Job): string {
   return (j.client || '').trim() || 'ไม่ระบุลูกค้า';
@@ -98,6 +110,7 @@ const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: React.Re
 
 export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => {
   const [period, setPeriod] = useState<PeriodOption>('6');
+  const [categoryChartMode, setCategoryChartMode] = useState<'bar' | 'pie'>('bar');
 
   const periodCutoff = useMemo(() => {
     if (period === 'all') return null;
@@ -119,6 +132,11 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
 
   const byClient = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey), TOP_N), [filteredJobs]);
   const byType = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey), TOP_N), [filteredJobs]);
+  // The top PIE_N entries here are always the same items, in the same order, as the first PIE_N
+  // of byClient/byType above (both come from the same sorted aggregate() call) -- so a category's
+  // color stays consistent whether you're looking at the bar or the pie view.
+  const byClientPie = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey), PIE_N), [filteredJobs]);
+  const byTypePie = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey), PIE_N), [filteredJobs]);
 
   const topClient = byClient.find((b) => b.key !== 'อื่นๆ');
   const totalReceived = filteredJobs.reduce((sum, j) => sum + (j.received || 0), 0);
@@ -250,7 +268,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
               />
               <Bar dataKey="received" radius={[0, 6, 6, 0]} maxBarSize={26}>
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.key === 'อื่นๆ' ? '#a89689' : CHART_COLORS[index % CHART_COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={entry.key === 'อื่นๆ' ? OTHER_BUCKET_COLOR : CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
@@ -259,6 +277,100 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       )}
     </div>
   );
+
+  const renderPieChart = (data: Bucket[], title: string, icon: React.ReactNode) => {
+    const total = data.reduce((sum, d) => sum + d.received, 0);
+    return (
+      <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
+        <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
+          {icon}
+          {title}
+        </h3>
+        {data.length === 0 ? (
+          <p className="text-xs text-brand-muted text-center py-10">ยังไม่มีข้อมูลในช่วงเวลานี้</p>
+        ) : (
+          <div className="flex flex-col items-center gap-5">
+            <div className="relative w-full" style={{ height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={data}
+                    dataKey="received"
+                    nameKey="key"
+                    innerRadius="58%"
+                    outerRadius="90%"
+                    paddingAngle={2}
+                    stroke="none"
+                    isAnimationActive={false}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell
+                        key={`pie-cell-${index}`}
+                        fill={entry.key === 'อื่นๆ' ? OTHER_BUCKET_COLOR : PIE_COLORS[index % PIE_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const d = payload[0].payload as Bucket;
+                        const pct = total > 0 ? Math.round((d.received / total) * 100) : 0;
+                        return (
+                          <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/60 p-3.5 rounded-2xl shadow-lg space-y-1.5 min-w-[180px]">
+                            <p className="text-xs font-black text-brand-text dark:text-white mb-1 border-b border-brand-border/40 pb-1">
+                              {d.key}
+                            </p>
+                            <div className="flex justify-between gap-4 text-[11px]">
+                              <span className="text-brand-muted font-bold">รับแล้ว:</span>
+                              <span className="font-extrabold text-[#E65F2B] dark:text-[#FFA473] font-mono">{formatCurrency(d.received)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4 text-[11px]">
+                              <span className="text-brand-muted font-bold">สัดส่วน:</span>
+                              <span className="font-extrabold text-brand-text dark:text-white font-mono">{pct}%</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+              {/* Center total -- a donut's hole is otherwise wasted space, and "how much in total"
+                  is the one number every slice below is a fraction of. */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">รวม</span>
+                <span className="text-sm font-black font-mono text-brand-text dark:text-white">{formatCurrency(total)}</span>
+              </div>
+            </div>
+
+            {/* Legend doubles as the direct label -- color is never the only way to tell two
+                slices apart here. */}
+            <div className="w-full space-y-1.5">
+              {data.map((d, index) => {
+                const pct = total > 0 ? Math.round((d.received / total) * 100) : 0;
+                return (
+                  <div key={d.key} className="flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: d.key === 'อื่นๆ' ? OTHER_BUCKET_COLOR : PIE_COLORS[index % PIE_COLORS.length] }}
+                      />
+                      <span className="font-bold text-brand-text dark:text-neutral-200 truncate">{d.key}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 font-mono">
+                      <span className="font-extrabold text-brand-text dark:text-white">{formatCurrency(d.received)}</span>
+                      <span className="text-brand-muted">({pct}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -409,9 +521,41 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       </div>
 
       {/* By-client / by-job-type charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {renderBarChart(byClient, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
-        {renderBarChart(byType, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
+      <div className="space-y-3">
+        <div className="flex items-center justify-end">
+          <div className="flex items-center bg-brand-faint dark:bg-stone-850 border border-brand-border dark:border-neutral-800 rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setCategoryChartMode('bar')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+                categoryChartMode === 'bar'
+                  ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
+                  : 'text-brand-muted hover:text-brand-text'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> แท่ง
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryChartMode('pie')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+                categoryChartMode === 'pie'
+                  ? 'bg-brand-white dark:bg-stone-700 text-brand-text dark:text-white shadow-xs'
+                  : 'text-brand-muted hover:text-brand-text'
+              }`}
+            >
+              <PieChartIcon className="w-3.5 h-3.5" /> วงกลม
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {categoryChartMode === 'bar'
+            ? renderBarChart(byClient, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)
+            : renderPieChart(byClientPie, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
+          {categoryChartMode === 'bar'
+            ? renderBarChart(byType, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)
+            : renderPieChart(byTypePie, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
+        </div>
       </div>
 
       {/* Client retention */}
