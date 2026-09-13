@@ -2065,16 +2065,6 @@ export default function App() {
 
         {/* Desktop bottom status/theme bar */}
         <div className="pt-4 border-t border-brand-border/40 flex flex-col gap-2.5">
-          <button
-            onClick={() => {
-              setTourStep(0);
-              setActiveTab('dashboard');
-            }}
-            className="w-full py-2 px-3 bg-amber-500/10 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-          >
-            <span>แนะนำฟีเจอร์แอป (App Tour)</span>
-          </button>
-
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-brand-muted font-bold inline-flex items-center gap-1">โหมดธีมสว่าง/มืด <IconPalette className="w-2.5 h-2.5" /></span>
             <button
@@ -2237,17 +2227,6 @@ export default function App() {
                     <span>ออกจากระบบ</span>
                   </button>
                 </div>
-
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    setTourStep(0);
-                    setActiveTab('dashboard');
-                  }}
-                  className="w-full py-2 px-3 bg-amber-500/10 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-xl text-[10px] font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs mb-3"
-                >
-                  <span>แนะนำฟีเจอร์แอป (App Tour)</span>
-                </button>
 
                 {/* Theme Controls on Mobile */}
                 <div className="pt-2 border-t border-brand-border/20">
