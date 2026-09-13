@@ -536,6 +536,9 @@ export default function App() {
   // missing locally -- except ids in these sets, which really were deleted on purpose.
   const deletedJobIdsRef = useRef<Set<string>>(new Set());
   const deletedExpenseIdsRef = useRef<Set<string>>(new Set());
+  // Guards saveCloudData against overlapping calls -- see its own comment for why that matters.
+  const cloudSaveInFlightRef = useRef(false);
+  const cloudSavePendingRef = useRef<{ email: string; payload: any } | null>(null);
   const [isProPromoOpen, setIsProPromoOpen] = useState(false);
   const [lastCloudError, setLastCloudError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
@@ -779,10 +782,24 @@ export default function App() {
 
   // Save Cloud Data function
   const saveCloudData = async (email: string, payload: any) => {
+    // The body below does an async SELECT (to merge in server-side changes) then an UPSERT --
+    // not atomic. Marking several jobs paid in quick succession (or any burst of fast edits)
+    // can trigger this twice close together, and on a slow connection the two round-trips can
+    // finish out of order: an older call's UPSERT landing after a newer one's would silently
+    // overwrite the newer edits with a stale payload (e.g. only the first of 2-3 jobs marked
+    // paid actually sticks). Only ever run one save at a time, and coalesce anything that comes
+    // in while one is in flight into a single follow-up save with the latest payload.
+    if (cloudSaveInFlightRef.current) {
+      cloudSavePendingRef.current = { email, payload };
+      return;
+    }
+    cloudSaveInFlightRef.current = true;
+
     setLastCloudError(null);
     const currentUser = session?.user;
     if (!currentUser || session?.isGuest) {
       setCloudSyncStatus('not_setup');
+      cloudSaveInFlightRef.current = false;
       return;
     }
 
@@ -865,6 +882,13 @@ export default function App() {
       console.warn('Catch cloud save error:', formattedErr, err);
       setLastCloudError(formattedErr);
       setCloudSyncStatus('failed');
+    } finally {
+      cloudSaveInFlightRef.current = false;
+      if (cloudSavePendingRef.current) {
+        const next = cloudSavePendingRef.current;
+        cloudSavePendingRef.current = null;
+        saveCloudData(next.email, next.payload);
+      }
     }
   };
 
