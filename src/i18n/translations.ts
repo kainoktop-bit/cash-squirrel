@@ -317,7 +317,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'nav.dashboard': 'Cash Flow Overview',
     'nav.jobs': 'Income & Expenses',
     'nav.timeline': 'Job Timeline',
-    'nav.summary': 'Income & Savings Summary',
+    'nav.summary': 'Income & Savings',
     'nav.split': 'Allocate & Savings Goals',
     'nav.report': 'Reports & Credit Terms',
     'nav.insight': 'Income Insights',
