@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Job } from '../types';
-import { formatCurrency, getMonthKey, formatMonthKey } from '../utils';
+import { formatCurrency, getMonthKey, formatMonthKey, safeFormatThaiDate } from '../utils';
 import {
   BarChart,
   Bar,
@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, Clock, ArrowRight, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
+import { Users, Briefcase, Crown, AlertTriangle, UserPlus, TrendingUp, Clock, ArrowRight, BarChart3, PieChart as PieChartIcon, X } from 'lucide-react';
 import { Mascot } from './Mascot';
 
 interface InsightTabProps {
@@ -111,6 +111,11 @@ const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: React.Re
 export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => {
   const [period, setPeriod] = useState<PeriodOption>('6');
   const [categoryChartMode, setCategoryChartMode] = useState<'bar' | 'pie'>('bar');
+  // Which client/type bucket the user clicked on a chart, to drill into the list of jobs behind
+  // it. `otherKeys` is only populated for the "อื่นๆ" bucket -- the real keys folded into it in
+  // THIS chart (bar's top 8 vs pie's top 5 fold different sets into "Other"), so we know which
+  // jobs to exclude rather than which to include.
+  const [drilldown, setDrilldown] = useState<{ dimension: 'client' | 'type'; bucket: Bucket; otherKeys?: string[] } | null>(null);
 
   const periodCutoff = useMemo(() => {
     if (period === 'all') return null;
@@ -129,6 +134,16 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       return new Date(dateStr + 'T00:00:00') >= periodCutoff;
     });
   }, [jobs, periodCutoff]);
+
+  const drilldownJobs = useMemo(() => {
+    if (!drilldown) return [];
+    const keyFn = drilldown.dimension === 'client' ? clientKey : typeKey;
+    if (drilldown.bucket.key === 'อื่นๆ') {
+      const otherKeys = new Set(drilldown.otherKeys || []);
+      return filteredJobs.filter((j) => otherKeys.has(keyFn(j)));
+    }
+    return filteredJobs.filter((j) => keyFn(j) === drilldown.bucket.key);
+  }, [drilldown, filteredJobs]);
 
   const byClient = useMemo(() => topNWithRest(aggregate(filteredJobs, clientKey), TOP_N), [filteredJobs]);
   const byType = useMemo(() => topNWithRest(aggregate(filteredJobs, typeKey), TOP_N), [filteredJobs]);
@@ -216,12 +231,24 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
       .sort((a, b) => b.rate - a.rate);
   }, [filteredJobs]);
 
-  const renderBarChart = (data: Bucket[], title: string, icon: React.ReactNode) => (
+  const handleBucketClick = (dimension: 'client' | 'type', data: Bucket[], bucket: Bucket) => {
+    if (bucket.key === 'อื่นๆ') {
+      const shownKeys = new Set<string>(data.filter((b) => b.key !== 'อื่นๆ').map((b) => b.key));
+      const keyFn = dimension === 'client' ? clientKey : typeKey;
+      const otherKeys = Array.from(new Set<string>(filteredJobs.map(keyFn))).filter((k) => !shownKeys.has(k));
+      setDrilldown({ dimension, bucket, otherKeys });
+    } else {
+      setDrilldown({ dimension, bucket });
+    }
+  };
+
+  const renderBarChart = (data: Bucket[], title: string, icon: React.ReactNode, dimension: 'client' | 'type') => (
     <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-      <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
+      <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
         {icon}
         {title}
       </h3>
+      {data.length > 0 && <p className="text-[10px] text-brand-muted mb-4">คลิกที่แท่งเพื่อดูรายการงาน</p>}
       {data.length === 0 ? (
         <p className="text-xs text-brand-muted text-center py-10">ยังไม่มีข้อมูลในช่วงเวลานี้</p>
       ) : (
@@ -266,7 +293,13 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                   return null;
                 }}
               />
-              <Bar dataKey="received" radius={[0, 6, 6, 0]} maxBarSize={26}>
+              <Bar
+                dataKey="received"
+                radius={[0, 6, 6, 0]}
+                maxBarSize={26}
+                style={{ cursor: 'pointer' }}
+                onClick={(entry) => entry?.payload && handleBucketClick(dimension, data, entry.payload as Bucket)}
+              >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.key === 'อื่นๆ' ? OTHER_BUCKET_COLOR : CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
@@ -278,14 +311,15 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
     </div>
   );
 
-  const renderPieChart = (data: Bucket[], title: string, icon: React.ReactNode) => {
+  const renderPieChart = (data: Bucket[], title: string, icon: React.ReactNode, dimension: 'client' | 'type') => {
     const total = data.reduce((sum, d) => sum + d.received, 0);
     return (
       <div className="bg-brand-white dark:bg-stone-900 border border-brand-border/40 dark:border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-sm">
-        <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-5">
+        <h3 className="font-display font-extrabold text-sm text-brand-text dark:text-white flex items-center gap-2 mb-1">
           {icon}
           {title}
         </h3>
+        {data.length > 0 && <p className="text-[10px] text-brand-muted mb-4">คลิกที่ชิ้นหรือรายชื่อด้านล่างเพื่อดูรายการงาน</p>}
         {data.length === 0 ? (
           <p className="text-xs text-brand-muted text-center py-10">ยังไม่มีข้อมูลในช่วงเวลานี้</p>
         ) : (
@@ -302,6 +336,8 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                     paddingAngle={2}
                     stroke="none"
                     isAnimationActive={false}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(entry) => entry?.payload && handleBucketClick(dimension, data, entry.payload as Bucket)}
                   >
                     {data.map((entry, index) => (
                       <Cell
@@ -350,7 +386,12 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
               {data.map((d, index) => {
                 const pct = total > 0 ? Math.round((d.received / total) * 100) : 0;
                 return (
-                  <div key={d.key} className="flex items-center justify-between gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    key={d.key}
+                    onClick={() => handleBucketClick(dimension, data, d)}
+                    className="w-full flex items-center justify-between gap-2 text-[11px] p-1 -m-1 rounded-lg hover:bg-brand-faint dark:hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -362,7 +403,7 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
                       <span className="font-extrabold text-brand-text dark:text-white">{formatCurrency(d.received)}</span>
                       <span className="text-brand-muted">({pct}%)</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -550,11 +591,11 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {categoryChartMode === 'bar'
-            ? renderBarChart(byClient, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)
-            : renderPieChart(byClientPie, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
+            ? renderBarChart(byClient, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'client')
+            : renderPieChart(byClientPie, 'รายรับตามลูกค้า', <Users className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'client')}
           {categoryChartMode === 'bar'
-            ? renderBarChart(byType, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)
-            : renderPieChart(byTypePie, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />)}
+            ? renderBarChart(byType, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'type')
+            : renderPieChart(byTypePie, 'รายรับตามประเภทงาน', <Briefcase className="w-4.5 h-4.5 text-[#E65F2B] dark:text-[#FFA473]" />, 'type')}
         </div>
       </div>
 
@@ -613,6 +654,97 @@ export const InsightTab: React.FC<InsightTabProps> = ({ jobs, onSwitchTab }) => 
           </div>
         )}
       </div>
+
+      {/* Drilldown: which jobs make up the client/type bucket the user just clicked */}
+      <AnimatePresence>
+        {drilldown && (
+          <div className="fixed inset-0 z-200">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDrilldown(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[85vh] space-y-4 border-t border-brand-border/40"
+            >
+              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
+
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black tracking-wider text-[#E65F2B] dark:text-[#FFA473] uppercase">
+                    {drilldown.dimension === 'client' ? 'ลูกค้า' : 'ประเภทงาน'}
+                  </span>
+                  <h3 className="text-lg font-black text-brand-text dark:text-white font-display mt-0.5 truncate">
+                    {drilldown.bucket.key}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setDrilldown(null)}
+                  className="w-8 h-8 shrink-0 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-brand-faint dark:bg-neutral-800/40 rounded-xl p-3">
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">จำนวนงาน</p>
+                  <p className="text-sm font-black font-mono text-brand-text dark:text-white mt-0.5">{drilldownJobs.length} งาน</p>
+                </div>
+                <div className="bg-brand-faint dark:bg-neutral-800/40 rounded-xl p-3">
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">รับแล้ว</p>
+                  <p className="text-sm font-black font-mono text-[#E65F2B] dark:text-[#FFA473] mt-0.5">
+                    {formatCurrency(drilldownJobs.reduce((s, j) => s + (j.received || 0), 0))}
+                  </p>
+                </div>
+                <div className="bg-brand-faint dark:bg-neutral-800/40 rounded-xl p-3">
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-brand-muted">ค้างรับ</p>
+                  <p className="text-sm font-black font-mono text-brand-text dark:text-white mt-0.5">
+                    {formatCurrency(drilldownJobs.reduce((s, j) => s + (j.pending || 0), 0))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {drilldownJobs.map((j) => (
+                  <div
+                    key={j.id}
+                    className="p-3 bg-brand-faint dark:bg-neutral-800/40 rounded-2xl border border-brand-border/30 dark:border-neutral-800"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-brand-text dark:text-white truncate">{j.name}</p>
+                        <p className="text-[10px] text-brand-muted mt-0.5">
+                          {drilldown.dimension === 'client' ? (j.type || 'ยังไม่ระบุ') : (j.client || 'ไม่ระบุลูกค้า')}
+                          {(j.postDate || j.payDate) && ` · ${safeFormatThaiDate(j.postDate || j.payDate, { day: 'numeric', month: 'short', year: '2-digit' })}`}
+                        </p>
+                      </div>
+                      <p className="text-xs font-black font-mono text-brand-text dark:text-white shrink-0">{formatCurrency(j.received)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDrilldown(null);
+                  onSwitchTab('jobs');
+                }}
+                className="w-full py-3 bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1"
+              >
+                ไปที่งานดีล <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
