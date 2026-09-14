@@ -1,5 +1,5 @@
 import { Job, FixedExpenseItem } from './types';
-import { currentLanguage } from './i18n/LanguageContext';
+import { currentLanguage } from './i18n/currentLanguage';
 
 // The built-in job type chips every account starts with. Anything a user adds via
 // "เขียนประเภทงานเอง..." is a custom type, kept separate in the picker so it can be removed.
