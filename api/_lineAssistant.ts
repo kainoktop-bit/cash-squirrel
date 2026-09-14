@@ -882,7 +882,7 @@ function buildTypeBadge(icon: string, label: string, color: string) {
     margin: 'md',
     contents: [
       ...(iconUrl ? [{ type: 'image', url: iconUrl, size: '26px', aspectRatio: '1:1', aspectMode: 'cover' as const, flex: 0 }] : []),
-      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center', flex: 1 },
+      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center', flex: 1, wrap: true },
       { type: 'text', text: formatTimeShort(), size: 'xs', color: '#A88A6E', gravity: 'center', align: 'end', flex: 0 },
     ],
   };
@@ -894,7 +894,7 @@ function buildStatementRow(label: string, value: string, opts?: { size?: string;
     type: 'box',
     layout: 'horizontal',
     contents: [
-      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2, gravity: 'center' },
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2, gravity: 'center', wrap: true },
       { type: 'text', text: value, size: opts?.size || 'sm', color: opts?.color || '#3D2314', weight: opts?.bold === false ? 'regular' : 'bold', flex: 3, align: 'end', wrap: true },
     ],
   };
@@ -929,7 +929,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   // A WIP job hasn't actually been delivered/paid yet -- heading it "รับเงิน +value" like a
   // completed transaction would be misleading, so it gets its own indigo framing, clearly apart
   // from both the green (income) and rust (expense) cards rather than reusing either palette.
-  const headerLabel = isWip ? 'เพิ่มงานใหม่ (สต็อก)' : 'รับเงิน';
+  const headerLabel = isWip ? 'สต็อกใหม่' : 'รับเงิน';
   const headerColor = isWip ? '#4338CA' : '#0E9F6E';
 
   if (!appUrl) {
@@ -959,7 +959,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       spacing: 'md',
       contents: [
         isWip
-          ? buildTypeBadge('package', 'เพิ่มงานใหม่ · เข้าสต็อก', headerColor)
+          ? buildTypeBadge('package', 'เข้าสต็อก', headerColor)
           : buildTypeBadge('coin', 'รับเงินแล้ว', headerColor),
         buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
@@ -1155,8 +1155,8 @@ export function buildGoalCreatedMessage(goal: { name: string; target: number; de
   // Purple, not the job-edited card's blue -- goal creation gets its own color so the two never
   // read as the same type of event at a glance.
   const bodyContents = [
-    buildTypeBadge('target', 'สร้างเป้าหมายใหม่', '#7C3AED'),
-    buildStatementRow('สร้างเป้าหมายใหม่', goal.name, { size: 'xl', color: '#7C3AED' }),
+    buildTypeBadge('target', 'เป้าหมายใหม่', '#7C3AED'),
+    buildStatementRow('เป้าหมายใหม่', goal.name, { size: 'xl', color: '#7C3AED' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
     ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
@@ -1172,7 +1172,7 @@ export function buildGoalTransactionMessage(
   tx: { type: 'deposit' | 'withdraw'; amount: number; reason: string }
 ): LineMessage {
   const isDeposit = tx.type === 'deposit';
-  const headerLabel = isDeposit ? 'ฝากเข้าเป้าหมาย' : 'ดึงเงินออกจากเป้าหมาย';
+  const headerLabel = isDeposit ? 'ฝากเข้าเป้าหมาย' : 'ถอนจากเป้าหมาย';
   const headerColor = isDeposit ? '#0E9F6E' : '#A63F1B';
   const bodyContents = [
     isDeposit ? buildTypeBadge('acorn', headerLabel, headerColor) : buildTypeBadge('outbox', headerLabel, headerColor),
