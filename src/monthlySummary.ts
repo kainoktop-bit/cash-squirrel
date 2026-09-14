@@ -120,5 +120,9 @@ export function computeMonthlySummary(
 }
 
 export function formatCurrency(n: number): string {
-  return `฿${Math.round(n).toLocaleString('th-TH')}`;
+  // The space after ฿ isn't just cosmetic -- LINE's Flex renderer visually collides the Thai
+  // Baht glyph with an immediately-following digit (no space) into an overlapping mess, as seen
+  // live in production notification cards. A space keeps the two glyphs apart everywhere this
+  // is used (LINE messages, monthly report emails).
+  return `฿ ${Math.round(n).toLocaleString('th-TH')}`;
 }
