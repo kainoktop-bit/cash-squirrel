@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Job, AppSettings, StatusOption } from '../types';
-import { formatCurrency, getForecastMonths, formatMonthKey, getMonthKey, getRelativeDaysText } from '../utils';
+import { formatCurrency, getForecastMonths, formatMonthKey, getMonthKey, getRelativeDaysText, dateLocale } from '../utils';
 import { motion } from 'motion/react';
 import {
   Calendar,
@@ -14,6 +14,7 @@ import {
 import { Mascot } from './Mascot';
 import { IconCoin, IconWarning, IconCheck } from './icons';
 import { JobDetailModal } from './JobDetailModal';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface TimelineTabProps {
   jobs: Job[];
@@ -26,6 +27,7 @@ interface TimelineTabProps {
 }
 
 export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDeleteJob }: TimelineTabProps) {
+  const { t } = useLanguage();
   const forecastMonths = getForecastMonths();
   const [viewJobId, setViewJobId] = useState<string | null>(null);
   const viewedJob = viewJobId ? jobs.find((j) => j.id === viewJobId) || null : null;
@@ -57,12 +59,12 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
         monthlyEvents.push({
           id: `${j.id}-rec`,
           jobId: j.id,
-          title: j.name + (!isDone ? ' (มัดจำ)' : ''),
+          title: j.name + (!isDone ? t('timeline.depositSuffix') : ''),
           client: j.client,
           amount: j.received,
           isConfirmed: true,
           dateStr: j.payDate || j.postDate,
-          daysRemainingText: 'ได้รับแล้ว',
+          daysRemainingText: t('timeline.receivedStatus'),
           isOverdue: false,
         });
       }
@@ -85,12 +87,12 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
           monthlyEvents.push({
             id: `${j.id}-pend`,
             jobId: j.id,
-            title: j.name + (isWip ? ' (WIP - คาดการณ์รับเงิน)' : j.creditTerm > 0 ? ` (+${j.creditTerm} วัน)` : ''),
+            title: j.name + (isWip ? t('timeline.wipForecastSuffix') : j.creditTerm > 0 ? t('timeline.creditDaysSuffixParen', { n: j.creditTerm }) : ''),
             client: j.client,
             amount: j.pending,
             isConfirmed: false,
             dateStr: expectedPayDate,
-            daysRemainingText: isWip ? `รอออนแอร์: ${rel.text}` : rel.text,
+            daysRemainingText: isWip ? t('timeline.wipWaitingOnAir', { text: rel.text }) : rel.text,
             isOverdue: rel.isOverdue,
             isWipPending: isWip,
           });
@@ -104,12 +106,12 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
           monthlyEvents.push({
             id: `${j.id}-milestone`,
             jobId: j.id,
-            title: `WIP: ${j.name} (เป้าหมายออนแอร์/ส่งงาน)`,
+            title: t('timeline.wipMilestoneTitle', { name: j.name }),
             client: j.client,
             amount: 0,
             isConfirmed: false,
             dateStr: j.postDate,
-            daysRemainingText: `เหลือเวลาผลิต: ${rel.text}`,
+            daysRemainingText: t('timeline.productionTimeLeft', { text: rel.text }),
             isOverdue: rel.isOverdue,
             isWipMilestone: true,
           });
@@ -141,10 +143,10 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
       <div className="flex items-center justify-between px-1">
         <div>
           <span className="text-xs font-semibold tracking-wider text-brand-muted uppercase inline-flex items-center gap-1">
-            กระแสเงินสดรายวัน/รายเดือน
+            {t('timeline.subtitle')}
           </span>
           <h2 className="text-3xl font-bold font-display text-brand-text tracking-tight mt-0.5">
-            ไทม์ไลน์รับเงิน
+            {t('timeline.title')}
           </h2>
         </div>
       </div>
@@ -153,7 +155,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
       <div className="bg-brand-faint border border-brand-border/60 rounded-2xl p-4 text-xs font-medium text-brand-muted flex items-center gap-3">
         <Mascot mood="happy" size={36} animated={true} className="shrink-0" />
         <p className="leading-relaxed">
-          ไทม์ไลน์นี้ประเมินยอดเงินเข้าตาม <span className="text-brand-text font-bold">Credit Terms</span> ของสัญญาจ้าง เพื่อช่วยให้คุณรู้ตัวล่วงหน้าว่าเงินเข้าวันไหนและเพียงพอสำหรับใช้จ่ายรายเดือนหรือไม่
+{t('timeline.introBefore')} <span className="text-brand-text font-bold">Credit Terms</span> {t('timeline.introAfter')}
         </p>
       </div>
 
@@ -186,7 +188,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
             <div className="bg-brand-white border border-brand-border rounded-xl p-4 flex items-center justify-between shadow-xs">
               <div>
                 <span className="text-[10px] text-brand-muted uppercase font-extrabold tracking-wider flex items-center gap-1">
-                  <IconCoin className="w-2.5 h-2.5" /> ยอดเงินเข้ารวมเดือนนี้
+                  <IconCoin className="w-2.5 h-2.5" /> {t('timeline.totalIncomeLabel')}
                 </span>
                 <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatCurrency(m.totalIncome)}
@@ -199,10 +201,10 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
                     : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-100/10'
                 }`}>
                   {m.isShortfall ? <IconWarning className="w-2.5 h-2.5" /> : <IconCheck className="w-2.5 h-2.5" />}
-                  {m.isShortfall ? 'ขาดแคลน' : 'ปลอดภัย'}
+                  {m.isShortfall ? t('timeline.shortfallBadge') : t('timeline.safeBadge')}
                 </span>
                 <span className="text-[10px] text-brand-muted mt-1.5 block">
-                  เกณฑ์จ่าย: {formatCurrency(settings.monthlyExpense)}
+                  {t('timeline.expenseThreshold', { amount: formatCurrency(settings.monthlyExpense) })}
                 </span>
               </div>
             </div>
@@ -212,7 +214,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
               {m.events.length === 0 ? (
                 <div className="bg-brand-white border border-brand-border/60 rounded-xl p-5 text-center text-brand-muted text-xs flex flex-col items-center justify-center gap-2">
                   <Mascot mood="sleepy" size={56} className="mx-auto" />
-                  <span>ยังไม่มีแผนการเงินที่รับรู้รายได้ในเดือนนี้</span>
+                  <span>{t('timeline.emptyMonth')}</span>
                 </div>
               ) : (
                 m.events.map((evt, evtIdx) => {
@@ -245,9 +247,9 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
                             {evt.title}
                           </h4>
                           <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
-                            <span>{evt.client || 'ไม่ระบุลูกค้า'}</span>
+                            <span>{evt.client || t('timeline.noClient')}</span>
                             <span>•</span>
-                            <span>{new Date(evt.dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
+                            <span>{new Date(evt.dateStr).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' })}</span>
                           </p>
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 text-brand-muted/50 shrink-0 mt-0.5" />
@@ -256,7 +258,7 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
                       <div className="text-right shrink-0 flex flex-col items-end gap-1">
                         {isWipMilestone ? (
                           <p className="text-xs font-semibold text-brand-muted italic">
-                            (รอส่งมอบงาน)
+                            {t('timeline.awaitingDelivery')}
                           </p>
                         ) : (
                           <p className={`text-sm font-bold font-mono ${evt.isConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -297,14 +299,14 @@ export default function TimelineTab({ jobs, settings, statuses, onEditJob, onDel
                 )}
                 <span>
                   {m.isShortfall 
-                    ? `ขาดอีก ${formatCurrency(Math.abs(m.balance))} ถึงจะคุ้มทุน`
-                    : `เหลือกำไรเก็บออม ${formatCurrency(m.balance)}`
+                    ? t('timeline.shortfallSummary', { amount: formatCurrency(Math.abs(m.balance)) })
+                    : t('timeline.profitSummary', { amount: formatCurrency(m.balance) })
                   }
                 </span>
               </div>
               <div className="text-[10px] text-brand-muted font-normal flex gap-3">
-                <span>ได้รับแล้ว: <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalConfirmed)}</strong></span>
-                <span>รอเข้า: <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalPending)}</strong></span>
+                <span>{t('timeline.receivedColon')} <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalConfirmed)}</strong></span>
+                <span>{t('timeline.pendingColon')} <strong className="font-mono text-brand-text font-bold">{formatCurrency(m.totalPending)}</strong></span>
               </div>
             </div>
           </motion.div>

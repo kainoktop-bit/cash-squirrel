@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Job, Goal, AppSettings, GoalTransaction, Expense } from '../types';
-import { formatCurrency, getMonthKey } from '../utils';
+import { formatCurrency, getMonthKey, dateLocale } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   PiggyBank, 
@@ -1191,7 +1191,7 @@ export default function SplitTab({
                       <span style={{ color: g.acc }}>{t('split.pctSuccess', { pct: pct.toFixed(0) })}</span>
                       {g.deadline && (
                         <span className="text-brand-muted">
-                          {t('split.dueAbbrev', { date: new Date(g.deadline).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }) })}
+                          {t('split.dueAbbrev', { date: new Date(g.deadline).toLocaleDateString(dateLocale(), { month: 'short', year: '2-digit' }) })}
                         </span>
                       )}
                     </div>
@@ -1856,7 +1856,7 @@ export default function SplitTab({
                   </span>
                   {selectedGoal.deadline && (
                     <span className="text-brand-muted">
-                      {t('split.deadlineDue', { date: new Date(selectedGoal.deadline).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) })}
+                      {t('split.deadlineDue', { date: new Date(selectedGoal.deadline).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) })}
                     </span>
                   )}
                 </div>
@@ -2017,7 +2017,7 @@ export default function SplitTab({
 
                     return filtered.map((tx) => {
                       const isDeposit = tx.type === 'deposit';
-                      const formattedDate = new Date(tx.date).toLocaleDateString('th-TH', {
+                      const formattedDate = new Date(tx.date).toLocaleDateString(dateLocale(), {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric'

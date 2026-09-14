@@ -1,4 +1,5 @@
 import { Job, FixedExpenseItem } from './types';
+import { currentLanguage } from './i18n/LanguageContext';
 
 // The built-in job type chips every account starts with. Anything a user adds via
 // "เขียนประเภทงานเอง..." is a custom type, kept separate in the picker so it can be removed.
@@ -163,23 +164,29 @@ export const getThaiMonthName = (monthIndex: number, short = false): string => {
   return short ? shortMonths[monthIndex] : fullMonths[monthIndex];
 };
 
-// Get relative days text (e.g., "อีก 5 วัน", "เลยกำหนด 2 วัน")
+const ENGLISH_MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
+// Get relative days text (e.g., "อีก 5 วัน" / "in 5 days", "เลยกำหนด 2 วัน" / "2 days overdue")
 export const getRelativeDaysText = (dateStr: string | null | undefined): { text: string; isOverdue: boolean; daysCount: number } => {
-  if (!dateStr) return { text: 'ยังไม่ระบุวัน', isOverdue: false, daysCount: 0 };
-  
+  const isEn = currentLanguage === 'en';
+  if (!dateStr) return { text: isEn ? 'No date set' : 'ยังไม่ระบุวัน', isOverdue: false, daysCount: 0 };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const targetDate = new Date(dateStr + 'T00:00:00');
-  
+
   const diffTime = targetDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) {
-    return { text: 'วันนี้', isOverdue: false, daysCount: 0 };
+    return { text: isEn ? 'Today' : 'วันนี้', isOverdue: false, daysCount: 0 };
   } else if (diffDays < 0) {
-    return { text: `เลยกำหนด ${Math.abs(diffDays)} วัน`, isOverdue: true, daysCount: diffDays };
+    const n = Math.abs(diffDays);
+    return { text: isEn ? `${n} day${n === 1 ? '' : 's'} overdue` : `เลยกำหนด ${n} วัน`, isOverdue: true, daysCount: diffDays };
   } else {
-    return { text: `อีก ${diffDays} วัน`, isOverdue: false, daysCount: diffDays };
+    return { text: isEn ? `in ${diffDays} day${diffDays === 1 ? '' : 's'}` : `อีก ${diffDays} วัน`, isOverdue: false, daysCount: diffDays };
   }
 };
 
@@ -204,23 +211,36 @@ export const getForecastMonths = (baseDate = new Date()): string[] => {
   return months;
 };
 
-// Format month key to Thai display label (e.g., "มิ.ย. 2026")
+// Format month key to a display label -- Thai month + Buddhist Era year in Thai ("ก.ย. 2569"),
+// Gregorian month + year in English ("Sep 2026") -- each reads naturally to its own audience.
 export const formatMonthKey = (key: string): string => {
   const [yearStr, monthStr] = key.split('-');
   const monthIdx = parseInt(monthStr) - 1;
+  if (currentLanguage === 'en') {
+    return `${ENGLISH_MONTHS_SHORT[monthIdx]} ${yearStr}`;
+  }
   const yearTh = parseInt(yearStr) + 543; // Buddhist Era
   return `${getThaiMonthName(monthIdx, true)} ${yearTh}`;
 };
 
-// Format date string safely to Thai locale, returning "ยังไม่ระบุ" if empty or invalid
+// The locale to format dates in for the current language -- 'th-TH' renders a Buddhist Era
+// year (e.g. 2569); 'en-US' stays Gregorian. Shared by safeFormatThaiDate below and every
+// other .toLocaleDateString(...) call site across the app that needs to follow the language
+// toggle instead of always rendering Thai.
+export const dateLocale = (): string => (currentLanguage === 'en' ? 'en-US' : 'th-TH');
+
+// Format date string safely, returning a "not set" placeholder if empty or invalid. Locale
+// follows the current app language (see dateLocale) despite the name -- kept for the many
+// existing call sites rather than renaming every one of them.
 export const safeFormatThaiDate = (dateStr: string | undefined | null, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string => {
-  if (!dateStr) return 'ยังไม่ระบุ';
+  const notSet = currentLanguage === 'en' ? 'Not set' : 'ยังไม่ระบุ';
+  if (!dateStr) return notSet;
   try {
     const date = new Date(dateStr + 'T00:00:00');
-    if (isNaN(date.getTime())) return 'ยังไม่ระบุ';
-    return date.toLocaleDateString('th-TH', options);
+    if (isNaN(date.getTime())) return notSet;
+    return date.toLocaleDateString(dateLocale(), options);
   } catch (e) {
-    return 'ยังไม่ระบุ';
+    return notSet;
   }
 };
 

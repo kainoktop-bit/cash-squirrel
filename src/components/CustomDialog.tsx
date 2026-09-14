@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomDialogState } from '../types';
 import { AlertCircle, HelpCircle, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface CustomDialogProps {
   dialog: CustomDialogState;
@@ -9,6 +10,7 @@ interface CustomDialogProps {
 }
 
 export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
+  const { t } = useLanguage();
   const [inputValue, setInputValue] = useState(dialog.defaultValue || '');
 
   useEffect(() => {
@@ -28,10 +30,12 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
     onClose();
   };
 
-  // Titles like "ดาวน์โหลดสำเร็จ" are good news, not a caution — show a checkmark instead of
-  // the exclamation-mark icon so success actually reads as success. "ไม่สำเร็จ" (failed) stays
-  // on the regular alert icon.
-  const isSuccessAlert = dialog.title.includes('สำเร็จ') && !dialog.title.includes('ไม่สำเร็จ');
+  // Titles like "ดาวน์โหลดสำเร็จ" / "Saved!" are good news, not a caution — show a checkmark
+  // instead of the exclamation-mark icon so success actually reads as success. Bilingual since
+  // dialog.title comes from t() and can be Thai or English depending on the app's language;
+  // "ไม่สำเร็จ" / "Unsuccessful" (failed) stay on the regular alert icon.
+  const isSuccessAlert = /สำเร็จ|success|saved|allocated|updated|confirmed|deposited|created|uploaded|ready/i.test(dialog.title)
+    && !/ไม่สำเร็จ|unsuccessful|failed|error/i.test(dialog.title);
 
   const getIcon = () => {
     switch (dialog.type) {
@@ -99,14 +103,14 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
                   onClick={handleCancel}
                   className="px-4 py-2.5 bg-brand-faint dark:bg-neutral-800 text-brand-text dark:text-neutral-300 rounded-xl text-xs font-bold hover:bg-brand-border/40 transition-colors cursor-pointer"
                 >
-                  ยกเลิก
+                  {t('common.cancel')}
                 </button>
               )}
               <button
                 type="submit"
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
-                ตกลง
+                {t('common.ok')}
               </button>
             </div>
           </form>

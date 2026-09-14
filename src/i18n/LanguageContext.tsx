@@ -21,8 +21,17 @@ function readStoredLanguage(): Language {
   }
 }
 
+// A handful of plain (non-component) helpers in utils.ts -- getRelativeDaysText,
+// formatMonthKey, safeFormatThaiDate, localeDate -- need to know the current language too, but
+// can't call useLanguage() since they're not hooks. This module-level mirror lets them read it
+// synchronously. Kept in sync by assigning it in the Provider's render body (not a useEffect):
+// since the Provider is always an ancestor of anything calling these helpers, the assignment
+// lands before any child renders in the same commit, so it's never one render stale.
+export let currentLanguage: Language = readStoredLanguage();
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(readStoredLanguage);
+  currentLanguage = language;
 
   useEffect(() => {
     document.documentElement.lang = language;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings, FixedExpenseItem, NotifSettings } from '../types';
-import { formatCurrency, sumFixedExpenseItems } from '../utils';
+import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../utils';
 import NumberInput from './NumberInput';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -781,15 +781,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
                     )}
                     {!isPaidActive && isInFreeTrial && (
-                      <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase">ทดลองใช้ฟรี</span>
+                      <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase">{t('plans.freeTrialBadge')}</span>
                     )}
                   </div>
                   <p className="text-[10px] text-brand-muted leading-relaxed">
                     {isPaidActive && subscription?.currentPeriodEnd
-                      ? `ใช้ได้ถึงวันที่ ${new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} — จ่ายรายเดือนด้วยตัวเอง (ไม่ตัดอัตโนมัติ)`
+                      ? t('plans.statusActive', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
                       : isInFreeTrial && trialEndsAt
-                      ? `กำลังทดลองใช้ฟรี ถึงวันที่ ${trialEndsAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} สมัครแพ็กเกจโปรก่อนหมดเวลาเพื่อใช้งานต่อเนื่องได้เลย`
-                      : 'แพ็กเกจโปร ฿149/เดือน จ่ายผ่านบัตรหรือพร้อมเพย์'}
+                      ? t('plans.statusTrial', { date: trialEndsAt.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+                      : t('plans.payByCardPromptpay')}
                   </p>
 
                   <button

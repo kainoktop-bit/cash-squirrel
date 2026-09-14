@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Job, Goal, AppSettings, StatusOption, CustomDialogState, NotifSettings, Expense, GoalTransaction } from './types';
 import { defaultSettings, defaultJobs, defaultGoals, buildSampleData } from './sampleData';
-import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES } from './utils';
+import { getMonthKey, formatMonthKey, DEFAULT_JOB_TYPES, dateLocale } from './utils';
 
 import DashboardTab from './components/DashboardTab';
 import JobsTab from './components/JobsTab';
@@ -159,73 +159,21 @@ const cleanJobs = (arr: any[]): Job[] => {
   }));
 };
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    title: "ยินดีต้อนรับสู่กระรอกตุนเงิน!",
-    description: "ผมคือคุณกระรอกน้อย ผู้ช่วยตุนเสบียงเงินสดของคุณครับ! ผมจะขอพาคุณไปชมรอบๆ เพื่อแนะนำฟีเจอร์เด็ดๆ ทั้ง 9 ส่วนของเครื่องมือฟรีแลนซ์ไทยตัวนี้อย่างรวดเร็วเลยนะครับ!",
-    mood: "wave",
-    tab: "dashboard"
-  },
-  {
-    title: "1. ภาพรวมกระแสเงินสด",
-    description: "หน้า Dashboard หลักของคุณ! แสดงยอดเงินสดที่ได้รับแล้ว, คาดการณ์ยอดรอจ่าย (Pending), ตัวชี้วัดเป้าหมายรายได้ และประวัติแบบย่อ เพื่อให้คุณไม่พลาดสถานะการเงินเดือนปัจจุบัน",
-    mood: "happy",
-    tab: "dashboard"
-  },
-  {
-    title: "2. งานดีล & บันทึกรับเงิน",
-    description: "ที่สำหรับบันทึกข้อตกลงงานดีลต่างๆ กำหนดวันดีล เครดิตเทอม และเก็บยอดมัดจำหรือรอจ่ายอย่างเป็นระเบียบ ระบบจะช่วยแจ้งเตือนคุณแบบ Realtime เมื่อใกล้เลยวันดีล!",
-    mood: "proud",
-    tab: "jobs"
-  },
-  {
-    title: "3. ไทม์ไลน์ปฏิทินงาน",
-    description: "มองเห็นตารางงานและกำหนดชำระเงินล่วงหน้าในรูปแบบ 'ปฏิทินแบบไทย' และแถบไทม์ไลน์ที่เรียงตามเวลาอย่างสวยงาม เพื่อการวางแผนที่ไม่ซ้อนทับกัน",
-    mood: "happy",
-    tab: "timeline"
-  },
-  {
-    title: "4. จัดสรรเงิน & เป้าหมายออม",
-    description: "ระบบจำลองการตุนเสบียง! แบ่งรายรับที่ได้เป็นส่วนๆ ทันที ทั้งงบส่วนตัว, ภาษี, สำรองฉุกเฉิน, และเป้าหมายเงินออมต่างๆ ตามเปอร์เซ็นต์ที่คุณชอบ เพื่อนิสัยการเงินที่ดี",
-    mood: "celebrate",
-    tab: "split"
-  },
-  {
-    title: "5. สรุปยอดรายรับ & ออม",
-    description: "หน้ารวบรวมรายรับสุทธิที่ยืนยันแล้ว และยอดโอนเงินสะสมเข้าเป้าหมายในแต่ละเดือน ช่วยเช็กความคืบหน้าความมั่งคั่งของคุณอย่างโปร่งใส",
-    mood: "proud",
-    tab: "summary"
-  },
-  {
-    title: "6. รายงานวิเคราะห์ & เครดิตเทอม",
-    description: "วิเคราะห์เชิงลึกทางการเงิน! ดูกราฟแนวโน้มรายรับเฉลี่ย, สรุปเครดิตเทอมเฉลี่ยของลูกค้าแต่ละเจ้า เพื่อให้คุณรู้ว่าใครจ่ายเงินตรงเวลาที่สุด หรือใครจ่ายช้าที่สุด",
-    mood: "happy",
-    tab: "report"
-  },
-  {
-    title: "7. ผู้ช่วยจัดการภาษี",
-    description: "ฟรีแลนซ์ไม่ต้องกลัวภาษีอีกต่อไป! คำนวณภาษีเงินได้คร่าวๆ (หักค่าใช้จ่ายตามมาตรา 40) แนะนำรายการลดหย่อนต่างๆ และตรวจสอบใบหักภาษี ณ ที่จ่าย (WHT 3%) อย่างง่ายดาย",
-    mood: "alert",
-    tab: "tax"
-  },
-  {
-    title: "8. เครื่องมือออกเอกสารสำเร็จรูป",
-    description: "ระบบทำใบเสนอราคา (Quotation), ใบแจ้งหนี้ (Invoice) และใบเสร็จรับเงิน (Receipt) แบบครบวงจร ดึงข้อมูลจากดีลงานฟรีแลนซ์ได้ทันที กดเซฟเป็น PDF ส่งลูกค้าได้ทันใจ",
-    mood: "wave",
-    tab: "invoice"
-  },
-  {
-    title: "9. ข้อมูลโปรไฟล์ & ตั้งค่าระบบ",
-    description: "ตั้งค่ารูปโปรไฟล์, ที่อยู่ผู้เสียภาษี และช่องทางบัญชีธนาคารเพื่อแสดงบนเอกสาร รวมถึงปรับสัดส่วนการเก็บออมและการล้างข้อมูล/นำเข้า-ส่งออกสำรองออฟไลน์ได้ตามต้องการ",
-    mood: "happy",
-    tab: "settings"
-  },
-  {
-    title: "การทัวร์สิ้นสุดแล้วครับ!",
-    description: "ยอดเยี่ยมมากครับ! ตอนนี้คุณรู้จักกระรอกตุนเงิน ครบถ้วนแล้ว พร้อมสำหรับการวางแผนและเก็บตุนเสบียงเงินสดฟรีแลนซ์อย่างเป็นสุขแล้วครับ ขอให้งานดีลหลั่งไหลเงินล้นมือนะครับ!",
-    mood: "celebrate",
-    tab: "dashboard"
-  }
+// title/description are translation keys, not literal text -- this is a module-level constant
+// (defined before the component, so it has no access to t()); handleTourSteps() below resolves
+// each key through t() at render time, where the hook is actually available.
+const TOUR_STEPS: { titleKey: string; descriptionKey: string; mood: TourStep['mood']; tab: string }[] = [
+  { titleKey: 'tour.step0Title', descriptionKey: 'tour.step0Desc', mood: "wave", tab: "dashboard" },
+  { titleKey: 'tour.step1Title', descriptionKey: 'tour.step1Desc', mood: "happy", tab: "dashboard" },
+  { titleKey: 'tour.step2Title', descriptionKey: 'tour.step2Desc', mood: "proud", tab: "jobs" },
+  { titleKey: 'tour.step3Title', descriptionKey: 'tour.step3Desc', mood: "happy", tab: "timeline" },
+  { titleKey: 'tour.step4Title', descriptionKey: 'tour.step4Desc', mood: "celebrate", tab: "split" },
+  { titleKey: 'tour.step5Title', descriptionKey: 'tour.step5Desc', mood: "proud", tab: "summary" },
+  { titleKey: 'tour.step6Title', descriptionKey: 'tour.step6Desc', mood: "happy", tab: "report" },
+  { titleKey: 'tour.step7Title', descriptionKey: 'tour.step7Desc', mood: "alert", tab: "tax" },
+  { titleKey: 'tour.step8Title', descriptionKey: 'tour.step8Desc', mood: "wave", tab: "invoice" },
+  { titleKey: 'tour.step9Title', descriptionKey: 'tour.step9Desc', mood: "happy", tab: "settings" },
+  { titleKey: 'tour.step10Title', descriptionKey: 'tour.step10Desc', mood: "celebrate", tab: "dashboard" }
 ];
 
 export default function App() {
@@ -2024,17 +1972,17 @@ export default function App() {
                   <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
                   {subscription?.currentPeriodEnd && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                      ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                      {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
                     </span>
                   )}
                 </>
               ) : isInFreeTrial ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">{t('plans.freeTrialBadge')}</span>
                   {trialEndsAt && (
                     <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                      ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                      {t('sidebar.until', { date: trialEndsAt.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
                     </span>
                   )}
                 </>
@@ -2188,17 +2136,17 @@ export default function App() {
                           <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
                           {subscription?.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                              ถึง: {new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                              {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
                             </span>
                           )}
                         </>
                       ) : isInFreeTrial ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">ทดลองใช้ฟรี</span>
+                          <span className="text-indigo-600 dark:text-indigo-400 font-display font-black inline-flex items-center gap-1">{t('plans.freeTrialBadge')}</span>
                           {trialEndsAt && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
-                              ถึง: {trialEndsAt.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                              {t('sidebar.until', { date: trialEndsAt.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
                             </span>
                           )}
                         </>
@@ -2541,8 +2489,8 @@ export default function App() {
                   />
                 ) : (
                   <PremiumUpsell
-                    feature="ผู้ช่วยจัดการภาษีบุคคลธรรมดา"
-                    description="คำนวณภาษีเงินได้ แนะนำรายการลดหย่อน และจัดการเอกสารหักภาษี ณ ที่จ่าย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    feature={t('premium.taxFeature')}
+                    description={t('premium.taxDesc')}
                     onUpgrade={handleUpgrade}
                   />
                 )
@@ -2557,8 +2505,8 @@ export default function App() {
                   />
                 ) : (
                   <PremiumUpsell
-                    feature="ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน"
-                    description="ออกเอกสารสำเร็จรูปพร้อมโลโก้และดึงข้อมูลจากดีลงานได้ทันที กดเซฟเป็น PDF ส่งลูกค้าได้เลย เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    feature={t('premium.invoiceFeature')}
+                    description={t('premium.invoiceDesc')}
                     onUpgrade={handleUpgrade}
                   />
                 )
@@ -2586,8 +2534,8 @@ export default function App() {
                   <InsightTab jobs={jobs} onSwitchTab={setActiveTab} />
                 ) : (
                   <PremiumUpsell
-                    feature="วิเคราะห์รายได้เชิงลึก"
-                    description="ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด เปรียบเทียบย้อนหลังได้ทันที เป็นฟีเจอร์สำหรับสมาชิกรายเดือนครับ"
+                    feature={t('premium.insightFeature')}
+                    description={t('premium.insightDesc')}
                     onUpgrade={handleUpgrade}
                   />
                 )
@@ -2751,7 +2699,7 @@ export default function App() {
 
         <TourModal
           tourStep={tourStep}
-          steps={TOUR_STEPS}
+          steps={TOUR_STEPS.map(s => ({ title: t(s.titleKey), description: t(s.descriptionKey), mood: s.mood, tab: s.tab }))}
           onNext={handleNextTourStep}
           onPrev={handlePrevTourStep}
           onSkip={handleCompleteTour}

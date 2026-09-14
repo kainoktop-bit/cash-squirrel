@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mascot, MascotMood } from './Mascot';
 import { IconClose } from './icons';
 import { ChevronLeft, ChevronRight, X, Play, Milestone } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export interface TourStep {
   title: string;
@@ -26,6 +27,7 @@ export const TourModal: React.FC<TourModalProps> = ({
   onPrev,
   onSkip
 }) => {
+  const { t } = useLanguage();
   if (tourStep === null) return null;
 
   const step = steps[tourStep];
@@ -59,15 +61,15 @@ export const TourModal: React.FC<TourModalProps> = ({
           {/* Progress Badge */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-[#E65F2B] bg-[#E65F2B]/10 px-2.5 py-0.5 rounded-full">
-              {isFirst ? 'คำแนะนำแรกเริ่ม' : isLast ? 'ยินดีด้วยสำเร็จทัวร์!' : `ฟีเจอร์ที่ ${tourStep} / ${steps.length - 2}`}
+              {isFirst ? t('tour.introBadge') : isLast ? t('tour.completeBadge') : t('tour.stepBadge', { step: tourStep, total: steps.length - 2 })}
             </span>
             {!isLast && (
               <button
                 onClick={onSkip}
                 className="text-[10px] font-bold text-brand-muted hover:text-rose-500 hover:underline transition-all cursor-pointer inline-flex items-center gap-0.5"
-                title="ข้ามขั้นตอนแนะนำ"
+                title={t('tour.skipTooltip')}
               >
-                ข้ามทัวร์ <IconClose className="w-2.5 h-2.5" />
+                {t('tour.skipTour')} <IconClose className="w-2.5 h-2.5" />
               </button>
             )}
           </div>
@@ -88,7 +90,7 @@ export const TourModal: React.FC<TourModalProps> = ({
         {!isFirst && !isLast && (
           <div className="space-y-1.5">
             <div className="flex justify-between items-center text-[9px] font-mono font-bold text-brand-muted">
-              <span>ความคืบหน้าการสำรวจ</span>
+              <span>{t('tour.progressLabel')}</span>
               <span>{Math.round(progressPercent)}%</span>
             </div>
             <div className="w-full h-1.5 bg-brand-faint dark:bg-neutral-800 rounded-full overflow-hidden">
@@ -110,7 +112,7 @@ export const TourModal: React.FC<TourModalProps> = ({
               className="px-3.5 py-2 hover:bg-brand-faint dark:hover:bg-neutral-800 text-brand-text border border-brand-border/60 dark:border-neutral-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
-              <span>ย้อนกลับ</span>
+              <span>{t('tour.back')}</span>
             </button>
           ) : (
             <div />
@@ -123,15 +125,15 @@ export const TourModal: React.FC<TourModalProps> = ({
           >
             {isFirst ? (
               <>
-                <span>ไปทัวร์กันเลย!</span>
+                <span>{t('tour.start')}</span>
               </>
             ) : isLast ? (
               <>
-                <span>เข้าสู่แดนสควีเรล</span>
+                <span>{t('tour.finish')}</span>
               </>
             ) : (
               <>
-                <span>เข้าใจแล้ว ถัดไป</span>
+                <span>{t('tour.next')}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </>
             )}

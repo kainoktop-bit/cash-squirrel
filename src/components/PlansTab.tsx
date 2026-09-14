@@ -1,6 +1,8 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { Mascot } from './Mascot';
+import { dateLocale } from '../utils';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface PlansTabProps {
   isPro: boolean;
@@ -15,21 +17,8 @@ interface PlansTabProps {
   onUpgrade: () => void;
 }
 
-const FREE_FEATURES = [
-  'บันทึกงานดีล & ติดตามรายรับ-รายจ่ายไม่จำกัด',
-  'แดชบอร์ดภาพรวมกระแสเงินสด',
-  'จัดสรรเงิน & ตั้งเป้าหมายออม',
-  'รายงานรายเดือน & ระบบเครดิตเทอม',
-  'สำรอง/กู้คืนข้อมูลออฟไลน์'
-];
-
-const PRO_FEATURES = [
-  'ผู้ช่วยจัดการภาษีบุคคลธรรมดา คำนวณภาษี แนะนำรายการลดหย่อน และจัดการเอกสารหัก ณ ที่จ่าย',
-  'ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงินพร้อมโลโก้ ดึงข้อมูลจากดีลงานได้ทันที เซฟเป็น PDF ส่งลูกค้าได้เลย',
-  'วิเคราะห์รายได้เชิงลึก ดูว่าลูกค้าคนไหนหรืองานประเภทไหนทำเงินให้คุณมากที่สุด',
-  'เชื่อมต่อ LINE รับการ์ดแจ้งเตือนทุกครั้งที่บันทึก/ลบงานและรายจ่าย พิมพ์ถามข้อมูลหรือบันทึกงานผ่านแชทได้ทันที',
-  'สรุปงานค้างชำระรายวันทางอีเมลและ LINE ไม่ต้องเปิดแอปเองก็รู้ว่าใครยังไม่จ่าย'
-];
+const FREE_FEATURE_KEYS = ['plans.free1', 'plans.free2', 'plans.free3', 'plans.free4', 'plans.free5'];
+const PRO_FEATURE_KEYS = ['plans.pro1', 'plans.pro2', 'plans.pro3', 'plans.pro4', 'plans.pro5'];
 
 export const PlansTab: React.FC<PlansTabProps> = ({
   isPro,
@@ -39,18 +28,19 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   subscription,
   onUpgrade
 }) => {
+  const { t } = useLanguage();
   const statusText = isPaidActive && subscription?.currentPeriodEnd
-    ? `ใช้ได้ถึงวันที่ ${new Date(subscription.currentPeriodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} — จ่ายรายเดือนด้วยตัวเอง (ไม่ตัดอัตโนมัติ)`
+    ? t('plans.statusActive', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
     : isInFreeTrial && trialEndsAt
-    ? `กำลังทดลองใช้ฟรี ถึงวันที่ ${trialEndsAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} สมัครแพ็กเกจโปรก่อนหมดเวลาเพื่อใช้งานต่อเนื่องได้เลย`
-    : 'ยังไม่ได้สมัครแพ็กเกจโปร';
+    ? t('plans.statusTrial', { date: trialEndsAt.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) })
+    : t('plans.statusNone');
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <div className="text-center space-y-1.5">
         <Mascot mood="proud" size={72} className="mx-auto mb-2" />
-        <h2 className="font-display font-black text-xl text-brand-text dark:text-white">แพ็กเกจของคุณ</h2>
-        <p className="text-xs text-brand-muted">เลือกแพ็กเกจที่เหมาะกับคุณ ปลดล็อกเครื่องมือช่วยฟรีแลนซ์ครบวงจร</p>
+        <h2 className="font-display font-black text-xl text-brand-text dark:text-white">{t('plans.title')}</h2>
+        <p className="text-xs text-brand-muted">{t('plans.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -61,16 +51,16 @@ export const PlansTab: React.FC<PlansTabProps> = ({
             <p className="text-2xl font-black font-mono text-brand-text dark:text-white mt-1">฿0</p>
           </div>
           <ul className="space-y-2">
-            {FREE_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
+            {FREE_FEATURE_KEYS.map((key) => (
+              <li key={key} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
                 <Check className="w-3.5 h-3.5 text-brand-muted shrink-0 mt-0.5" />
-                <span>{f}</span>
+                <span>{t(key)}</span>
               </li>
             ))}
           </ul>
           {!isPro && (
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-brand-muted bg-brand-faint dark:bg-neutral-800 px-2.5 py-0.5 rounded-full">
-              แพ็กเกจปัจจุบัน
+              {t('plans.currentPlan')}
             </span>
           )}
         </div>
@@ -86,24 +76,24 @@ export const PlansTab: React.FC<PlansTabProps> = ({
               Pro
             </h3>
             <p className="text-2xl font-black font-mono text-[#E65F2B] dark:text-[#FFA473] mt-1">
-              ฿149<span className="text-xs text-brand-muted font-sans font-bold"> / เดือน</span>
+              ฿149<span className="text-xs text-brand-muted font-sans font-bold">{t('plans.perMonth')}</span>
             </p>
           </div>
           <ul className="space-y-2">
-            {PRO_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
+            {PRO_FEATURE_KEYS.map((key) => (
+              <li key={key} className="flex items-start gap-1.5 text-[11px] text-brand-text dark:text-neutral-200 leading-relaxed">
                 <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <span>{f}</span>
+                <span>{t(key)}</span>
               </li>
             ))}
           </ul>
           {isPaidActive ? (
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
-              แพ็กเกจปัจจุบัน
+              {t('plans.currentPlan')}
             </span>
           ) : isInFreeTrial ? (
             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full">
-              ทดลองใช้ฟรี
+              {t('plans.freeTrialBadge')}
             </span>
           ) : null}
         </div>
@@ -117,9 +107,9 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           onClick={onUpgrade}
           className="px-8 py-3 bg-[#E65F2B] hover:bg-[#D8551F] text-white shadow-[0_8px_20px_-6px_rgba(230,95,43,0.5)] transition-colors rounded-2xl text-xs font-black cursor-pointer"
         >
-          {isPaidActive ? 'ต่ออายุแพ็กเกจโปร ฿149/เดือน' : 'สมัครแพ็กเกจโปร ฿149/เดือน'}
+          {isPaidActive ? t('plans.renewCta') : t('plans.subscribeCta')}
         </button>
-        <p className="text-[10px] text-brand-muted">ชำระเองทุกเดือน ไม่ตัดบัตรอัตโนมัติ</p>
+        <p className="text-[10px] text-brand-muted">{t('plans.paymentNote')}</p>
       </div>
     </div>
   );
