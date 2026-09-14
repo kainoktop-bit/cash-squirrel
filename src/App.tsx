@@ -159,6 +159,53 @@ const cleanJobs = (arr: any[]): Job[] => {
   }));
 };
 
+// A delete needs to survive not just this session's in-memory deletedJobIdsRef/deletedExpenseIdsRef
+// guard (which only protects saveCloudData's own merge step) but also a *reload*: loadCloudData
+// blindly trusts whatever the server currently has, and every edit -- including a delete -- has to
+// round-trip a SELECT, then an UPSERT of the *entire* jobs/expenses array, then an RPC call before
+// it actually lands, since this app stores them as one JSON blob per user rather than real rows.
+// That's easily a few hundred ms, plenty of time to hit reload right after confirming a delete and
+// have it pull the "deleted" record right back in from the still-stale server copy (a real report:
+// deleting 6 WIP jobs then reloading brought all 6 back). A short-lived list of just-deleted ids in
+// localStorage survives a full page reload (unlike a React ref), so both loadCloudData and this
+// device's own next save-merge can filter the stale record out regardless of how fast the reload was.
+const RECENTLY_DELETED_TTL_MS = 10 * 60 * 1000; // far more than any realistic reload delay
+
+// Returns the raw {id, ts} entries, ts preserved from when each was actually deleted -- callers
+// that only need membership should use readRecentlyDeletedIds below instead of re-deriving this.
+const readRecentlyDeletedEntries = (storageKey: string): { id: string; ts: number }[] => {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    const fresh = parsed.filter((entry) => entry && typeof entry.id === 'string' && typeof entry.ts === 'number' && now - entry.ts < RECENTLY_DELETED_TTL_MS);
+    // Piggyback the read with cleanup so this doesn't grow forever on an account that deletes often.
+    if (fresh.length !== parsed.length) {
+      localStorage.setItem(storageKey, JSON.stringify(fresh));
+    }
+    return fresh;
+  } catch {
+    return [];
+  }
+};
+
+const readRecentlyDeletedIds = (storageKey: string): Set<string> => {
+  return new Set(readRecentlyDeletedEntries(storageKey).map((entry) => entry.id));
+};
+
+const markRecentlyDeleted = (storageKey: string, id: string) => {
+  try {
+    const entries = readRecentlyDeletedEntries(storageKey);
+    entries.push({ id, ts: Date.now() });
+    localStorage.setItem(storageKey, JSON.stringify(entries.slice(-200)));
+  } catch {
+    // localStorage can throw (private mode, quota) -- the in-memory ref guard still covers this
+    // session, it's only the cross-reload protection that's lost.
+  }
+};
+
 // title/description are translation keys, not literal text -- this is a module-level constant
 // (defined before the component, so it has no access to t()); handleTourSteps() below resolves
 // each key through t() at render time, where the hook is actually available.
@@ -659,7 +706,14 @@ export default function App() {
       if (error) throw error;
 
       if (data) {
-        if (data.jobs) setJobs(cleanJobs(data.jobs));
+        // The server copy can still be stale right after a delete -- this whole row is one JSON
+        // blob re-uploaded on every edit (SELECT + UPSERT + an RPC call), so a delete's own save
+        // can still be in flight (or was lost to a reload before it even started) when this load
+        // runs. Filter out anything this device deleted in roughly the last 10 minutes so a stale
+        // server copy can't bring it back to life.
+        const recentlyDeletedJobIds = readRecentlyDeletedIds(`cashflow_deleted_job_ids_${email}`);
+        const recentlyDeletedExpenseIds = readRecentlyDeletedIds(`cashflow_deleted_expense_ids_${email}`);
+        if (data.jobs) setJobs(cleanJobs(data.jobs).filter((j) => !recentlyDeletedJobIds.has(j.id)));
         if (data.goals) setGoals(data.goals);
         if (data.statuses) setStatuses(cleanStatuses(data.statuses));
         if (data.job_types) {
@@ -667,7 +721,7 @@ export default function App() {
         }
         if (data.settings) setSettings(data.settings);
         if (data.notif_settings) setNotifSettings(data.notif_settings);
-        if (data.expenses) setExpenses(data.expenses);
+        if (data.expenses) setExpenses((data.expenses as Expense[]).filter((e) => !recentlyDeletedExpenseIds.has(e.id)));
         if (data.avatar_data_url) {
           setUserAvatar(data.avatar_data_url);
         } else {
@@ -1546,6 +1600,9 @@ export default function App() {
       () => {
         const jobToDelete = jobs.find(j => j.id === id);
         deletedJobIdsRef.current.add(id);
+        if (session?.user?.email) {
+          markRecentlyDeleted(`cashflow_deleted_job_ids_${session.user.email}`, id);
+        }
         let freshJobs: Job[] = jobs;
         setJobs(prev => {
           freshJobs = prev.filter(j => j.id !== id);
@@ -1833,6 +1890,9 @@ export default function App() {
   const handleDeleteExpense = (id: string) => {
     const expenseToDelete = expenses.find(e => e.id === id);
     deletedExpenseIdsRef.current.add(id);
+    if (session?.user?.email) {
+      markRecentlyDeleted(`cashflow_deleted_expense_ids_${session.user.email}`, id);
+    }
     let freshExpenses: Expense[] = expenses;
     setExpenses(prev => {
       freshExpenses = prev.filter(e => e.id !== id);
