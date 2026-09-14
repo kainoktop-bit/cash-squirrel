@@ -925,20 +925,19 @@ export interface JobCardData {
 // "คงเหลือหลังหักรายจ่าย" figure. Computed by the caller so this stays a pure display function.
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
-  // "Posted" (delivered) and "money actually received" are two different moments -- a job that
-  // was just marked delivered, with nothing paid yet, used to get the exact same green "รับเงิน
-  // แล้ว" badge as one that was genuinely paid, so the card's own headline ("+฿3,000") directly
-  // contradicted its own "สถานะ: ยังไม่ได้รับเงิน" row a few lines down. isPaidSome splits that
-  // into its own third state.
-  const isPaidSome = job.status === 'done' || job.status === 'partial';
-  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const isDone = job.status === 'done';
+  const isPartial = job.status === 'partial';
+  const isPaidSome = isDone || isPartial;
+  const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
-  // A WIP job hasn't actually been delivered/paid yet -- heading it "รับเงิน +value" like a
-  // completed transaction would be misleading, so it gets its own indigo framing, clearly apart
-  // from both the green (income) and rust (expense) cards rather than reusing either palette. A
-  // posted-but-unpaid job gets a third, teal "ดีลงาน" framing rather than reusing either of those.
-  const headerLabel = isWip ? 'สต็อกใหม่' : isPaidSome ? 'รับเงิน' : 'มูลค่าดีล';
-  const headerColor = isWip ? '#4338CA' : isPaidSome ? '#0E9F6E' : '#0D9488';
+  // Four distinct moments, four distinct badges: WIP (indigo), posted with nothing received yet
+  // (teal "ดีลงาน"), a deposit landed but the job isn't fully paid (amber "ได้รับมัดจำ" -- kept
+  // separate from full payment per direct feedback: a deposit shouldn't read as "รับเงินแล้ว" the
+  // same way a completed payment does), and fully paid (green "รับเงินแล้ว"). Before this, "done"
+  // and "partial" shared the same green badge and headline, so a card for a job that had only
+  // gotten a deposit looked identical to one that was fully settled.
+  const headerLabel = isWip ? 'สต็อกใหม่' : isDone ? 'รับเงิน' : isPartial ? 'รับมัดจำ' : 'มูลค่าดีล';
+  const headerColor = isWip ? '#4338CA' : isDone ? '#0E9F6E' : isPartial ? '#B45309' : '#0D9488';
   // job.value is the full contract value, not what's actually landed -- for a partial payment
   // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
   // it) instead of implying the whole contract amount arrived.
@@ -972,9 +971,11 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       contents: [
         isWip
           ? buildTypeBadge('package', 'เข้าสต็อก', headerColor)
-          : isPaidSome
+          : isDone
             ? buildTypeBadge('coin', 'รับเงินแล้ว', headerColor)
-            : buildTypeBadge('deal', 'ดีลงาน', headerColor),
+            : isPartial
+              ? buildTypeBadge('partial', 'ได้รับมัดจำ', headerColor)
+              : buildTypeBadge('deal', 'ดีลงาน', headerColor),
         buildStatementRow(headerLabel, `${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`, { size: 'xl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),

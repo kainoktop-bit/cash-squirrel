@@ -1487,6 +1487,11 @@ export default function App() {
     // same notifyLineRecordAdded call here (like wasCompleted does) gives this its own accurate card.
     const wasDelivered = !wasCompleted && updated.isPosted === true && oldJob?.isPosted === false;
 
+    // A deposit (the "ได้มัดจำ" quick action) used to send no LINE card at all -- per feedback, a
+    // partial payment landing is worth its own notification, distinct from a full payment (its own
+    // amber "ได้รับมัดจำ" badge in buildJobSavedMessage, not the green "รับเงินแล้ว" one).
+    const wasPartialPayment = !wasCompleted && !wasDelivered && updated.status === 'partial';
+
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
@@ -1508,15 +1513,25 @@ export default function App() {
         const mergedJob = { ...oldJob, ...updated };
         notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
       }
+    } else if (wasPartialPayment) {
+      fireMascot({
+        mood: 'happy',
+        message: `บันทึกมัดจำเรียบร้อยแล้วค้าบ! มีเงินเข้าคลังกระรอกมาบางส่วนแล้วนะ!`
+      });
+      leafBus.trigger({ count: 14, type: 'mixed', durationMs: 3000 });
+      if (oldJob) {
+        const mergedJob = { ...oldJob, ...updated };
+        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
+      }
     } else {
       fireMascot({
         mood: 'happy',
         message: `อัปเดตข้อมูลดีลเรียบร้อยแล้วค้าบ! ข้อมูลถูกต้องแม่นยำร้อยเปอร์เซ็นต์!`
       });
       // `updated.name` is only ever present on JobsTab's real edit-form save (see its onEditJob
-      // call) -- every other onEditJob caller (follow-up marking, a lone isPosted toggle, the
-      // partial-deposit button) only ever touches a couple of narrow fields and never `name`, so
-      // gating on it here is what keeps this from firing a LINE card on every one of those.
+      // call) -- every other onEditJob caller (a lone isPosted toggle, etc.) only ever touches a
+      // couple of narrow fields and never `name`, so gating on it here is what keeps this from
+      // firing a LINE card on every one of those.
       if (oldJob && updated.name !== undefined) {
         const mergedJob = { ...oldJob, ...updated };
         notifyLineRecordEdited(mergedJob, monthNetSafe(freshJobs, expenses));
