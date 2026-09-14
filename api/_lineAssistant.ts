@@ -548,7 +548,7 @@ function buildSectionLabel(text: string, color: string) {
 function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: string = '#E65F2B'): LineMessage {
   const contents: any = {
     type: 'bubble',
-    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
+    body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', borderWidth: '1px', borderColor: '#D8CBB8', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
   };
   const appUrl = process.env.APP_URL;
   if (appUrl) {
@@ -852,19 +852,25 @@ async function finishConversationalReply(
   return textBubbles(finalText);
 }
 
-// A small colored icon chip + label, meant as the very first row of a notification card's
-// bodyContents -- gives every card type (job saved, edited, deleted, expense added, goal
+// Bangkok "19:33" style short clock time -- shown next to the badge label so a card still reads
+// "when did this happen" on its own, without relying on LINE's own message timestamp (which
+// users don't reliably notice, per direct feedback on a live card).
+function formatTimeShort(): string {
+  const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const hh = String(bkk.getUTCHours()).padStart(2, '0');
+  const mm = String(bkk.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+// A small colored icon chip + label + time, meant as the very first row of a notification
+// card's bodyContents -- gives every card type (job saved, edited, deleted, expense added, goal
 // deposit, ...) its own glanceable symbol + color, instead of every card reading as the same
-// "cream statement card" shape with only a colored header word to tell them apart. Emoji is the
-// icon rather than a custom image: LINE Flex has no way to render inline SVG or an unhosted
-// image, and this app already has one card (the overdue-credit-term digest) that uses emoji
-// this exact way successfully. `color` doubles as the badge circle's background at ~15% opacity
-// (hex + alpha suffix) and the label/icon-tint color, matching the web app's own badge styling.
-// icon is one of the basenames under public/icons/badge-*.png (generated to match this app's
-// own hand-drawn line-icon style -- see icons.tsx). LINE Flex has no way to render inline SVG or
-// an emoji-as-icon reliably across devices, only a hosted image, so these are real PNGs served
-// from this deployment; each already has its colored circle baked in (transparent elsewhere), so
-// this just places it next to the label -- no separate background box needed.
+// "cream statement card" shape with only a colored header word to tell them apart. `color`
+// doubles as the label color and (baked into the PNG itself) the badge circle's background at
+// ~15% opacity, matching the web app's own badge styling. icon is one of the basenames under
+// public/icons/badge-*.png (generated to match this app's own hand-drawn line-icon style -- see
+// icons.tsx). LINE Flex has no way to render inline SVG or an emoji-as-icon reliably across
+// devices, only a hosted image, so these are real PNGs served from this deployment.
 function buildTypeBadge(icon: string, label: string, color: string) {
   const appUrl = process.env.APP_URL;
   const iconUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/icons/badge-${icon}.png` : undefined;
@@ -875,8 +881,9 @@ function buildTypeBadge(icon: string, label: string, color: string) {
     alignItems: 'center',
     margin: 'md',
     contents: [
-      ...(iconUrl ? [{ type: 'image', url: iconUrl, size: '26px', aspectRatio: '1:1', aspectMode: 'cover' as const }] : []),
-      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center' },
+      ...(iconUrl ? [{ type: 'image', url: iconUrl, size: '26px', aspectRatio: '1:1', aspectMode: 'cover' as const, flex: 0 }] : []),
+      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center', flex: 1 },
+      { type: 'text', text: formatTimeShort(), size: 'xs', color: '#A88A6E', gravity: 'center', align: 'end', flex: 0 },
     ],
   };
 }
@@ -946,13 +953,15 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       type: 'box',
       layout: 'vertical',
       backgroundColor: '#FBF2E4',
+      borderWidth: '1px',
+      borderColor: '#D8CBB8',
       paddingAll: '20px',
       spacing: 'md',
       contents: [
         isWip
           ? buildTypeBadge('package', 'เพิ่มงานใหม่ · เข้าสต็อก', headerColor)
           : buildTypeBadge('coin', 'รับเงินแล้ว', headerColor),
-        buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xxl', color: headerColor }),
+        buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
@@ -1060,11 +1069,13 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
       type: 'box',
       layout: 'vertical',
       backgroundColor: '#FBF2E4',
+      borderWidth: '1px',
+      borderColor: '#D8CBB8',
       paddingAll: '20px',
       spacing: 'md',
       contents: [
         buildTypeBadge('receipt', 'รายจ่ายใหม่', '#A63F1B'),
-        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xxl', color: '#A63F1B' }),
+        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xl', color: '#A63F1B' }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
