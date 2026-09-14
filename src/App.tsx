@@ -884,6 +884,14 @@ export default function App() {
       console.warn('Catch cloud save error:', formattedErr, err);
       setLastCloudError(formattedErr);
       setCloudSyncStatus('failed');
+      // A failed save used to be silent unless someone happened to open Settings and notice
+      // lastCloudError there -- surfacing it directly is what makes an actually-failing save
+      // (as opposed to a timing race) visible instead of looking like "the delete just didn't
+      // work" with no clue why.
+      fireMascot({
+        mood: 'alert',
+        message: `บันทึกขึ้นคลาวด์ไม่สำเร็จครับ (${formattedErr}) การเปลี่ยนแปลงล่าสุดอาจจะยังไม่ถูกบันทึก ลองเช็คอินเทอร์เน็ตแล้วลองใหม่นะครับ`
+      });
     } finally {
       cloudSaveInFlightRef.current = false;
       if (cloudSavePendingRef.current) {
@@ -1224,7 +1232,13 @@ export default function App() {
 
   // Debounced save to Supabase Cloud DB on changes
   useEffect(() => {
-    if (session?.user?.email && isLoadedForUser === session.user.email && cloudSyncStatus === 'synced') {
+    // Also retry from 'failed', not just 'synced' -- gating strictly on 'synced' meant that once
+    // any single save failed (a transient network blip, anything), every autosave effect below
+    // stopped firing for the rest of the session (cloudSyncStatus only leaves 'failed' on a save
+    // actually succeeding again, which this same gate was preventing from ever being attempted) --
+    // edits, including deletes, would silently stop reaching the server at all until the next
+    // full reload gave loadCloudData a fresh chance to set 'synced'.
+    if (session?.user?.email && isLoadedForUser === session.user.email && (cloudSyncStatus === 'synced' || cloudSyncStatus === 'failed')) {
       const email = session.user.email;
       const timer = setTimeout(() => {
         saveCloudData(email, {
@@ -1248,7 +1262,7 @@ export default function App() {
   // hiding, using both visibilitychange and pagehide since neither fires reliably alone across
   // every browser (pagehide is the one that actually fires on iOS Safari tab close).
   useEffect(() => {
-    if (!(session?.user?.email && isLoadedForUser === session.user.email && cloudSyncStatus === 'synced')) return;
+    if (!(session?.user?.email && isLoadedForUser === session.user.email && (cloudSyncStatus === 'synced' || cloudSyncStatus === 'failed'))) return;
     const email = session.user.email;
     const flush = () => {
       saveCloudData(email, {
