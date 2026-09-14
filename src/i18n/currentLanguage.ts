@@ -1,4 +1,4 @@
-import { Language } from './translations';
+import { Language } from './translations.js';
 
 // A framework-free mirror of the active language, readable from plain (non-component) code.
 // Deliberately has ZERO React dependency: src/utils.ts imports this, and utils.ts is also
