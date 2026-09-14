@@ -1478,6 +1478,15 @@ export default function App() {
                          (updated.paymentStatus === 'paid' && oldJob?.paymentStatus !== 'paid') ||
                          (updated.pending === 0 && (oldJob?.pending ?? 0) > 0);
 
+    // A WIP job flipping to isPosted (the "ส่งงานแล้ว รอรับเงิน" quick action, or the same toggle
+    // inside the full edit form) is its own distinct moment -- the deal is delivered, but no money
+    // has necessarily landed yet. Before this check existed, that save fell through to the generic
+    // "แก้ไขงาน" branch below and sent a plain "job edited" LINE card, which reads as a random field
+    // tweak rather than what actually happened. buildJobSavedMessage already renders the correct
+    // "ดีลงาน" vs "รับเงินแล้ว" badge for a posted job based on its payment status, so reusing the
+    // same notifyLineRecordAdded call here (like wasCompleted does) gives this its own accurate card.
+    const wasDelivered = !wasCompleted && updated.isPosted === true && oldJob?.isPosted === false;
+
     if (wasCompleted) {
       fireMascot({
         mood: 'celebrate',
@@ -1486,6 +1495,15 @@ export default function App() {
       leafBus.trigger({ count: 28, type: 'mixed', durationMs: 5000 });
       // Same "รับเงิน" LINE card as a brand-new fully-paid job -- this is a payment landing on an
       // existing project, so it should read the same way ("ได้รับยอดของโปรเจกต์นี้แล้ว เท่าไหร่").
+      if (oldJob) {
+        const mergedJob = { ...oldJob, ...updated };
+        notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));
+      }
+    } else if (wasDelivered) {
+      fireMascot({
+        mood: 'happy',
+        message: `ส่งมอบงานเรียบร้อยแล้วค้าบ! เหลือแค่รอเงินโอนเข้าคลังกระรอกเท่านั้น!`
+      });
       if (oldJob) {
         const mergedJob = { ...oldJob, ...updated };
         notifyLineRecordAdded('job', mergedJob, monthNetSafe(freshJobs, expenses));

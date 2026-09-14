@@ -908,6 +908,7 @@ export interface JobCardData {
   name: string;
   client: string;
   value: number;
+  received?: number;
   pending?: number;
   status?: string;
   whtRate?: number;
@@ -924,13 +925,24 @@ export interface JobCardData {
 // "คงเหลือหลังหักรายจ่าย" figure. Computed by the caller so this stays a pure display function.
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
+  // "Posted" (delivered) and "money actually received" are two different moments -- a job that
+  // was just marked delivered, with nothing paid yet, used to get the exact same green "รับเงิน
+  // แล้ว" badge as one that was genuinely paid, so the card's own headline ("+฿3,000") directly
+  // contradicted its own "สถานะ: ยังไม่ได้รับเงิน" row a few lines down. isPaidSome splits that
+  // into its own third state.
+  const isPaidSome = job.status === 'done' || job.status === 'partial';
   const statusLabel = isWip ? 'สต็อก (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const appUrl = process.env.APP_URL;
   // A WIP job hasn't actually been delivered/paid yet -- heading it "รับเงิน +value" like a
   // completed transaction would be misleading, so it gets its own indigo framing, clearly apart
-  // from both the green (income) and rust (expense) cards rather than reusing either palette.
-  const headerLabel = isWip ? 'สต็อกใหม่' : 'รับเงิน';
-  const headerColor = isWip ? '#4338CA' : '#0E9F6E';
+  // from both the green (income) and rust (expense) cards rather than reusing either palette. A
+  // posted-but-unpaid job gets a third, teal "ดีลงาน" framing rather than reusing either of those.
+  const headerLabel = isWip ? 'สต็อกใหม่' : isPaidSome ? 'รับเงิน' : 'มูลค่าดีล';
+  const headerColor = isWip ? '#4338CA' : isPaidSome ? '#0E9F6E' : '#0D9488';
+  // job.value is the full contract value, not what's actually landed -- for a partial payment
+  // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
+  // it) instead of implying the whole contract amount arrived.
+  const displayAmount = isPaidSome ? (job.received ?? job.value) : job.value;
 
   if (!appUrl) {
     const lines = [
@@ -960,8 +972,10 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       contents: [
         isWip
           ? buildTypeBadge('package', 'เข้าสต็อก', headerColor)
-          : buildTypeBadge('coin', 'รับเงินแล้ว', headerColor),
-        buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xl', color: headerColor }),
+          : isPaidSome
+            ? buildTypeBadge('coin', 'รับเงินแล้ว', headerColor)
+            : buildTypeBadge('deal', 'ดีลงาน', headerColor),
+        buildStatementRow(headerLabel, `${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`, { size: 'xl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
