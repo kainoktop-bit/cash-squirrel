@@ -1465,6 +1465,65 @@ export default function JobsTab({
                             transition={{ duration: 0.15 }}
                             className="space-y-4"
                           >
+                            {/* วันส่งมอบงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs overflow-hidden">
+                              <div className="flex items-center justify-between">
+                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> {t('jobs.deliveryDateLabel')}</label>
+                                {formPostDate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setFormPostDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    <IconClose className="w-2.5 h-2.5" /> {t('jobs.clearDate')}
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={formPostDate}
+                                onChange={(e) => setFormPostDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold cursor-pointer transition-all"
+                              />
+
+                              {/* Live calculation of Due date and remaining days */}
+                              {formPostDate && formCreditTerm > 0 && (
+                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold inline-flex items-center gap-1"><IconCalendar className="w-3 h-3" /> {t('jobs.dueDateLabel')}</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                                      {safeFormatThaiDate(calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays))}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold flex items-center gap-1">
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
+                                    </span>
+                                    {(() => {
+                                      const payDateVal = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
+                                      const rel = getRelativeDaysText(payDateVal);
+                                      return (
+                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
+                                          rel.isOverdue
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                                        }`}>
+                                          {rel.text}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
                             {/* Credit Term Selection */}
                             <div className="space-y-2.5 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs">
                               <div className="flex items-center justify-between">
@@ -1517,65 +1576,6 @@ export default function JobsTab({
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold">
                                     {t('jobs.businessDaysOnly')}
                                   </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* วันส่งมอบงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/15 shadow-2xs overflow-hidden">
-                              <div className="flex items-center justify-between">
-                                <label className="text-emerald-900 dark:text-emerald-300 font-extrabold flex items-center gap-1 text-[11px] uppercase tracking-wider"><IconCalendar className="w-3 h-3" /> {t('jobs.deliveryDateLabel')}</label>
-                                {formPostDate && (
-                                  <button 
-                                    type="button"
-                                    onClick={() => setFormPostDate('')}
-                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
-                                  >
-                                    <IconClose className="w-2.5 h-2.5" /> {t('jobs.clearDate')}
-                                  </button>
-                                )}
-                              </div>
-                              <input
-                                type="date"
-                                value={formPostDate}
-                                onChange={(e) => setFormPostDate(e.target.value)}
-                                onClick={(e) => {
-                                  try {
-                                    e.currentTarget.showPicker();
-                                  } catch (err) {
-                                    console.log(err);
-                                  }
-                                }}
-                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-emerald-500 font-semibold cursor-pointer transition-all"
-                              />
-
-                              {/* Live calculation of Due date and remaining days */}
-                              {formPostDate && formCreditTerm > 0 && (
-                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
-                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold inline-flex items-center gap-1"><IconCalendar className="w-3 h-3" /> {t('jobs.dueDateLabel')}</span>
-                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
-                                      {safeFormatThaiDate(calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays))}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold flex items-center gap-1">
-                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
-                                    </span>
-                                    {(() => {
-                                      const payDateVal = calculatePayDate(formPostDate, formCreditTerm, formExcludeHolidays);
-                                      const rel = getRelativeDaysText(payDateVal);
-                                      return (
-                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
-                                          rel.isOverdue
-                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                                        }`}>
-                                          {rel.text}
-                                        </span>
-                                      );
-                                    })()}
-                                  </div>
                                 </div>
                               )}
                             </div>
@@ -2203,6 +2203,65 @@ export default function JobsTab({
                             transition={{ duration: 0.15 }}
                             className="space-y-4"
                           >
+                            {/* วันส่งมอบงาน */}
+                            <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
+                              <div className="flex items-center justify-between">
+                                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.deliveryDateLabel')}</label>
+                                {editPostDate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditPostDate('')}
+                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    {t('jobs.clearDate')}
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="date"
+                                value={editPostDate}
+                                onChange={(e) => setEditPostDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.currentTarget.showPicker();
+                                  } catch (err) {
+                                    console.log(err);
+                                  }
+                                }}
+                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                              />
+
+                              {/* Live calculation of Due date and remaining days */}
+                              {editPostDate && editCreditTerm > 0 && (
+                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold">{t('jobs.dueDateLabel')}</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                                      {safeFormatThaiDate(calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays))}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                                    <span className="font-bold flex items-center gap-1">
+                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
+                                    </span>
+                                    {(() => {
+                                      const payDateVal = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
+                                      const rel = getRelativeDaysText(payDateVal);
+                                      return (
+                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
+                                          rel.isOverdue
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                                        }`}>
+                                          {rel.text}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
                             {/* Credit Term Selection */}
                             <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
                               <div className="flex items-center justify-between">
@@ -2255,65 +2314,6 @@ export default function JobsTab({
                                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] font-bold">
                                     {t('jobs.businessDaysOnly')}
                                   </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* วันส่งมอบงาน */}
-                            <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
-                              <div className="flex items-center justify-between">
-                                <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.deliveryDateLabel')}</label>
-                                {editPostDate && (
-                                  <button 
-                                    type="button"
-                                    onClick={() => setEditPostDate('')}
-                                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
-                                  >
-                                    {t('jobs.clearDate')}
-                                  </button>
-                                )}
-                              </div>
-                              <input
-                                type="date"
-                                value={editPostDate}
-                                onChange={(e) => setEditPostDate(e.target.value)}
-                                onClick={(e) => {
-                                  try {
-                                    e.currentTarget.showPicker();
-                                  } catch (err) {
-                                    console.log(err);
-                                  }
-                                }}
-                                className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-                              />
-
-                              {/* Live calculation of Due date and remaining days */}
-                              {editPostDate && editCreditTerm > 0 && (
-                                <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
-                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold">{t('jobs.dueDateLabel')}</span>
-                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
-                                      {safeFormatThaiDate(calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays))}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
-                                    <span className="font-bold flex items-center gap-1">
-                                      <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
-                                    </span>
-                                    {(() => {
-                                      const payDateVal = calculatePayDate(editPostDate, editCreditTerm, editExcludeHolidays);
-                                      const rel = getRelativeDaysText(payDateVal);
-                                      return (
-                                        <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
-                                          rel.isOverdue
-                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                                        }`}>
-                                          {rel.text}
-                                        </span>
-                                      );
-                                    })()}
-                                  </div>
                                 </div>
                               )}
                             </div>
