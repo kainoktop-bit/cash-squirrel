@@ -160,6 +160,9 @@ export async function findUserByLineId(lineUserId: string): Promise<UserRow | nu
     console.error('findUserByLineId error:', error);
     throw new Error(`findUserByLineId: ${error.message}`);
   }
+  // TEMP-DEBUG: tracking a report of "disconnect then reconnect" not working -- remove once
+  // confirmed whether findUserByLineId is (wrongly) still matching a row after disconnect.
+  console.log(`findUserByLineId(${lineUserId}): ${data ? `MATCHED user_id=${(data as UserRow).user_id} email=${(data as UserRow).email}` : 'no match'}`);
   return (data as UserRow) || null;
 }
 

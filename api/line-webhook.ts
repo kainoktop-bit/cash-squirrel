@@ -70,6 +70,9 @@ async function tryLinkAccount(userId: string, messageText: string): Promise<bool
     if (ns.lineLinkCodeExpiresAt && new Date(ns.lineLinkCodeExpiresAt).getTime() < now) return false;
     return true;
   });
+  // TEMP-DEBUG: tracking a report of "disconnect then reconnect" not working -- remove once
+  // confirmed whether the pasted code is failing to match any pending row.
+  console.log(`tryLinkAccount: pasted code=${code}, ${(rows || []).length} row(s) with a pending code: ${(rows || []).map((r) => `[user_id=${r.user_id} code=${(r.notif_settings as NotifSettingsRow)?.lineLinkCode} expiresAt=${(r.notif_settings as NotifSettingsRow)?.lineLinkCodeExpiresAt}]`).join(', ') || '(none)'}, match=${match ? match.user_id : 'none'}`);
   if (!match) return false;
 
   const ns: NotifSettingsRow = match.notif_settings || {};
@@ -124,12 +127,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // handleAssistantMessage returns null when this LINE user isn't linked to anything
         // yet, in which case we fall back to matching the message against a pending link code.
         const assistantReply = await handleAssistantMessage(lineUserId, messageText);
+        // TEMP-DEBUG: tracking a report of "disconnect then reconnect" not working -- remove
+        // once confirmed whether this LINE user is being wrongly treated as already-linked.
+        console.log(`line-webhook: lineUserId=${lineUserId} text=${JSON.stringify(messageText)} assistantReply=${assistantReply === null ? 'null (not linked, falling through to link-code match)' : 'NON-NULL (treated as already linked, will NOT attempt link-code match)'}`);
         if (assistantReply !== null) {
           await reply(accessToken, event.replyToken, assistantReply);
           return;
         }
 
         const linked = await tryLinkAccount(lineUserId, messageText);
+        console.log(`line-webhook: tryLinkAccount(${lineUserId}, ${JSON.stringify(messageText)}) -> ${linked}`);
         const replyText = linked
           ? '✅ เชื่อมต่อบัญชีสำเร็จแล้วครับ!\nตอนนี้คุณจะได้รับแจ้งเตือนจากกระรอกตุนเงินผ่าน LINE นี้ รวมถึงพิมพ์เพิ่มงานหรือถามข้อมูลได้เลยครับ'
           : 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
