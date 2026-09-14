@@ -2274,16 +2274,16 @@ export default function App() {
                 </div>
                 <div>
                   <h4 className="text-xs font-black text-brand-text dark:text-white tracking-wide">
-                    สำรวจฤดูกาลเก็บเกี่ยว
+                    {t('header.monthPickerTitle')}
                   </h4>
                   <p className="text-[10px] text-brand-muted mt-0.5 leading-relaxed">
-                    เลือกเดือนอ้างอิงเพื่อตรวจสอบภาพรวม, สรุปรายรับ, บันทึกเงินออม และคำนวณภาษีในรอบเวลาที่ต้องการ
+                    {t('header.monthPickerDesc')}
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                <span className="text-[10px] font-bold text-brand-muted mr-1">รอบเวลาเสบียง:</span>
+                <span className="text-[10px] font-bold text-brand-muted mr-1">{t('header.monthPickerLabel')}</span>
                 <select
                   value={selectedMonthKey}
                   onChange={(e) => setSelectedMonthKey(e.target.value)}
@@ -2291,7 +2291,7 @@ export default function App() {
                 >
                   {availableMonthKeys.map(key => (
                     <option key={key} value={key}>
-                      {formatMonthKey(key)} {key === currentMonthKey ? ' (ปัจจุบัน)' : ''}
+                      {formatMonthKey(key)} {key === currentMonthKey ? t('header.currentMonthSuffix') : ''}
                     </option>
                   ))}
                 </select>
@@ -2300,7 +2300,7 @@ export default function App() {
                     onClick={() => setSelectedMonthKey(currentMonthKey)}
                     className="px-3 py-2 bg-[#E65F2B]/10 hover:bg-[#E65F2B]/20 text-[#E65F2B] dark:text-[#FFA473] rounded-xl text-[10px] font-black transition-all cursor-pointer border border-[#E65F2B]/15 hover:scale-102"
                   >
-                    กลับปัจจุบัน
+                    {t('header.backToCurrent')}
                   </button>
                 )}
               </div>
