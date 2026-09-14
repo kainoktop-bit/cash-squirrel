@@ -1558,6 +1558,23 @@ export default function App() {
         if (jobToDelete) {
           notifyLineRecordDeleted('job', jobToDelete, monthNetSafe(freshJobs, expenses));
         }
+        // Don't wait for the 1.5s debounced autosave -- a job the user just confirmed deleting
+        // reappearing in the stock list (a real report) is exactly what happens if the tab closes
+        // or the app backgrounds inside that window before the debounced save fires: the delete
+        // never reaches Supabase, so the next load pulls the "deleted" job right back in from the
+        // server. Push it immediately instead; the debounced effect firing again 1.5s later with
+        // the same jobs array is a harmless no-op.
+        if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
+          saveCloudData(session.user.email, {
+            jobs: freshJobs,
+            goals,
+            statuses,
+            jobTypes,
+            settings,
+            notifSettings,
+            expenses
+          });
+        }
       }
     );
   };
@@ -1823,6 +1840,20 @@ export default function App() {
     });
     if (expenseToDelete) {
       notifyLineRecordDeleted('expense', expenseToDelete, monthNetSafe(jobs, freshExpenses));
+    }
+    // Same immediate-flush reasoning as handleDeleteJob -- don't leave a delete sitting in the
+    // 1.5s debounce window where closing/backgrounding the app can lose it and bring the
+    // "deleted" expense right back on the next load.
+    if (session?.user?.email && isLoadedForUser === session.user.email && !session?.isGuest) {
+      saveCloudData(session.user.email, {
+        jobs,
+        goals,
+        statuses,
+        jobTypes,
+        settings,
+        notifSettings,
+        expenses: freshExpenses
+      });
     }
   };
 
