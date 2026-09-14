@@ -28,7 +28,7 @@ interface LineEvent {
 }
 
 async function reply(accessToken: string, replyToken: string, messages: LineMessage[]): Promise<void> {
-  await fetch(LINE_REPLY_URL, {
+  const res = await fetch(LINE_REPLY_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -39,6 +39,12 @@ async function reply(accessToken: string, replyToken: string, messages: LineMess
       messages,
     }),
   });
+  // LINE rejects an invalid payload (e.g. malformed Flex JSON) with a 4xx and a body explaining
+  // why -- silently swallowing that (the previous behavior) means a bad message just never
+  // arrives, with nothing in the logs to say why. Log it so that failure mode is visible.
+  if (!res.ok) {
+    console.error(`line-webhook: LINE reply API returned ${res.status}:`, await res.text());
+  }
 }
 
 interface NotifSettingsRow {
