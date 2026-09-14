@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { calculatePayDate, getRelativeDaysText, getThaiMonthName, formatMonthKey, DEFAULT_JOB_TYPES } from '../src/utils.js';
+import { calculatePayDate, getRelativeDaysText, formatMonthKey, DEFAULT_JOB_TYPES } from '../src/utils.js';
 import type { Expense, Goal } from '../src/types.js';
 import type { LineMessage } from './_line.js';
 import {
@@ -545,7 +545,7 @@ function buildSectionLabel(text: string, color: string) {
 // Shared cream "bank statement" bubble shell every Quick Reply report below is built on --
 // same visual language as buildJobSavedMessage (statement rows, separators, open-app footer),
 // so every report reads as one consistent card style instead of a mix of card and plain text.
-function buildReceiptCard(bodyContents: any[], altText: string): LineMessage {
+function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: string = '#E65F2B'): LineMessage {
   const contents: any = {
     type: 'bubble',
     body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
@@ -556,7 +556,7 @@ function buildReceiptCard(bodyContents: any[], altText: string): LineMessage {
       type: 'box',
       layout: 'vertical',
       paddingAll: '12px',
-      contents: [{ type: 'button', style: 'primary', color: '#E65F2B', action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
+      contents: [{ type: 'button', style: 'primary', color: buttonColor, action: { type: 'uri', label: 'เปิดแอป', uri: appUrl.replace(/\/$/, '') } }],
     };
   }
   return { type: 'flex', altText, contents };
@@ -852,17 +852,6 @@ async function finishConversationalReply(
   return textBubbles(finalText);
 }
 
-// Bangkok "20 ส.ค. 2569 00:18" style timestamp, matching what people expect from a receipt card.
-function formatThaiTimestamp(): string {
-  const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  const day = bkk.getUTCDate();
-  const month = getThaiMonthName(bkk.getUTCMonth(), true);
-  const year = bkk.getUTCFullYear() + 543;
-  const hh = String(bkk.getUTCHours()).padStart(2, '0');
-  const mm = String(bkk.getUTCMinutes()).padStart(2, '0');
-  return `${day} ${month} ${year} ${hh}:${mm}`;
-}
-
 // A small colored icon chip + label, meant as the very first row of a notification card's
 // bodyContents -- gives every card type (job saved, edited, deleted, expense added, goal
 // deposit, ...) its own glanceable symbol + color, instead of every card reading as the same
@@ -970,7 +959,6 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: '#C17817' })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
         ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
-        buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
         ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
       ],
     },
@@ -982,7 +970,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         {
           type: 'button',
           style: 'primary',
-          color: '#E65F2B',
+          color: headerColor,
           action: { type: 'uri', label: 'เปิดแอป', uri: `${appUrl.replace(/\/$/, '')}/?job=${encodeURIComponent(job.id)}` },
         },
       ],
@@ -1080,7 +1068,6 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('รายการ', expense.name, { bold: false }),
         buildStatementRow('หมวด', expense.category, { bold: false }),
-        buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
         ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
       ],
     },
@@ -1113,10 +1100,9 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
-    buildStatementRow('วันที่ยกเลิก', formatThaiTimestamp(), { bold: false }),
     ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, '#78716C');
 }
 
 // Sent when a job is edited through JobsTab's edit form without that edit also being a full
@@ -1136,10 +1122,9 @@ export function buildJobEditedMessage(job: JobCardData, monthNet?: number): Line
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
     buildStatementRow('สถานะ', statusLabel, { bold: false }),
     ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ยอดค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: '#C17817' })] : []),
-    buildStatementRow('วันที่แก้ไข', formatThaiTimestamp(), { bold: false }),
     ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `แก้ไขงาน "${job.name}" แล้วครับ`, '#2563EB');
 }
 
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
@@ -1150,10 +1135,9 @@ export function buildExpenseDeletedMessage(expense: { name: string; category?: s
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('รายการ', expense.name, { bold: false }),
     ...(expense.category ? [buildStatementRow('หมวด', expense.category, { bold: false })] : []),
-    buildStatementRow('วันที่ลบ', formatThaiTimestamp(), { bold: false }),
     ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ลบรายจ่าย "${expense.name}" แล้วครับ`, '#78716C');
 }
 
 export function buildGoalCreatedMessage(goal: { name: string; target: number; deadline?: string }): LineMessage {
@@ -1165,9 +1149,8 @@ export function buildGoalCreatedMessage(goal: { name: string; target: number; de
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
     ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
-    buildStatementRow('วันที่สร้าง', formatThaiTimestamp(), { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`);
+  return buildReceiptCard(bodyContents, `สร้างเป้าหมายใหม่ "${goal.name}" แล้วครับ`, '#7C3AED');
 }
 
 // Covers both deposit (ฝากเงินเพิ่ม) and withdraw (ดึงเงินออก) -- same card shape, colored and
@@ -1187,9 +1170,8 @@ export function buildGoalTransactionMessage(
     buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
     ...(tx.reason ? [buildStatementRow('เหตุผล', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
-    buildStatementRow('วันที่ทำรายการ', formatThaiTimestamp(), { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+  return buildReceiptCard(bodyContents, `${headerLabel} "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, headerColor);
 }
 
 // Sent when a goal deposit/withdraw history entry is deleted (the trash icon on each row in the
@@ -1208,9 +1190,8 @@ export function buildGoalTransactionDeletedMessage(
     buildStatementRow('ประเภทที่ลบ', wasDeposit ? 'ฝากเข้า' : 'ดึงเงินออก', { bold: false }),
     ...(tx.reason ? [buildStatementRow('เหตุผลเดิม', tx.reason, { bold: false })] : []),
     buildStatementRow('ยอดสะสมล่าสุด', `${formatCurrency(goal.current)} / ${formatCurrency(goal.target)}`, { bold: false }),
-    buildStatementRow('วันที่ลบ', formatThaiTimestamp(), { bold: false }),
   ];
-  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`);
+  return buildReceiptCard(bodyContents, `ลบรายการ "${goal.name}" ${formatCurrency(tx.amount)} แล้วครับ`, '#78716C');
 }
 
 function statusBehavior(statuses: StatusRow[], statusId: string): 'done' | 'partial' | 'pending' {
