@@ -545,13 +545,13 @@ function buildSectionLabel(text: string, color: string) {
 // Shared cream "bank statement" bubble shell every Quick Reply report below is built on --
 // same visual language as buildJobSavedMessage (statement rows, separators, open-app footer),
 // so every report reads as one consistent card style instead of a mix of card and plain text.
-function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: string = '#E65F2B'): LineMessage {
+function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: string = '#E65F2B', showButton: boolean = true): LineMessage {
   const contents: any = {
     type: 'bubble',
     body: { type: 'box', layout: 'vertical', backgroundColor: '#FBF2E4', borderWidth: '1px', borderColor: '#D8CBB8', paddingAll: '20px', spacing: 'sm', contents: bodyContents },
   };
   const appUrl = process.env.APP_URL;
-  if (appUrl) {
+  if (appUrl && showButton) {
     contents.footer = {
       type: 'box',
       layout: 'vertical',
@@ -1127,7 +1127,9 @@ export function buildJobDeletedMessage(job: { name: string; client?: string; val
     ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
     ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: '#E8DFD3' }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: '#0E9F6E' })] : []),
   ];
-  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, '#78716C');
+  // No "เปิดแอป" button here -- the job is gone, there's nothing left in the app for this card
+  // to open to.
+  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, '#78716C', false);
 }
 
 // Sent when a job is edited through JobsTab's edit form without that edit also being a full
