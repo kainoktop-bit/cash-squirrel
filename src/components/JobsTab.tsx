@@ -152,9 +152,6 @@ export default function JobsTab({
 
   // Editing logic (optional but amazing!)
   const [editingJob, setEditingJob] = useState<Job | null>(null);
-  // Lets a caller (e.g. the "posted, awaiting payment" quick action) open the edit modal straight on
-  // a specific step instead of always starting at step 1. Consumed once, then reset.
-  const editStartStepRef = React.useRef(1);
 
   // Edit form states
   const [editName, setEditName] = useState('');
@@ -200,8 +197,7 @@ export default function JobsTab({
       setEditCustomTypeInput('');
       setEditCustomStatusLabelInput('');
       setEditCustomStatusBehavior('pending');
-      setEditFormStep(editStartStepRef.current);
-      editStartStepRef.current = 1;
+      setEditFormStep(1);
       setEditCanSubmit(false);
     }
   }, [editingJob]);
@@ -807,24 +803,24 @@ export default function JobsTab({
                           {j.isPosted === false && (
                             <button
                               onClick={() => {
-                                // Already told us the on-air date when this job was set up as
-                                // WIP — don't ask again or clobber it with today's date.
+                                // A single direct save, no detour through the edit modal -- that
+                                // used to open straight into step 3 to let the user fill in the
+                                // delivery date, but its own "บันทึกข้อมูลดีลงาน" save fired a
+                                // second, redundant "แก้ไขงาน" LINE notification on top of this
+                                // click's own "ดีลงาน" card. Already told us the on-air date when
+                                // this job was set up as WIP -- don't ask again or clobber it with
+                                // today's date; otherwise default to today (editable later same as
+                                // any other field).
                                 if (j.postDate) {
                                   onEditJob(j.id, { isPosted: true });
                                   return;
                                 }
                                 const today = new Date();
                                 const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                const updated = { ...j, isPosted: true, postDate: localDateStr };
                                 onEditJob(j.id, {
                                   isPosted: true,
                                   postDate: localDateStr
                                 });
-                                // No on-air date was ever set, so open straight to the credit
-                                // term + on-air date fields for the user to fill in, instead of
-                                // silently guessing "today" and leaving it wrong.
-                                editStartStepRef.current = 3;
-                                setEditingJob(updated);
                               }}
                               className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
