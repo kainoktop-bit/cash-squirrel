@@ -160,9 +160,6 @@ export async function findUserByLineId(lineUserId: string): Promise<UserRow | nu
     console.error('findUserByLineId error:', error);
     throw new Error(`findUserByLineId: ${error.message}`);
   }
-  // TEMP-DEBUG: tracking a report of "disconnect then reconnect" not working -- remove once
-  // confirmed whether findUserByLineId is (wrongly) still matching a row after disconnect.
-  console.log(`findUserByLineId(${lineUserId}): ${data ? `MATCHED user_id=${(data as UserRow).user_id} email=${(data as UserRow).email}` : 'no match'}`);
   return (data as UserRow) || null;
 }
 
@@ -866,6 +863,38 @@ function formatThaiTimestamp(): string {
   return `${day} ${month} ${year} ${hh}:${mm}`;
 }
 
+// A small colored icon chip + label, meant as the very first row of a notification card's
+// bodyContents -- gives every card type (job saved, edited, deleted, expense added, goal
+// deposit, ...) its own glanceable symbol + color, instead of every card reading as the same
+// "cream statement card" shape with only a colored header word to tell them apart. Emoji is the
+// icon rather than a custom image: LINE Flex has no way to render inline SVG or an unhosted
+// image, and this app already has one card (the overdue-credit-term digest) that uses emoji
+// this exact way successfully. `color` doubles as the badge circle's background at ~15% opacity
+// (hex + alpha suffix) and the label/icon-tint color, matching the web app's own badge styling.
+function buildTypeBadge(emoji: string, label: string, color: string) {
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'sm',
+    alignItems: 'center',
+    margin: 'md',
+    contents: [
+      {
+        type: 'box',
+        layout: 'vertical',
+        width: '26px',
+        height: '26px',
+        cornerRadius: '13px',
+        backgroundColor: `${color}26`,
+        justifyContent: 'center',
+        alignItems: 'center',
+        contents: [{ type: 'text', text: emoji, size: 'xs', align: 'center', gravity: 'center' }],
+      },
+      { type: 'text', text: label, size: 'sm', weight: 'bold', color, gravity: 'center' },
+    ],
+  };
+}
+
 // A simple label-left / value-right row, like a bank transfer receipt statement.
 function buildStatementRow(label: string, value: string, opts?: { size?: string; color?: string; bold?: boolean }) {
   return {
@@ -934,6 +963,9 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
       paddingAll: '20px',
       spacing: 'md',
       contents: [
+        isWip
+          ? buildTypeBadge('📦', 'เพิ่มงานใหม่ · เข้าสต็อก', headerColor)
+          : buildTypeBadge('🪙', 'รับเงินแล้ว', headerColor),
         buildStatementRow(headerLabel, `${isWip ? '' : '+'}${formatCurrency(job.value)}`, { size: 'xxl', color: headerColor }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('ชื่องาน', job.name, { bold: false }),
@@ -1046,6 +1078,7 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
       paddingAll: '20px',
       spacing: 'md',
       contents: [
+        buildTypeBadge('🧾', 'รายจ่ายใหม่', '#A63F1B'),
         buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xxl', color: '#A63F1B' }),
         { type: 'separator', margin: 'md', color: '#E8DFD3' },
         buildStatementRow('รายการ', expense.name, { bold: false }),
@@ -1078,6 +1111,7 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
 export function buildJobDeletedMessage(job: { name: string; client?: string; value: number; isPosted?: boolean }, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
   const bodyContents = [
+    buildTypeBadge('🗑️', 'ยกเลิกงาน', '#78716C'),
     buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: '#78716C' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
@@ -1098,6 +1132,7 @@ export function buildJobEditedMessage(job: JobCardData, monthNet?: number): Line
   const isWip = job.isPosted === false;
   const statusLabel = isWip ? 'สต็อกเตรียมผลิต (ยังไม่ส่งงาน)' : job.status === 'done' ? 'จ่ายครบแล้ว' : job.status === 'partial' ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   const bodyContents = [
+    buildTypeBadge('✏️', 'แก้ไขงาน', '#2563EB'),
     buildStatementRow('แก้ไขงาน', formatCurrency(job.value), { size: 'xl', color: '#2563EB' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ชื่องาน', job.name, { bold: false }),
@@ -1113,6 +1148,7 @@ export function buildJobEditedMessage(job: JobCardData, monthNet?: number): Line
 // Same idea as buildJobDeletedMessage, for a deleted variable expense.
 export function buildExpenseDeletedMessage(expense: { name: string; category?: string; amount: number }, monthNet?: number): LineMessage {
   const bodyContents = [
+    buildTypeBadge('🗑️', 'ลบรายจ่าย', '#78716C'),
     buildStatementRow('ลบรายจ่าย', formatCurrency(expense.amount), { size: 'xl', color: '#78716C' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('รายการ', expense.name, { bold: false }),
@@ -1124,8 +1160,11 @@ export function buildExpenseDeletedMessage(expense: { name: string; category?: s
 }
 
 export function buildGoalCreatedMessage(goal: { name: string; target: number; deadline?: string }): LineMessage {
+  // Purple, not the job-edited card's blue -- goal creation gets its own color so the two never
+  // read as the same type of event at a glance.
   const bodyContents = [
-    buildStatementRow('สร้างเป้าหมายใหม่', goal.name, { size: 'xl', color: '#2563EB' }),
+    buildTypeBadge('🎯', 'สร้างเป้าหมายใหม่', '#7C3AED'),
+    buildStatementRow('สร้างเป้าหมายใหม่', goal.name, { size: 'xl', color: '#7C3AED' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('ยอดเป้าหมาย', formatCurrency(goal.target), { bold: false }),
     ...(goal.deadline ? [buildStatementRow('กำหนดเสร็จ', goal.deadline, { bold: false })] : []),
@@ -1145,6 +1184,7 @@ export function buildGoalTransactionMessage(
   const headerLabel = isDeposit ? 'ฝากเข้าเป้าหมาย' : 'ดึงเงินออกจากเป้าหมาย';
   const headerColor = isDeposit ? '#0E9F6E' : '#A63F1B';
   const bodyContents = [
+    isDeposit ? buildTypeBadge('🌰', headerLabel, headerColor) : buildTypeBadge('📤', headerLabel, headerColor),
     buildStatementRow(headerLabel, `${isDeposit ? '+' : '-'}${formatCurrency(tx.amount)}`, { size: 'xl', color: headerColor }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
@@ -1164,6 +1204,7 @@ export function buildGoalTransactionDeletedMessage(
 ): LineMessage {
   const wasDeposit = tx.type === 'deposit';
   const bodyContents = [
+    buildTypeBadge('🗑️', 'ลบรายการ', '#78716C'),
     buildStatementRow('ลบรายการ', formatCurrency(tx.amount), { size: 'xl', color: '#78716C' }),
     { type: 'separator', margin: 'md', color: '#E8DFD3' },
     buildStatementRow('เป้าหมาย', goal.name, { bold: false }),
