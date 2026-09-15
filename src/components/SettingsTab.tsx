@@ -467,10 +467,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    สรุปงบการเงินรายเดือนอัตโนมัติทางอีเมล                  </span>
+                    สรุปงบการเงินรายเดือนอัตโนมัติ                  </span>
                   <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
                     {isPro
-                      ? 'ระบบส่งสรุปรายรับ-รายจ่ายของเดือนที่ผ่านมาให้อัตโนมัติทุกวันที่ 1'
+                      ? 'ระบบส่งสรุปรายรับ-รายจ่ายของเดือนที่ผ่านมาให้อัตโนมัติทุกวันที่ 1 ทางอีเมลของบัญชีนี้โดยไม่ต้องตั้งค่าอะไรเพิ่ม (และ LINE ด้วยถ้าเชื่อมต่อไว้)'
                       : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
                   </p>
                 </div>
@@ -507,10 +507,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <Mail className="w-4 h-4 text-[#E65F2B] dark:text-[#FFA473] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <span className="text-[11px] font-black text-brand-text dark:text-white flex items-center gap-1">
-                    สรุปงานค้างชำระรายวัน (อีเมล + LINE)                  </span>
+                    แจ้งเตือนงานค้างชำระรายวัน                  </span>
                   <p className="text-[9px] text-brand-muted leading-relaxed mt-0.5">
                     {isPro
-                      ? 'ระบบส่งสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ทั้งทางอีเมลและ LINE (ถ้าเชื่อมต่อไว้) ไม่ต้องเปิดแอปเอง'
+                      ? 'ส่งสรุปดีลที่เลยกำหนดชำระให้ทุกเช้า ทางอีเมลของบัญชีนี้โดยไม่ต้องตั้งค่าอะไรเพิ่ม (และ LINE ด้วยถ้าเชื่อมต่อไว้) ไม่ต้องเปิดแอปเอง'
                       : 'ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน'}
                   </p>
                 </div>
