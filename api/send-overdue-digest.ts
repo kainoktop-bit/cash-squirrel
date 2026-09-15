@@ -326,15 +326,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
+        let lineOk = false;
         if (row.email) {
-          const lineOk = await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) => {
+          lineOk = await sendLineMessageToEmail(row.email, buildDigestFlexMessage(attentionJobs), notifSettings.lineUserId).catch((err) => {
             console.error(`send-overdue-digest: LINE send failed for ${row.email}:`, err);
             return false;
           });
           console.log(`send-overdue-digest: LINE send to ${row.email} -- ${lineOk ? 'ok' : 'failed/skipped'}`);
         }
 
-        if (!emailOk) {
+        // Only skip the follow-up-count/lastDigestSentDate update when BOTH channels failed --
+        // gating on emailOk alone (as it used to be) meant an account relying only on LINE (no
+        // working email, or Gmail having one of its outages) never got its followUpCount tracked
+        // and lastDigestSentDate never advanced, even though the notification the user actually
+        // sees (LINE) went out fine every single day.
+        if (!emailOk && !lineOk) {
           skipped += 1;
           continue;
         }

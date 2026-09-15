@@ -261,13 +261,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
+        let lineOk = false;
         if (row.email) {
-          await sendLineMessageToEmail(row.email, { type: 'text', text: buildReportLineText(monthLabel, summary) }, notifSettings.lineUserId).catch((err) =>
-            console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err)
-          );
+          lineOk = await sendLineMessageToEmail(row.email, { type: 'text', text: buildReportLineText(monthLabel, summary) }, notifSettings.lineUserId).catch((err) => {
+            console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err);
+            return false;
+          });
         }
 
-        if (!emailOk) {
+        // Only skip the lastMonthlyReportSentMonth update when BOTH channels failed -- gating on
+        // emailOk alone (as it used to be) meant an account relying only on LINE never got this
+        // tracked, even on a month LINE delivered fine.
+        if (!emailOk && !lineOk) {
           skipped += 1;
           continue;
         }
