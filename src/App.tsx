@@ -865,13 +865,18 @@ export default function App() {
       // Run after the row is guaranteed to exist (the upsert above creates it on first save).
       // merge_notif_settings does notif_settings = coalesce(notif_settings, '{}') || patch in a
       // single statement, so keys this device doesn't know about are left untouched server-side.
-      // lineUserId is stripped out here on purpose: the merge only protects a key when this
-      // device's patch omits it entirely, but this device's in-memory copy goes stale the moment
-      // the LINE webhook links the account from an entirely separate session (the phone's LINE
-      // app) -- any autosave/tab-hide flush firing afterward would still hold the old value and
-      // clobber the real link right back to disconnected. Disconnecting writes lineUserId itself,
-      // immediately, via its own direct RPC call (see handleDisconnectLine) instead of this path.
-      const { lineUserId: _omitLineUserId, ...notifPatch } = payload.notifSettings || {};
+      // lineUserId, dailyDigestEnabled, and monthlyReportEnabled are all stripped out here on
+      // purpose: the merge only protects a key when this device's patch omits it entirely, but
+      // all three have their OWN immediate direct-RPC write path (handleDisconnectLine,
+      // handleToggleDailyDigest, handleToggleMonthlyReport in SettingsTab.tsx) that can race this
+      // debounced autosave -- confirmed live: a digest toggle flipped on, its own direct write
+      // landing first, then this debounced save's *own* in-flight payload (captured from before
+      // the toggle, still holding the old value) reaching the RPC second and silently clobbering
+      // it back off, with the toggle still showing on in the UI the whole time. Any of these three
+      // fields changing server-side from a device that doesn't know about it yet (a different
+      // session flipping a toggle, the LINE webhook linking the account) must never get clobbered
+      // back by this device's stale in-memory copy on its next autosave/tab-hide flush.
+      const { lineUserId: _omitLineUserId, dailyDigestEnabled: _omitDailyDigestEnabled, monthlyReportEnabled: _omitMonthlyReportEnabled, ...notifPatch } = payload.notifSettings || {};
       const { error: notifError } = await supabase.rpc('merge_notif_settings', {
         p_user_id: currentUser.id,
         p_patch: notifPatch,
