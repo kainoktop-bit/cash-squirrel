@@ -51,7 +51,6 @@ interface SettingsTabProps {
   ) => void;
   userAvatar: string;
   onUpdateUserAvatar: (newAvatar: string) => void;
-  onStartTour?: () => void;
   onReplaySetupWizard?: () => void;
   subscription?: {
     status: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled';
@@ -82,7 +81,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   triggerPrompt,
   userAvatar,
   onUpdateUserAvatar,
-  onStartTour,
   onReplaySetupWizard,
   subscription,
   isPaidActive,
@@ -800,17 +798,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     ดูรายละเอียดแพ็กเกจทั้งหมด <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
-              )}
-
-              {onStartTour && (
-                <button
-                  type="button"
-                  onClick={onStartTour}
-                  className="w-full py-2.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                >
-                  <Mascot mood="proud" size={24} className="mr-0.5" />
-                  <span>เริ่มทัวร์แนะนำฟีเจอร์แอป (App Tutorial Tour)</span>
-                </button>
               )}
 
               {onReplaySetupWizard && (

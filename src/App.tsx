@@ -26,7 +26,6 @@ import { useLanguage } from './i18n/LanguageContext';
 import { computeMonthlySummary, currentMonthKey as getCurrentMonthKeyBkk, nowInBangkok } from './monthlySummary';
 import { Mascot } from './components/Mascot';
 import { MascotToast } from './components/MascotToast';
-import { TourModal, TourStep } from './components/TourModal';
 import { ProfileSetupWizard } from './components/ProfileSetupWizard';
 import { PremiumUpsell } from './components/PremiumUpsell';
 import { ProPromoModal } from './components/ProPromoModal';
@@ -206,23 +205,6 @@ const markRecentlyDeleted = (storageKey: string, id: string) => {
   }
 };
 
-// title/description are translation keys, not literal text -- this is a module-level constant
-// (defined before the component, so it has no access to t()); handleTourSteps() below resolves
-// each key through t() at render time, where the hook is actually available.
-const TOUR_STEPS: { titleKey: string; descriptionKey: string; mood: TourStep['mood']; tab: string }[] = [
-  { titleKey: 'tour.step0Title', descriptionKey: 'tour.step0Desc', mood: "wave", tab: "dashboard" },
-  { titleKey: 'tour.step1Title', descriptionKey: 'tour.step1Desc', mood: "happy", tab: "dashboard" },
-  { titleKey: 'tour.step2Title', descriptionKey: 'tour.step2Desc', mood: "proud", tab: "jobs" },
-  { titleKey: 'tour.step3Title', descriptionKey: 'tour.step3Desc', mood: "happy", tab: "timeline" },
-  { titleKey: 'tour.step4Title', descriptionKey: 'tour.step4Desc', mood: "celebrate", tab: "split" },
-  { titleKey: 'tour.step5Title', descriptionKey: 'tour.step5Desc', mood: "proud", tab: "summary" },
-  { titleKey: 'tour.step6Title', descriptionKey: 'tour.step6Desc', mood: "happy", tab: "report" },
-  { titleKey: 'tour.step7Title', descriptionKey: 'tour.step7Desc', mood: "alert", tab: "tax" },
-  { titleKey: 'tour.step8Title', descriptionKey: 'tour.step8Desc', mood: "wave", tab: "invoice" },
-  { titleKey: 'tour.step9Title', descriptionKey: 'tour.step9Desc', mood: "happy", tab: "settings" },
-  { titleKey: 'tour.step10Title', descriptionKey: 'tour.step10Desc', mood: "celebrate", tab: "dashboard" }
-];
-
 export default function App() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
@@ -264,35 +246,7 @@ export default function App() {
     </button>
   );
 
-  // 🐿️ Onboarding Tour State
-  const [tourStep, setTourStep] = useState<number | null>(null);
   const [isSetupWizardPreview, setIsSetupWizardPreview] = useState(false);
-
-  const handleNextTourStep = () => {
-    if (tourStep === null) return;
-    if (tourStep < TOUR_STEPS.length - 1) {
-      const nextStep = tourStep + 1;
-      setTourStep(nextStep);
-      setActiveTab(TOUR_STEPS[nextStep].tab as any);
-    } else {
-      handleCompleteTour();
-    }
-  };
-
-  const handlePrevTourStep = () => {
-    if (tourStep === null || tourStep === 0) return;
-    const prevStep = tourStep - 1;
-    setTourStep(prevStep);
-    setActiveTab(TOUR_STEPS[prevStep].tab as any);
-  };
-
-  const handleCompleteTour = () => {
-    if (session?.user?.email) {
-      localStorage.setItem(`cashflow_onboarding_completed_${session.user.email}`, 'true');
-    }
-    setTourStep(null);
-    setActiveTab('dashboard');
-  };
 
   // Authentication State
   const [session, setSession] = useState<any>(null);
@@ -1020,18 +974,6 @@ export default function App() {
       setCloudSyncStatus('not_setup');
     }
   }, [session, isLoadedForUser]);
-
-  // 🐿️ Auto-trigger Onboarding Tour for new users (only after the account setup wizard is done)
-  useEffect(() => {
-    if (isLoadedForUser && settings.profileSetupCompleted) {
-      const completed = localStorage.getItem(`cashflow_onboarding_completed_${isLoadedForUser}`);
-      if (completed !== 'true') {
-        setTourStep(0);
-      }
-    } else if (!isLoadedForUser) {
-      setTourStep(null);
-    }
-  }, [isLoadedForUser, settings.profileSetupCompleted]);
 
   // 🎉 Promote the Pro plan once per calendar day to logged-in, non-guest, non-Pro users after
   // their data has loaded. Dismissible; marks today as "shown" the moment it opens so closing it
@@ -2712,10 +2654,6 @@ export default function App() {
                   triggerPrompt={triggerPrompt}
                   userAvatar={userAvatar}
                   onUpdateUserAvatar={handleUpdateUserAvatar}
-                  onStartTour={() => {
-                    setTourStep(0);
-                    setActiveTab('dashboard');
-                  }}
                   onReplaySetupWizard={() => {
                     setIsSetupWizardPreview(true);
                   }}
@@ -2836,16 +2774,7 @@ export default function App() {
           isPreview={isSetupWizardPreview}
           onComplete={() => {
             setIsSetupWizardPreview(false);
-            if (!isSetupWizardPreview) setTourStep(0);
           }}
-        />
-
-        <TourModal
-          tourStep={tourStep}
-          steps={TOUR_STEPS.map(s => ({ title: t(s.titleKey), description: t(s.descriptionKey), mood: s.mood, tab: s.tab }))}
-          onNext={handleNextTourStep}
-          onPrev={handlePrevTourStep}
-          onSkip={handleCompleteTour}
         />
 
         <MascotToast />
