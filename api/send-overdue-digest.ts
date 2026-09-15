@@ -258,26 +258,17 @@ function isPro(
   return isInFreeTrial || isPaidActive;
 }
 
-// TEMPORARY manual test trigger: ?testToken=<matches>&testEmail=<one address>. Scoped to exactly
-// one row (never the full user table) and bypasses only the "already sent today" guard, so a
-// single on-demand test send doesn't touch any other real user. Remove TEST_TRIGGER_TOKEN and
-// this whole test-mode branch once the feature it's testing is confirmed working.
-const TEST_TRIGGER_TOKEN = 'fba4c142fdc9f2e5f4a954a8161e61b5';
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers['authorization'];
-  const testToken = typeof req.query.testToken === 'string' ? req.query.testToken : '';
-  const testEmail = typeof req.query.testEmail === 'string' ? req.query.testEmail : '';
-  const isTestTrigger = !!testToken && testToken === TEST_TRIGGER_TOKEN && !!testEmail;
-  if (!isTestTrigger && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
 
   try {
-    const [{ data: allRows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
+    const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
       supabaseAdmin.from('user_cashflow_data').select('user_id, email, jobs, notif_settings'),
       supabaseAdmin.from('subscriptions').select('user_id, status, current_period_end').eq('status', 'active'),
       listAllAuthUsers(),
@@ -285,8 +276,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (rowsErr) throw rowsErr;
     if (subsErr) throw subsErr;
-
-    const rows = isTestTrigger ? (allRows || []).filter((r) => r.email === testEmail) : allRows;
 
     const activeSubByUserId = new Map((subs || []).map((s) => [s.user_id, { current_period_end: s.current_period_end }]));
 
@@ -309,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skipped += 1;
         continue;
       }
-      if (!isTestTrigger && notifSettings.lastDigestSentDate === todayStr) {
+      if (notifSettings.lastDigestSentDate === todayStr) {
         console.log(`send-overdue-digest: skip ${row.email} -- already sent today (lastDigestSentDate=${notifSettings.lastDigestSentDate})`);
         skipped += 1;
         continue;
