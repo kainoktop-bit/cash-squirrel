@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { supabaseAdmin } from './_supabaseAdmin.js';
 import { sendGmailEmail } from './_gmail.js';
 import { sendLineMessageToEmail } from './_line.js';
+import type { LineMessage } from './_line.js';
 import { formatMonthKey } from '../src/utils.js';
 import {
   JobRow,
@@ -70,8 +71,10 @@ function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   </div>`;
 }
 
-// Condensed plain-text version for LINE -- same numbers as the email, no HTML/attachment.
-function buildReportLineText(monthLabel: string, s: MonthlySummary): string {
+// Condensed plain-text version for LINE -- same numbers as the email. downloadUrl is null when
+// APP_URL isn't configured or the Storage upload failed, in which case this just points back to
+// the email instead of claiming a link exists.
+function buildReportLineText(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): string {
   const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
   return [
     `📊 สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`,
@@ -85,10 +88,104 @@ function buildReportLineText(monthLabel: string, s: MonthlySummary): string {
     `• ยอดโอนรับแล้วจริง: ${formatCurrency(s.received)}`,
     `• หัก ค่าใช้จ่ายคงที่รายเดือน: ${formatCurrency(s.fixedExpenseCalculated)}`,
     `• ค่าใช้จ่ายผันแปร: ${formatCurrency(s.variableExpense)}`,
-    `• ยอดออมสะสมโดยประมาณ: ${formatCurrency(s.actualSavings)}`,
     '',
-    'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียดเพิ่มเติม',
+    downloadUrl
+      ? `ดาวน์โหลดไฟล์ Excel ฉบับเต็ม: ${downloadUrl}`
+      : 'ไฟล์ Excel ฉบับเต็มส่งไปในอีเมลแล้ว เปิดแอปกระรอกตุนเงินเพื่อดูรายละเอียดเพิ่มเติม',
   ].join('\n');
+}
+
+// LINE's Flex bubble version of the same card, with a real tappable download button instead of a
+// bare URL in a text bubble -- same cream "receipt" visual language as the rest of the app's LINE
+// cards (see api/_lineAssistant.ts's buildReceiptCard/buildStatementRow, not reused directly here
+// since this file has no other reason to depend on that module).
+function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, downloadUrl: string | null): LineMessage {
+  const totalExpense = s.fixedExpenseCalculated + s.variableExpense;
+  const row = (label: string, value: string, color: string) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: label, size: 'sm', color: '#7A5C43', flex: 2 },
+      { type: 'text', text: value, size: 'sm', color, weight: 'bold', flex: 3, align: 'end' },
+    ],
+  });
+
+  const contents: any = {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#FBF2E4',
+      borderWidth: '1px',
+      borderColor: '#D8CBB8',
+      paddingAll: '20px',
+      spacing: 'md',
+      contents: [
+        { type: 'text', text: `สรุปงบเดือน ${monthLabel}`, weight: 'bold', size: 'md', color: '#4338CA' },
+        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+        row('รายรับจริง', formatCurrency(s.received), '#0E9F6E'),
+        row('รายจ่ายจริง', formatCurrency(totalExpense), '#A63F1B'),
+        { type: 'separator', margin: 'md', color: '#E8DFD3' },
+        row('กระแสเงินสดสุทธิ', formatCurrency(Math.max(0, s.netFlow)), '#3D2314'),
+      ],
+    },
+  };
+
+  if (downloadUrl) {
+    contents.footer = {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '12px',
+      contents: [
+        { type: 'button', style: 'primary', color: '#4338CA', action: { type: 'uri', label: '📥 ดาวน์โหลดไฟล์ Excel', uri: downloadUrl } },
+      ],
+    };
+  }
+
+  return { type: 'flex', altText: `สรุปงบกระแสเงินสดรอบเดือน ${monthLabel}`, contents };
+}
+
+const REPORTS_BUCKET = 'monthly-reports';
+
+// Uploads the report to a private Supabase Storage bucket and returns a link through this app's
+// own /api/download-report proxy (see that file for why -- a raw *.supabase.co signed URL pasted
+// into a LINE message reads as an unfamiliar, suspicious link; this app's own domain doesn't).
+// Returns null on any failure, which callers treat as "fall back to email-only wording" rather
+// than a hard error -- a broken upload should never take down the rest of the digest run.
+async function uploadReportAndGetLink(userId: string, monthKey: string, excelBase64: string): Promise<string | null> {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) return null;
+
+  try {
+    const buffer = Buffer.from(excelBase64, 'base64');
+    const path = `${userId}/${monthKey}.xlsx`;
+
+    let { error: uploadErr } = await supabaseAdmin.storage.from(REPORTS_BUCKET).upload(path, buffer, {
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      upsert: true,
+    });
+    if (uploadErr && /bucket.*not.*found/i.test(uploadErr.message || '')) {
+      // First-run: the bucket doesn't exist yet. Private (no public URL access) -- every download
+      // must go through a signed URL, which is what makes the app's own proxy meaningful at all.
+      const { error: createErr } = await supabaseAdmin.storage.createBucket(REPORTS_BUCKET, { public: false });
+      if (createErr && !/already exists/i.test(createErr.message || '')) throw createErr;
+      ({ error: uploadErr } = await supabaseAdmin.storage.from(REPORTS_BUCKET).upload(path, buffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        upsert: true,
+      }));
+    }
+    if (uploadErr) throw uploadErr;
+
+    const { data: signed, error: signErr } = await supabaseAdmin.storage
+      .from(REPORTS_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24 * 30); // 30 days -- plenty to notice and download a monthly report
+    if (signErr || !signed?.signedUrl) throw signErr || new Error('createSignedUrl returned no URL');
+
+    return `${appUrl.replace(/\/$/, '')}/api/download-report?u=${encodeURIComponent(signed.signedUrl)}`;
+  } catch (err) {
+    console.error(`uploadReportAndGetLink failed for user ${userId}:`, err);
+    return null;
+  }
 }
 
 // Same 3-sheet shape as the Tax tab's Excel export (src/components/TaxTab.tsx handleExportExcel),
@@ -182,11 +279,18 @@ function isPro(
   return isInFreeTrial || isPaidActive;
 }
 
+// TEMPORARY manual test trigger -- see api/send-overdue-digest.ts for the identical mechanism and
+// removal note. Same token reused across both for one shared test pass.
+const TEST_TRIGGER_TOKEN = 'fba4c142fdc9f2e5f4a954a8161e61b5';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers['authorization'];
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  const testToken = typeof req.query.testToken === 'string' ? req.query.testToken : '';
+  const testEmail = typeof req.query.testEmail === 'string' ? req.query.testEmail : '';
+  const isTestTrigger = !!testToken && testToken === TEST_TRIGGER_TOKEN && !!testEmail;
+  if (!isTestTrigger && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
@@ -195,7 +299,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const monthKey = targetMonthKey();
     const monthLabel = formatMonthKey(monthKey);
 
-    const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
+    const [{ data: allRows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
       supabaseAdmin.from('user_cashflow_data').select('user_id, email, jobs, goals, settings, expenses, notif_settings'),
       supabaseAdmin.from('subscriptions').select('user_id, status, current_period_end').eq('status', 'active'),
       listAllAuthUsers(),
@@ -203,6 +307,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (rowsErr) throw rowsErr;
     if (subsErr) throw subsErr;
+
+    const rows = isTestTrigger ? (allRows || []).filter((r) => r.email === testEmail) : allRows;
 
     const activeSubByUserId = new Map((subs || []).map((s) => [s.user_id, { current_period_end: s.current_period_end }]));
 
@@ -222,7 +328,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skipped += 1;
         continue;
       }
-      if (notifSettings.lastMonthlyReportSentMonth === monthKey) {
+      if (!isTestTrigger && notifSettings.lastMonthlyReportSentMonth === monthKey) {
         skipped += 1;
         continue;
       }
@@ -263,7 +369,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // dropping the LINE push even when this code was reached.
         let lineOk = false;
         if (row.email) {
-          lineOk = await sendLineMessageToEmail(row.email, { type: 'text', text: buildReportLineText(monthLabel, summary) }, notifSettings.lineUserId).catch((err) => {
+          const downloadUrl = await uploadReportAndGetLink(row.user_id, monthKey, excelBase64);
+          const lineMessage = downloadUrl
+            ? buildReportFlexMessage(monthLabel, summary, downloadUrl)
+            : { type: 'text' as const, text: buildReportLineText(monthLabel, summary, null) };
+          lineOk = await sendLineMessageToEmail(row.email, lineMessage, notifSettings.lineUserId).catch((err) => {
             console.error(`send-monthly-report: LINE send failed for ${row.email}:`, err);
             return false;
           });
