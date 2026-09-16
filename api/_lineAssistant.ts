@@ -562,8 +562,31 @@ function buildReceiptCard(bodyContents: any[], altText: string, buttonColor: str
   return { type: 'flex', altText, contents };
 }
 
-function buildJobRow(name: string, client: string, amount: number, color: string) {
-  return buildStatementRow(name + (client ? ` (${client})` : ''), formatCurrency(amount), { bold: false, color });
+// Name/client (and an optional caption like a due date) grouped in their own box on the left,
+// amount alone on the right -- a real report from a live card: with the old flat "name (client)"
+// + a separate sibling caption text, a long job name wrapping to 2-3 lines pushed the single-line
+// amount and the caption both out of visual alignment with which job they actually belonged to.
+// Grouping keeps a row's own pieces together no matter how many lines the name wraps to.
+function buildJobRow(name: string, client: string, amount: number, color: string, caption?: string) {
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'sm',
+    margin: 'md',
+    contents: [
+      {
+        type: 'box',
+        layout: 'vertical',
+        flex: 3,
+        contents: [
+          { type: 'text', text: name, size: 'sm', color: '#3D2314', weight: 'bold', wrap: true },
+          ...(client ? [{ type: 'text', text: client, size: 'xxs', color: '#A88A6E', wrap: true }] : []),
+          ...(caption ? [{ type: 'text', text: caption, size: 'xxs', color: '#A88A6E', wrap: true }] : []),
+        ],
+      },
+      { type: 'text', text: formatCurrency(amount), size: 'sm', color, weight: 'bold', flex: 2, align: 'end', wrap: true },
+    ],
+  };
 }
 
 function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
@@ -571,10 +594,7 @@ function buildUnpaidJobsMessage(snapshot: DataSnapshot): LineMessage {
   const bodyContents: any[] = [
     buildStatementRow('งานค้างจ่าย', `ทั้งหมด ${snapshot.unpaid.length} งาน`, { size: 'xl', color: '#3D2314' }),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
-    ...snapshot.unpaid.flatMap((j) => [
-      buildJobRow(j.name, j.client, j.pending, '#A63F1B'),
-      { type: 'text', text: `กำหนดชำระ ${j.dueText}`, size: 'xxs', color: '#A88A6E', align: 'end' },
-    ]),
+    ...snapshot.unpaid.map((j) => buildJobRow(j.name, j.client, j.pending, '#A63F1B', `กำหนดชำระ ${j.dueText}`)),
     { type: 'separator', margin: 'lg', color: '#E8DFD3' },
     buildStatementRow('รวมค้างรับทั้งหมด', formatCurrency(snapshot.totalPendingAllTime), { color: '#A63F1B' }),
   ];
