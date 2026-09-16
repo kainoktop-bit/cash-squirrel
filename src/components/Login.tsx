@@ -12,7 +12,7 @@ interface LoginProps {
 }
 
 export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProps) {
-  const { t } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -202,8 +202,18 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 rounded-full bg-orange-600/5 dark:bg-orange-500/5 blur-3xl pointer-events-none" />
 
-      {/* Theme Toggle (Top Right) -- language toggle lives in Settings only */}
+      {/* Theme + Language Toggle (Top Right) -- language used to only be changeable from
+          Settings, after logging in, which meant a first-time visitor stuck in the wrong
+          language had no way to fix it before even creating an account. */}
       <div className="absolute top-6 right-6 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={toggleLanguage}
+          className="px-3.5 h-11 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/40 shadow-sm cursor-pointer text-xs font-black"
+          title={language === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
+        >
+          {language === 'th' ? 'EN' : 'ไทย'}
+        </button>
         <button
           onClick={() => setDarkMode(!darkMode)}
           className="p-3 rounded-2xl bg-brand-white hover:bg-brand-faint/60 text-brand-text transition-all duration-300 active:scale-95 flex items-center justify-center border border-brand-border/40 shadow-sm cursor-pointer"
