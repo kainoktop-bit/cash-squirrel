@@ -803,24 +803,37 @@ export default function JobsTab({
                           {j.isPosted === false && (
                             <button
                               onClick={() => {
-                                // A single direct save, no detour through the edit modal -- that
-                                // used to open straight into step 3 to let the user fill in the
-                                // delivery date, but its own "บันทึกข้อมูลดีลงาน" save fired a
-                                // second, redundant "แก้ไขงาน" LINE notification on top of this
-                                // click's own "ดีลงาน" card. Already told us the on-air date when
-                                // this job was set up as WIP -- don't ask again or clobber it with
-                                // today's date; otherwise default to today (editable later same as
-                                // any other field).
-                                if (j.postDate) {
-                                  onEditJob(j.id, { isPosted: true });
-                                  return;
-                                }
-                                const today = new Date();
-                                const localDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                onEditJob(j.id, {
-                                  isPosted: true,
-                                  postDate: localDateStr
-                                });
+                                // Still a single direct save, no detour through the edit modal --
+                                // that used to open straight into step 3, and its own
+                                // "บันทึกข้อมูลดีลงาน" save fired a second, redundant "แก้ไขงาน"
+                                // LINE notification on top of this click's own "ดีลงาน" card (see
+                                // that fix's own commit). But silently keeping whatever credit
+                                // term the job already had (usually none) left no way to actually
+                                // set one for this delivery without a separate manual edit
+                                // afterward -- ask for it inline instead, still in one save.
+                                triggerPrompt(
+                                  t('jobs.creditTermPromptTitle'),
+                                  t('jobs.creditTermPromptMessage', { name: j.name }),
+                                  String(j.creditTerm || 0),
+                                  t('jobs.creditTermDaysPlaceholder'),
+                                  'number',
+                                  (val) => {
+                                    const creditTerm = Math.max(0, parseInt(val, 10) || 0);
+                                    // Already told us the delivery date when this job was set up
+                                    // as WIP -- don't clobber it with today's date; otherwise
+                                    // default to today (editable later same as any other field).
+                                    const postDate = j.postDate || (() => {
+                                      const today = new Date();
+                                      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                    })();
+                                    onEditJob(j.id, {
+                                      isPosted: true,
+                                      postDate,
+                                      creditTerm,
+                                      payDate: calculatePayDate(postDate, creditTerm, j.excludeHolidays || false)
+                                    });
+                                  }
+                                );
                               }}
                               className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
