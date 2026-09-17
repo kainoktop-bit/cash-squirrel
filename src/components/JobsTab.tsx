@@ -153,6 +153,16 @@ export default function JobsTab({
   // Editing logic (optional but amazing!)
   const [editingJob, setEditingJob] = useState<Job | null>(null);
 
+  // "ส่งงานแล้ว รอรับเงิน" quick action's own small dialog -- just the delivery-date + credit-term
+  // pair, not the full multi-step edit form. Its own state, separate from editPostDate/
+  // editCreditTerm/editExcludeHolidays below, since those belong to the full edit modal and this
+  // needs to stay a single, separate save (see that action's onClick for why: routing this
+  // through the full edit form's own save used to fire a second, redundant LINE notification).
+  const [deliveryPromptJob, setDeliveryPromptJob] = useState<Job | null>(null);
+  const [deliveryPostDate, setDeliveryPostDate] = useState('');
+  const [deliveryCreditTerm, setDeliveryCreditTerm] = useState(0);
+  const [deliveryExcludeHolidays, setDeliveryExcludeHolidays] = useState(false);
+
   // Edit form states
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState('');
@@ -803,37 +813,18 @@ export default function JobsTab({
                           {j.isPosted === false && (
                             <button
                               onClick={() => {
-                                // Still a single direct save, no detour through the edit modal --
-                                // that used to open straight into step 3, and its own
-                                // "บันทึกข้อมูลดีลงาน" save fired a second, redundant "แก้ไขงาน"
-                                // LINE notification on top of this click's own "ดีลงาน" card (see
-                                // that fix's own commit). But silently keeping whatever credit
-                                // term the job already had (usually none) left no way to actually
-                                // set one for this delivery without a separate manual edit
-                                // afterward -- ask for it inline instead, still in one save.
-                                triggerPrompt(
-                                  t('jobs.creditTermPromptTitle'),
-                                  t('jobs.creditTermPromptMessage', { name: j.name }),
-                                  String(j.creditTerm || 0),
-                                  t('jobs.creditTermDaysPlaceholder'),
-                                  'number',
-                                  (val) => {
-                                    const creditTerm = Math.max(0, parseInt(val, 10) || 0);
-                                    // Already told us the delivery date when this job was set up
-                                    // as WIP -- don't clobber it with today's date; otherwise
-                                    // default to today (editable later same as any other field).
-                                    const postDate = j.postDate || (() => {
-                                      const today = new Date();
-                                      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                    })();
-                                    onEditJob(j.id, {
-                                      isPosted: true,
-                                      postDate,
-                                      creditTerm,
-                                      payDate: calculatePayDate(postDate, creditTerm, j.excludeHolidays || false)
-                                    });
-                                  }
-                                );
+                                // Opens the small delivery-date/credit-term dialog below instead
+                                // of the full edit modal -- that used to open straight into step
+                                // 3, and its own "บันทึกข้อมูลดีลงาน" save fired a second,
+                                // redundant "แก้ไขงาน" LINE notification on top of this click's
+                                // own "ดีลงาน" card (see that fix's own commit). This dialog has
+                                // its own single save instead, so that fix still holds.
+                                const today = new Date();
+                                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                setDeliveryPostDate(j.postDate || todayStr);
+                                setDeliveryCreditTerm(j.creditTerm || 0);
+                                setDeliveryExcludeHolidays(j.excludeHolidays || false);
+                                setDeliveryPromptJob(j);
                               }}
                               className="text-xs font-bold text-white bg-[#E65F2B] hover:bg-[#D8551F] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
@@ -2397,6 +2388,190 @@ export default function JobsTab({
                   )}
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* "ส่งงานแล้ว รอรับเงิน" quick action's own small dialog -- just delivery date + credit
+          term, with its own single save. Deliberately not the full edit modal: routing this
+          through that modal's own save used to fire a second, redundant "แก้ไขงาน" LINE
+          notification on top of this action's own "ดีลงาน" card. */}
+      <AnimatePresence>
+        {deliveryPromptJob && (
+          <div className="fixed inset-0 z-200">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeliveryPromptJob(null)}
+              className="absolute inset-0 bg-black/45 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-brand-white dark:bg-stone-900 rounded-t-3xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] space-y-4 font-sans border-t border-brand-border/40"
+            >
+              <div className="w-12 h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full mx-auto mb-1 shrink-0" />
+
+              <div className="flex justify-between items-center shrink-0">
+                <h3 className="text-lg font-black text-brand-text dark:text-white font-display">
+                  {t('jobs.deliveryPromptTitle')}
+                </h3>
+                <button
+                  onClick={() => setDeliveryPromptJob(null)}
+                  className="w-8 h-8 rounded-full bg-brand-faint dark:bg-stone-850 hover:bg-brand-border/40 text-xl text-brand-muted hover:text-brand-text flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* วันส่งมอบงาน */}
+              <div className="space-y-2 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 dark:bg-indigo-500/5 dark:border-indigo-500/15 shadow-2xs overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <label className="text-indigo-900 dark:text-indigo-300 font-extrabold block text-[11px] uppercase tracking-wider">{t('jobs.deliveryDateLabel')}</label>
+                  {deliveryPostDate && (
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryPostDate('')}
+                      className="text-[10px] font-black text-rose-500 hover:text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-0.5 transition-colors"
+                    >
+                      {t('jobs.clearDate')}
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  value={deliveryPostDate}
+                  onChange={(e) => setDeliveryPostDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {
+                      console.log(err);
+                    }
+                  }}
+                  className="w-full min-w-0 max-w-full bg-brand-white dark:bg-stone-900 text-xs text-brand-text dark:text-white rounded-xl p-3 outline-none border border-brand-border/40 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
+                />
+
+                {deliveryPostDate && deliveryCreditTerm > 0 && (
+                  <div className="mt-3 p-3 rounded-xl bg-brand-white dark:bg-stone-850 border border-brand-border/50 text-[11px] space-y-2 shadow-2xs">
+                    <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                      <span className="font-bold">{t('jobs.dueDateLabel')}</span>
+                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                        {safeFormatThaiDate(calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-brand-text dark:text-neutral-200">
+                      <span className="font-bold flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" /> {t('jobs.timeUntilDueColon')}
+                      </span>
+                      {(() => {
+                        const payDateVal = calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays);
+                        const rel = getRelativeDaysText(payDateVal);
+                        return (
+                          <span className={`font-black px-2 py-0.5 rounded text-[10px] border ${
+                            rel.isOverdue
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                          }`}>
+                            {rel.text}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Credit Term Selection */}
+              <div className="space-y-2.5 p-4 rounded-2xl bg-[#E65F2B]/5 border border-[#E65F2B]/20 dark:bg-[#E65F2B]/5 dark:border-[#E65F2B]/15 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-[#E65F2B] dark:text-[#FFA473] font-extrabold block text-[11px] uppercase tracking-wider">
+                    {t('jobs.creditTermLabel')}
+                  </label>
+                  <span className="text-[10px] text-[#E65F2B] dark:text-[#FFA473] font-bold">
+                    {t('jobs.autoCalculated')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[
+                    { value: 0, label: t('jobs.creditNow') },
+                    { value: 30, label: t('jobs.creditDaysOpt', { n: 30 }) },
+                    { value: 45, label: t('jobs.creditDaysOpt', { n: 45 }) },
+                    { value: 60, label: t('jobs.creditDaysOpt', { n: 60 }) },
+                    { value: 90, label: t('jobs.creditDaysOpt', { n: 90 }) },
+                  ].map((opt) => {
+                    const isSelected = deliveryCreditTerm === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDeliveryCreditTerm(opt.value)}
+                        className={`py-2.5 px-0.5 rounded-xl border text-center text-[10px] font-black transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#E65F2B] border-[#E65F2B] text-white shadow-xs scale-102'
+                            : 'bg-brand-white dark:bg-stone-800 border-brand-border/60 text-brand-text dark:text-neutral-300 hover:border-brand-text/30'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {deliveryCreditTerm > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-[#E65F2B]/10 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={deliveryExcludeHolidays}
+                        onChange={(e) => setDeliveryExcludeHolidays(e.target.checked)}
+                        className="w-4 h-4 rounded border-[#E65F2B]/30 text-[#E65F2B] focus:ring-[#E65F2B] accent-[#E65F2B] cursor-pointer"
+                      />
+                      <span className="text-[10px] font-bold text-[#E65F2B] dark:text-[#FFA473]">
+                        {t('jobs.excludeHolidaysLabel')}
+                      </span>
+                    </label>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#E65F2B]/10 text-[#E65F2B] dark:text-[#FFA473] font-bold">
+                      {t('jobs.businessDaysOnly')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryPromptJob(null)}
+                  className="flex-1 py-3 bg-brand-faint dark:bg-stone-800 hover:bg-brand-border/40 text-brand-text dark:text-neutral-200 border border-brand-border/60 rounded-xl text-xs font-black transition-all cursor-pointer"
+                >
+                  {t('jobs.deliveryPromptCancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const job = deliveryPromptJob;
+                    if (!job || !deliveryPostDate) return;
+                    onEditJob(job.id, {
+                      isPosted: true,
+                      postDate: deliveryPostDate,
+                      creditTerm: deliveryCreditTerm,
+                      excludeHolidays: deliveryExcludeHolidays,
+                      payDate: calculatePayDate(deliveryPostDate, deliveryCreditTerm, deliveryExcludeHolidays)
+                    });
+                    setDeliveryPromptJob(null);
+                  }}
+                  disabled={!deliveryPostDate}
+                  className={`flex-2 py-3 text-white rounded-xl text-xs font-black transition-all text-center shadow-sm ${
+                    deliveryPostDate ? 'bg-[#E65F2B] hover:bg-[#D8551F] cursor-pointer' : 'bg-[#E65F2B]/50 cursor-not-allowed opacity-75'
+                  }`}
+                >
+                  {t('jobs.deliveryPromptSave')}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
