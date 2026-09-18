@@ -1,12 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from './_supabaseAdmin.js';
-import { sendLineMessagePayload } from './_line.js';
+import { sendGmailEmail } from './_gmail.js';
 
-// Replaces Supabase's built-in email-based password recovery, which depends on the project's
-// SMTP being healthy -- something that's repeatedly broken in this app's history (revoked App
-// Passwords, and eventually a fully banned Gmail account). Sending the reset code over LINE
-// instead sidesteps email delivery entirely for any account that's already linked. Accounts
-// without a linked LINE can't use this path -- see the 'not_linked' response below.
+// Replaces Supabase's built-in email-based password recovery (which uses whatever SMTP is
+// configured in the Supabase dashboard, separate from this app's own Gmail account) with a
+// reset code sent through this app's own email sender instead. This used to go over LINE
+// instead of email entirely, specifically to route around a then-broken Gmail account -- but
+// that meant any account without LINE already linked (which includes every brand-new signup,
+// since linking LINE is itself a step done from inside the app) had no way to reset their
+// password at all. Now that Gmail is confirmed delivering again, email works for every account
+// that exists, not just LINE-linked ones.
 //
 // Both steps (request + verify) live in one function so this feature only costs a single
 // serverless-function slot -- this project sits right at the platform's per-deployment
@@ -17,13 +20,24 @@ const RESET_CODE_TTL_MS = 15 * 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = 5;
 
 interface NotifSettingsRow {
-  lineUserId?: string;
   passwordResetCode?: { code: string; expiresAt: string; attempts?: number };
   [key: string]: unknown;
 }
 
 function generateCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function buildResetEmailHtml(code: string): string {
+  return `
+  <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#3D2314;">
+    <h2 style="color:#4338CA;">รหัสยืนยันสำหรับตั้งรหัสผ่านใหม่</h2>
+    <p style="font-size:13px;color:#7A5C43;">กรอกรหัสนี้ในแอปกระรอกตุนเงินเพื่อตั้งรหัสผ่านใหม่:</p>
+    <div style="margin:20px 0;padding:20px;background:#FDF6EC;border-radius:12px;text-align:center;">
+      <span style="font-size:32px;font-weight:900;letter-spacing:6px;color:#3D2314;">${code}</span>
+    </div>
+    <p style="font-size:12px;color:#A88A6E;">รหัสนี้หมดอายุใน 15 นาที ถ้าไม่ได้เป็นคนขอเอง ไม่ต้องทำอะไรครับ ไม่มีใครเปลี่ยนรหัสผ่านของคุณได้จนกว่าจะกรอกรหัสนี้</p>
+  </div>`;
 }
 
 async function handleRequest(req: VercelRequest, res: VercelResponse) {
@@ -40,15 +54,14 @@ async function handleRequest(req: VercelRequest, res: VercelResponse) {
     .maybeSingle();
   if (rowErr) throw rowErr;
 
-  // Same non-committal response whether the email doesn't exist or just isn't LINE-linked --
-  // don't confirm/deny account existence to an unauthenticated caller.
-  const notifSettings: NotifSettingsRow = row?.notif_settings || {};
-  const lineUserId = notifSettings.lineUserId;
-  if (!row || !lineUserId) {
-    res.status(200).json({ ok: false, reason: 'not_linked' });
+  // Same non-committal response whether the email doesn't exist at all -- don't confirm/deny
+  // account existence to an unauthenticated caller.
+  if (!row) {
+    res.status(200).json({ ok: false, reason: 'not_found' });
     return;
   }
 
+  const notifSettings: NotifSettingsRow = row.notif_settings || {};
   const code = generateCode();
   const updatedSettings: NotifSettingsRow = {
     ...notifSettings,
@@ -60,10 +73,7 @@ async function handleRequest(req: VercelRequest, res: VercelResponse) {
     .eq('user_id', row.user_id);
   if (updateErr) throw updateErr;
 
-  const sent = await sendLineMessagePayload(lineUserId, {
-    type: 'text',
-    text: `🔐 รหัสยืนยันสำหรับตั้งรหัสผ่านใหม่ของคุณคือ\n\n${code}\n\nรหัสนี้หมดอายุใน 15 นาที ถ้าไม่ได้เป็นคนขอเอง ไม่ต้องทำอะไรครับ ไม่มีใครเปลี่ยนรหัสผ่านของคุณได้จนกว่าจะกรอกรหัสนี้`,
-  });
+  const sent = await sendGmailEmail(email, 'รหัสยืนยันสำหรับตั้งรหัสผ่านใหม่ - กระรอกตุนเงิน', buildResetEmailHtml(code));
   if (!sent) {
     res.status(200).json({ ok: false, reason: 'send_failed' });
     return;
@@ -121,7 +131,7 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
         .from('user_cashflow_data')
         .update({ notif_settings: updatedSettings })
         .eq('user_id', row.user_id);
-      if (attemptErr) console.error('password-reset-line verify: failed to record attempt:', attemptErr);
+      if (attemptErr) console.error('password-reset verify: failed to record attempt:', attemptErr);
     }
     res.status(400).json({ error: 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่อีกครั้งค่ะ' });
     return;
@@ -136,7 +146,7 @@ async function handleVerify(req: VercelRequest, res: VercelResponse) {
     .from('user_cashflow_data')
     .update({ notif_settings: restSettings })
     .eq('user_id', row.user_id);
-  if (clearErr) console.error('password-reset-line verify: failed to clear used code:', clearErr);
+  if (clearErr) console.error('password-reset verify: failed to clear used code:', clearErr);
 
   res.status(200).json({ ok: true });
 }
@@ -157,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await handleRequest(req, res);
     }
   } catch (err: any) {
-    console.error('password-reset-line error:', err);
+    console.error('password-reset error:', err);
     res.status(500).json({ error: err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' });
   }
 }

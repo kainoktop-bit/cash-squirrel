@@ -33,10 +33,11 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     }
   }, [error, success]);
 
-  // Password recovery states -- delivered over LINE (api/password-reset-line.ts) instead of
-  // Supabase's built-in email-based recovery, which depends on the project's SMTP staying
-  // healthy. The code + the new password are submitted together in one step here, since there's
-  // no Supabase recovery session to hand off to once the code checks out server-side.
+  // Password recovery states -- a 6-digit code sent via this app's own email sender
+  // (api/password-reset.ts), not Supabase's built-in recovery (which depends on whatever SMTP
+  // is configured in the Supabase dashboard). The code + the new password are submitted together
+  // in one step here, since there's no Supabase recovery session to hand off to once the code
+  // checks out server-side.
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify'>('request');
   const [otpToken, setOtpToken] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -101,15 +102,15 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await fetch('/api/password-reset-line', {
+      const res = await fetch('/api/password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'request', email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || t('login.err.resetGeneric'));
-      if (data.reason === 'not_linked') {
-        setError(t('login.err.notLinked'));
+      if (data.reason === 'not_found') {
+        setError(t('login.err.notFound'));
         return;
       }
       if (data.reason === 'send_failed') {
@@ -136,7 +137,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setSuccess(null);
 
     try {
-      const res = await fetch('/api/password-reset-line', {
+      const res = await fetch('/api/password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'verify', email, code: otpToken, newPassword: resetNewPassword }),
@@ -162,7 +163,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/password-reset-line', {
+      const res = await fetch('/api/password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: 'request', email }),
