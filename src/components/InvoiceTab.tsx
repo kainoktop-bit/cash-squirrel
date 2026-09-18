@@ -21,9 +21,28 @@ import {
   AlertCircle,
   FileSpreadsheet,
   Download,
-  Upload
+  Upload,
+  Phone,
+  Mail,
+  Landmark,
+  StickyNote,
+  PenLine
 } from 'lucide-react';
 import { Mascot } from './Mascot';
+
+// Small inline-SVG icons for the printed/PDF document -- raw HTML strings, not React
+// components, since handlePrintDocument builds a plain HTML document via string
+// interpolation for a separate print window (emoji render inconsistently across OS/print
+// fonts, hence vector icons instead).
+const svgIcon = (inner: string, color: string) =>
+  `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;display:inline-block;">${inner}</svg>`;
+
+const ICON_PHONE = svgIcon('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>', '#6b7280');
+const ICON_MAIL = svgIcon('<rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/>', '#6b7280');
+const ICON_USER = svgIcon('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', '#6b7280');
+const ICON_BANK = `<svg width="10" height="10" viewBox="0 0 24 24" style="vertical-align:-1px;margin-right:4px;display:inline-block;"><polygon points="12,2 22,8 2,8" fill="#9ca3af"/><rect x="4" y="9" width="2" height="10" fill="#9ca3af"/><rect x="11" y="9" width="2" height="10" fill="#9ca3af"/><rect x="18" y="9" width="2" height="10" fill="#9ca3af"/><rect x="2" y="20" width="20" height="2" fill="#9ca3af"/></svg>`;
+const ICON_NOTE = svgIcon('<rect x="3" y="2" width="18" height="20" rx="2"/><path d="M7 7h10M7 12h10M7 17h6"/>', '#9ca3af');
+const ICON_PEN = svgIcon('<path d="M4 20l3.5-1 11.5-11.5-2.5-2.5L5 16.5z"/>', '#9ca3af');
 
 interface InvoiceTabProps {
   jobs: Job[];
@@ -467,7 +486,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
     const bankSection = selectedInvoice.documentType !== 'quotation' && selectedInvoice.issuer.bankAccount ? `
       <div style="margin-top: 0;">
-        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">🏦 ชำระเงิน / PAYMENT</p>
+        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_BANK} ชำระเงิน / PAYMENT</p>
         <div style="padding: 8px 12px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 10px; display: inline-block;">
           <div style="font-weight: bold; color: #111827;">ธนาคาร: ${escapeHtml(selectedInvoice.issuer.bankName)}</div>
           <div style="color: #4b5563; margin-top: 2px;">
@@ -482,7 +501,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
     const noteSection = `
       <div style="font-size: 10.5px; margin-top: 10px;">
-        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em;">📝 หมายเหตุ / REMARK</p>
+        <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_NOTE} หมายเหตุ / REMARK</p>
         <p style="color: #4b5563; font-style: italic; margin: 0; white-space: pre-line; line-height: 1.35;">${selectedInvoice.note ? escapeHtml(selectedInvoice.note) : '-'}</p>
       </div>
     `;
@@ -594,8 +613,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 <div style="font-weight: 800; font-size: 13px; color: #111827;">${escapeHtml(selectedInvoice.issuer.name) || '-'}</div>
                 ${selectedInvoice.issuer.address ? `<div style="font-size: 11px; color: #4b5563; margin-top: 4px; white-space: pre-line; line-height: 1.4;">${escapeHtml(selectedInvoice.issuer.address)}</div>` : ''}
                 <div style="font-size: 11px; color: #4b5563; margin-top: 6px;">
-                  ${selectedInvoice.issuer.phone ? `<div>☏ ${escapeHtml(selectedInvoice.issuer.phone)}</div>` : ''}
-                  ${selectedInvoice.issuer.email ? `<div style="margin-top: 2px;">✉ ${escapeHtml(selectedInvoice.issuer.email)}</div>` : ''}
+                  ${selectedInvoice.issuer.phone ? `<div>${ICON_PHONE}${escapeHtml(selectedInvoice.issuer.phone)}</div>` : ''}
+                  ${selectedInvoice.issuer.email ? `<div style="margin-top: 2px;">${ICON_MAIL}${escapeHtml(selectedInvoice.issuer.email)}</div>` : ''}
                   ${selectedInvoice.issuer.taxId ? `<div style="margin-top: 2px;">เลขที่ภาษี: <span style="font-family: monospace; font-weight: bold; color: #111827;">${escapeHtml(selectedInvoice.issuer.taxId)}</span></div>` : ''}
                 </div>
               </div>
@@ -663,9 +682,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               <div style="flex: 1; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background-color: #fafafa; min-width: 240px;">
                 <p style="color: #9ca3af; font-weight: bold; font-size: 8px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.05em;">ติดต่อกลับที่</p>
                 <div style="font-size: 11px; color: #374151; line-height: 1.6;">
-                  <div>👤 ${selectedInvoice.client.contactName ? escapeHtml(selectedInvoice.client.contactName) : '-'}</div>
-                  <div>☏ ${selectedInvoice.client.phone ? escapeHtml(selectedInvoice.client.phone) : '-'}</div>
-                  <div>✉ ${selectedInvoice.client.email ? escapeHtml(selectedInvoice.client.email) : '-'}</div>
+                  <div>${ICON_USER}${selectedInvoice.client.contactName ? escapeHtml(selectedInvoice.client.contactName) : '-'}</div>
+                  <div>${ICON_PHONE}${selectedInvoice.client.phone ? escapeHtml(selectedInvoice.client.phone) : '-'}</div>
+                  <div>${ICON_MAIL}${selectedInvoice.client.email ? escapeHtml(selectedInvoice.client.email) : '-'}</div>
                 </div>
               </div>
 
@@ -735,7 +754,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
 
             <!-- 7. Signature / Certification block -->
             <div style="margin-top: 8px;">
-              <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 14px 0; text-transform: uppercase; letter-spacing: 0.05em;">🖊 รับรอง</p>
+              <p style="font-size: 8px; font-weight: bold; color: #9ca3af; margin: 0 0 14px 0; text-transform: uppercase; letter-spacing: 0.05em;">${ICON_PEN} รับรอง</p>
               <div style="display: flex; justify-content: space-between; gap: 20px; text-align: center; font-size: 9.5px;">
                 <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                   <p style="color: #9ca3af; font-weight: bold; text-transform: uppercase; font-size: 7.5px; margin-bottom: 22px;">${leftSignatureLabel}</p>
@@ -1133,8 +1152,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                         <div className="text-[10px] text-stone-600 mt-1 whitespace-pre-line leading-relaxed">{selectedInvoice.issuer.address}</div>
                       )}
                       <div className="text-[10px] text-stone-500 space-y-0.5 pt-1">
-                        {selectedInvoice.issuer.phone && <p>☏ {selectedInvoice.issuer.phone}</p>}
-                        {selectedInvoice.issuer.email && <p>✉ {selectedInvoice.issuer.email}</p>}
+                        {selectedInvoice.issuer.phone && <p className="flex items-center gap-1"><Phone className="w-2.5 h-2.5 shrink-0" /> {selectedInvoice.issuer.phone}</p>}
+                        {selectedInvoice.issuer.email && <p className="flex items-center gap-1"><Mail className="w-2.5 h-2.5 shrink-0" /> {selectedInvoice.issuer.email}</p>}
                         {selectedInvoice.issuer.taxId && (
                           <p>เลขที่ภาษี: <span className="font-mono font-bold text-stone-900">{selectedInvoice.issuer.taxId}</span></p>
                         )}
@@ -1217,9 +1236,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     {/* Right: CONTACT-BACK CARD */}
                     <div className="flex-1 p-4 bg-stone-50 border border-stone-200/80 rounded-xl min-w-[230px] space-y-1">
                       <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase mb-1.5">ติดต่อกลับที่</p>
-                      <p className="text-[11px] text-stone-700">👤 {selectedInvoice.client.contactName || '-'}</p>
-                      <p className="text-[11px] text-stone-700">☏ {selectedInvoice.client.phone || '-'}</p>
-                      <p className="text-[11px] text-stone-700">✉ {selectedInvoice.client.email || '-'}</p>
+                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><User className="w-3 h-3 shrink-0" /> {selectedInvoice.client.contactName || '-'}</p>
+                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><Phone className="w-3 h-3 shrink-0" /> {selectedInvoice.client.phone || '-'}</p>
+                      <p className="text-[11px] text-stone-700 flex items-center gap-1.5"><Mail className="w-3 h-3 shrink-0" /> {selectedInvoice.client.email || '-'}</p>
                     </div>
 
                   </div>
@@ -1304,7 +1323,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                   <div className="space-y-4">
                     {selectedInvoice.documentType !== 'quotation' && selectedInvoice.issuer.bankAccount && (
                       <div className="space-y-1">
-                        <p className="text-[8px] font-bold tracking-wider text-stone-400 uppercase">🏦 ชำระเงิน / PAYMENT</p>
+                        <p className="text-[8px] font-bold tracking-wider text-stone-400 uppercase flex items-center gap-1"><Landmark className="w-2.5 h-2.5" /> ชำระเงิน / PAYMENT</p>
                         <div className="inline-block pl-3.5 border-l border-dashed border-stone-300 text-[10px] space-y-0.5 text-stone-600">
                           <p className="font-bold text-stone-900">{selectedInvoice.issuer.bankName}</p>
                           <p>เลขบัญชี: <span className="font-mono font-bold text-stone-950 text-[11px]">{selectedInvoice.issuer.bankAccount}</span></p>
@@ -1314,14 +1333,14 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     )}
 
                     <div className="space-y-1 pt-1 border-t border-dashed border-stone-100">
-                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase">📝 หมายเหตุ / REMARK</p>
+                      <p className="text-stone-400 font-bold tracking-wider text-[8px] uppercase flex items-center gap-1"><StickyNote className="w-2.5 h-2.5" /> หมายเหตุ / REMARK</p>
                       <p className="text-stone-600 font-medium italic leading-relaxed whitespace-pre-line">{selectedInvoice.note || '-'}</p>
                     </div>
                   </div>
 
                   {/* 7. Signature / Certification Section - 4 columns matching the formal template */}
                   <div className="pt-4 border-t border-stone-100 mt-6">
-                    <p className="text-stone-400 font-bold uppercase tracking-wider text-[8px] mb-4">🖊 รับรอง</p>
+                    <p className="text-stone-400 font-bold uppercase tracking-wider text-[8px] mb-4 flex items-center gap-1"><PenLine className="w-2.5 h-2.5" /> รับรอง</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center text-[9.5px]">
                       <div className="space-y-1.5">
                         <p className="text-stone-400 font-bold uppercase tracking-wider text-[7.5px]">ผู้ออกเอกสาร (ผู้ขาย)</p>
