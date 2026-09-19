@@ -43,8 +43,38 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
 
+  // Repeated-wrong-password cooldown. Sign-in itself still goes straight to Supabase (no
+  // backend in front of it), so this can't stop a scripted attacker -- it's a friction/UX layer
+  // (+ an email alert, see api/password-reset.ts's report_failed_login step) on top of
+  // Supabase's own real rate-limiting, not a replacement for it.
+  const [loginLockedUntil, setLoginLockedUntil] = useState<number | null>(null);
+  const [lockCountdown, setLockCountdown] = useState('');
+
+  React.useEffect(() => {
+    if (!loginLockedUntil) return;
+    const tick = () => {
+      const remainingMs = loginLockedUntil - Date.now();
+      if (remainingMs <= 0) {
+        setLoginLockedUntil(null);
+        setLockCountdown('');
+        return;
+      }
+      const totalSec = Math.ceil(remainingMs / 1000);
+      setLockCountdown(`${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [loginLockedUntil]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSignUp && loginLockedUntil && loginLockedUntil > Date.now()) {
+      setError(t('login.err.accountLocked', { time: lockCountdown }));
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -77,7 +107,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       }
     } catch (err: any) {
       let message = err.message || t('login.err.generic');
-      if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('wrong password') || message.toLowerCase().includes('user not found') || message.toLowerCase().includes('invalid_credentials')) {
+      const isInvalidCredentials = message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('wrong password') || message.toLowerCase().includes('user not found') || message.toLowerCase().includes('invalid_credentials');
+      if (isInvalidCredentials) {
         message = t('login.err.invalidCredentials');
       } else if (message.toLowerCase().includes('email already in use') || message.toLowerCase().includes('user already exists')) {
         message = t('login.err.emailInUse');
@@ -89,6 +120,27 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
       ) {
         message = t('login.err.tooManyRequests');
       }
+
+      // Only count repeated wrong-*password* attempts on an actual sign-in, not sign-up errors.
+      if (isInvalidCredentials && !isSignUp) {
+        try {
+          const res = await fetch('/api/password-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ step: 'report_failed_login', email }),
+          });
+          const data = await res.json();
+          if (res.ok && data.locked && data.lockedUntil) {
+            setLoginLockedUntil(new Date(data.lockedUntil).getTime());
+            message = t('login.err.accountLockedJustNow');
+          } else if (res.ok && typeof data.attemptsRemaining === 'number' && data.attemptsRemaining <= 2) {
+            message = t('login.err.invalidCredentialsWithAttempts', { count: data.attemptsRemaining });
+          }
+        } catch {
+          // Best-effort only -- never block showing the normal wrong-password message over this.
+        }
+      }
+
       setError(message);
     } finally {
       setLoading(false);
@@ -340,6 +392,26 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
             )}
           </AnimatePresence>
 
+          {!isSignUp && !isForgotPassword && loginLockedUntil && loginLockedUntil > Date.now() && (
+            <div className="mb-4 p-3.5 rounded-2xl bg-pink-bg border border-pink-acc/10 text-pink-acc text-xs font-medium space-y-2.5">
+              <div className="flex items-center gap-2 font-bold">
+                <Loader2 className="w-4 h-4" />
+                {t('login.lockout.tryAgainIn', { time: lockCountdown })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(true);
+                  setError(null);
+                  setSuccess(null);
+                }}
+                className="w-full py-2.5 px-4 bg-pink-acc/10 hover:bg-pink-acc/20 text-pink-acc font-extrabold rounded-xl text-[11px] cursor-pointer transition-all"
+              >
+                {t('login.lockout.changePasswordCta')}
+              </button>
+            </div>
+          )}
+
           {isForgotPassword ? (
             /* Forgot Password Form Flow */
             recoveryStep === 'request' ? (
@@ -574,7 +646,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin }: LoginProp
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (!isSignUp && !!loginLockedUntil && loginLockedUntil > Date.now())}
                 className="w-full py-3.5 px-4 bg-[#E65F2B] hover:bg-[#D98324] dark:bg-[#E65F2B] dark:hover:bg-[#FFA473] text-white font-extrabold rounded-2xl text-xs shadow-md shadow-orange-600/10 dark:shadow-none hover:shadow-lg hover:shadow-orange-600/15 cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? (
